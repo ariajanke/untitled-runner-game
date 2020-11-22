@@ -1,0 +1,9 @@
+[submodule "lib/cul"]
+	path = lib/cul
+	url = https://github.com/ariajanke/util-common
+[submodule "lib/ecs"]
+	path = lib/ecs
+	url = https://github.com/ariajanke/ecs
+[submodule "lib/tmap"]
+	path = lib/tmap
+	url = https://github.com/ariajanke/tmap

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0" tiledversion="1.0.3" orientation="orthogonal" renderorder="right-down" width="80" height="60" tilewidth="16" tileheight="16" nextobjectid="15">
+ <tileset firstgid="1" source="tileset4.tsx"/>
+ <tileset firstgid="257" source="slopewalls.tsx"/>
+ <tileset firstgid="305" source="items.tsx"/>
+ <layer name="Tile Layer 2" width="80" height="60">
+  <data encoding="base64" compression="zlib">
+   eJzt0MEJgEAMAMHrz07svwDx5U/BFY7DGcgvj2THAAAAAAAAVrDPPgDgh7aH4Z5+l7ctvtpfvXn5q+zqp99Jv0a/efRrNGj0a/Rr9Gv0a/Rr9Gv0AwAAAAAAYEUHzZYv4Q==
+  </data>
+ </layer>
+ <layer name="background" width="80" height="60">
+  <data encoding="base64" compression="zlib">
+   eJzt0LEJAkEURdHd0NDQcENbmxLsRTtwc117sgT9AwqLkXyDYeQcuPnjDQMAAAAA/KZE49h6Rb/qfxv/pdX/tv5Lq//t/JdWXk0+THn/t/dfSll1b7ylR+v/HtExOjVd1Jfy0Tmao0t0jZbo1mzd/zl8GQAAAAAAAAAAAABAT57I7RQr
+  </data>
+ </layer>
+ <layer name="ground" width="80" height="60">
+  <data encoding="base64" compression="zlib">
+   eJztm2tSFDEQxzO6KMp+QR6+9os8BIQLrDfQI3AD5ASuZ1G5gMBXXspnFPAGcgP2Btip2ilSU5lMMt3pnp3Nv+pfu1AzJP3bme1Md9hRSXW1C96RnsQYa1L4ffL09si+x0vyOwP/BP8Cn4MHAQ5VWfxTmVKPwI/B09n98QvwfhH8HPwiaxa/7+A98CX4qmReVQ6Vee41eBWYvM3c55hag2PXwX+VLL8h+AB8qHA8QmWO9Q/xd26UHL8l/Xlb7gUO5WMtB1xzZVrJZPi9E2KnjPE2CfhtCfAbKjl2ajTeQwJ2uTpZXH7F3Fq8b7mlx5wh5NeNxC9fX7hyq4T0uHOE/OYjX39Nk471NSG/3oTxixHjrkr8MJokfrGU+OGU+OGU+OGU+OFExa8Pfj96zd/bfjZ/b76Oq9L1h1Pih1Pih5M0P9v3X0jvo+9xfB37SvP7HGkOAwsb2/iYz8/n/FiMtb+o8N7NdoA/VoxPxc81xofAOdfpZ7lc1uOjEMf1Fyrf3qXLdXp8ddREfkWV9S5dxvT4QuSK3+c7nTP/3Sg/dhQ9Pl+Nw/VnasXjfq7q8VHmM52/sPwo1w9V64WtCn4+Pb7QfOaTo+tKYi4dB0PKHl9b1XXwo+zxYeWTPyQ07+BH2eNrq3ol/FIdwV86byV+9ZX44TQO/Mx1ZtW6jFtN4efaA23Whopr5CPwMfgEfMo9aSXPj2IP9AX4N/gP+Cv4G+P8JfmV7YHG+Ad4H3zLFIMUv7I90FS+A79hWMNK8bPtgab2Rkv5PWBglztjqPty83vKyO9JC/k9Y+Q320J+rxj5vWwhP9uYsSwRS+KHjyVW3uLMvZKxxMpbnLlXMpZYeYsz90rGEitvceZe6Vionx+XBNhJxkL9/MjxzNu0WKjqQLb/++W2RCy6DoSpSeb10Zi1qqbHktckfWrlxTo8dX0Ua+lYLtR9rdy27wZTh+c2dSz/AVsCX6s=
+  </data>
+ </layer>
+ <layer name="foreground" width="80" height="60">
+  <data encoding="base64" compression="zlib">
+   eJzt0LEJg2AQhuEzZUpLy5SOlqXiBrpAoiNlhFxAEDv5LTTkeeCDK483AgAAAADO5VJF3I9+4odd9dul1m+XRr9it7mdfmVa/Yq9Y2mn33aPXPc9Kv22eOZeuTE35frcEOt2+gEAAAAAAAAAAAAA/JcPxKwOiA==
+  </data>
+ </layer>
+ <objectgroup name="Object Layer 1">
+  <object id="1" type="player-start" x="882.898" y="305.041" width="31.795" height="44.6721">
+   <properties>
+    <property name="sprite-sheet" value="mc"/>
+   </properties>
+  </object>
+  <object id="6" type="diamond" gid="305" x="800" y="352" width="16" height="16"/>
+  <object id="7" type="diamond" gid="305" x="816" y="352" width="16" height="16"/>
+  <object id="8" type="diamond" gid="305" x="832" y="352" width="16" height="16"/>
+  <object id="9" type="launcher" gid="25" x="592" y="369" width="96" height="17">
+   <properties>
+    <property name="launch" value="0, -467"/>
+   </properties>
+  </object>
+  <object id="10" type="launcher" gid="23" x="224" y="945" width="16" height="17">
+   <properties>
+    <property name="boost" value="-250, 0"/>
+   </properties>
+  </object>
+  <object id="11" type="launcher" gid="22" x="1040.19" y="944.327" width="16" height="17">
+   <properties>
+    <property name="boost" value="250, 0"/>
+   </properties>
+  </object>
+  <object id="13" type="layer-transition" x="1080.09" y="34.078" width="19.058" height="154.137"/>
+  <object id="14" type="launcher" gid="22" x="944.02" y="368.063" width="16" height="17">
+   <properties>
+    <property name="boost" value="350, 0"/>
+   </properties>
+  </object>
+ </objectgroup>
+</map>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0" tiledversion="1.0.3" orientation="orthogonal" renderorder="right-down" width="30" height="30" tilewidth="16" tileheight="16" nextobjectid="1">
+ <properties>
+  <property name="map-link-1" value="left;0;test-linked.tmx"/>
+  <property name="map-link-2" value="right;0;test-linked.tmx"/>
+  <property name="map-link-depth" value="1"/>
+  <property name="map-link-names" value="map-link-1;map-link-2"/>
+  <property name="map-persists" value="true"/>
+ </properties>
+ <tileset firstgid="1" source="atlastghd.tsrj.tsx"/>
+ <layer name="ground" width="30" height="30">
+  <data encoding="base64" compression="zlib">
+   eJztzrkJgEAQRmEt0NtODLxtxqMa69nYF6wosrAimP0PvmhgZoJAKaWUUkqdZchRoMRuRYiRIP3hTo8BIyYYq0aDFp3nj/2F550VG6rQbWa2OP647zQv+O74nH/cd37dJSKXA8/Kkqk=
+  </data>
+ </layer>
+</map>

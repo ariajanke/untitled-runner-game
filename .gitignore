@@ -1,0 +1,14 @@
+.*
+!/.gitignore
+*.user
+*.VC.db
+*.filters
+*.opendb
+*.pro.user*
+!.travis.yml
+*.autosave
+libcommon.a
+libcommon-d.a
+libtmap-d.a
+libtmap.a
+

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0" tiledversion="1.0.3" orientation="orthogonal" renderorder="right-down" width="200" height="30" tilewidth="16" tileheight="16" nextobjectid="12">
+ <tileset firstgid="1" source="tileset4.tsx"/>
+ <layer name="ground" width="200" height="30">
+  <data encoding="base64" compression="zlib">
+   eJzt2UlOw0AURdHaFuwAdgCsIGEFsDN6prRTeqb0rIHngREqcMpWyr9+kXukN4rkVCJfopBJANBlUvoA+LZZ+gD4xVMf09IHKIw+/PHUx6KjD3/oww/68Ic+/KAPf+jDD/rwhz78oA9/6MMP+vCHPvygD3/ow0Zz7ze/72x3bBr4/ccj+rDR9pEafKEPG/RRJ/qwQR91og8bfP+oE33Y4POjTvRhgz7qRB826KNO9GGD7x91og8bfH7UiT5s0Eed6MMGfdSJPmw0faxp6zO2Uex06EIfNla01dKHwGD0AXTz0MeBdqgdaceh+3+g7Xa0XW1P27c/7uji14tySvQR93ChXYb+31FPtFPtTDsP/7+X3O60e+1Bewzpv0ftrrRr7Ua7NT91GRZ9zNtDCr3MFvfwpr1rH9rngOs8ac/ai/YaFqOXMfoYu4eUHL3E91R8jdTjJeXqIWURetkK/T9f+y7uIcc15xH30uf54nsqvkbq8dzv6ZCN1UNK3Evu17X8x3MujfA8P/cFs/v+iw==
+  </data>
+ </layer>
+ <objectgroup name="Object Layer 1">
+  <object id="1" type="platform" x="357.514" y="425.068" width="190.189" height="11.9518"/>
+  <object id="3" type="platform" x="773.748" y="419.611" width="190.189" height="11.9518"/>
+  <object id="4" type="player-start" x="2662.79" y="394.919" width="31.795" height="44.6721">
+   <properties>
+    <property name="sprite-sheet" value="mc"/>
+   </properties>
+  </object>
+  <object id="5" type="wall" x="1451.88" y="369.466" width="7.27499" height="103.928"/>
+  <object id="6" type="platform" x="1848.54" y="435.151" width="215.88" height="6.78158"/>
+  <object id="7" type="platform" x="2255.44" y="434.586" width="215.88" height="6.78158"/>
+  <object id="8" type="scale-right" x="3032.5" y="426.675" width="87.0302" height="38.4289">
+   <properties>
+    <property name="scale-pivot" value="scale-one"/>
+   </properties>
+  </object>
+  <object id="9" type="scale-left" x="2864.65" y="424.979" width="104.549" height="44.0802">
+   <properties>
+    <property name="scale-pivot" value="scale-one"/>
+   </properties>
+  </object>
+  <object id="10" name="scale-one" type="scale-pivot" x="2983.89" y="406.895" width="25.996" height="23.1704"/>
+ </objectgroup>
+</map>

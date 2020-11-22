@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0" tiledversion="1.0.3" orientation="orthogonal" renderorder="right-down" width="40" height="30" tilewidth="16" tileheight="16" nextobjectid="14">
+ <tileset firstgid="1" source="tileset4.tsx"/>
+ <layer name="Tile Layer 2" width="40" height="30">
+  <data encoding="base64" compression="zlib">
+   eJztzsEJAAAIAzH36/77+HYAQSSBfstVAQDAlOOfWZo+fR/6AD5qz0gg0Q==
+  </data>
+ </layer>
+ <objectgroup name="Object Layer 1">
+  <object id="5" type="coin" x="560.657" y="18.6275" width="32" height="35"/>
+  <object id="11" type="snake" x="324.262" y="-0.312108" width="33.0816" height="36.8267"/>
+  <object id="12" type="player-start" x="428.188" y="14.3563" width="24.343" height="33.0816">
+   <properties>
+    <property name="sprite-sheet" value="mc"/>
+   </properties>
+  </object>
+ </objectgroup>
+ <layer name="ground" width="40" height="30">
+  <data encoding="base64" compression="zlib">
+   eJzt1skNwjAQQFFTFnQAJdAB0AGdsXNmu7JzZV86gB9BRISiYOwBcpiR3iWWkn+wrRijo/O/qWKMCaaYYY4FllhZrCe921cJa2ywxQ57HHDEyWL9W1N59KV1tM9vtM9vpPsuOAu+T7IvaDMZY65GrtGnr4U2OugGD2grm7ugsYY6Gmj+oO+1Z4iReTbF6aGPgWOvbV/WsuedaG/Oss9mv+RRFFZ4881wP4f7RfLc+U60Lbqn09AY15aWxqQ26bvBZpLuqE/OmlSvyx3l0uv6LyzZo5RSvm4KRArA
+  </data>
+ </layer>
+</map>

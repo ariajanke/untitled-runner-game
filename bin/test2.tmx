@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0" tiledversion="1.0.3" orientation="orthogonal" renderorder="right-down" width="200" height="40" tilewidth="16" tileheight="16" nextobjectid="152">
+ <tileset firstgid="1" source="tileset4.tsx"/>
+ <tileset firstgid="257" source="slopewalls.tsx"/>
+ <tileset firstgid="305" source="5x5loop.out.tsx"/>
+ <layer name="Tile Layer 2" width="200" height="40">
+  <data encoding="base64" compression="zlib">
+   eJzt19FtwjAQBmDP1RW6QUdghS7fFx4qK3bO5EJs8n1SJHByZ4PyY1IKAAAAAADAZ/kOHnBHsgF98gFt8gFtV+Xj53m0fJ04N0QdzUd9bfSZ377FCjLzkXnADLLysdWrHsucF7I8Ouey94+t8d48pVHHWl79bZv9dzH7+WN07v896tesQz726zPnZi3y0a/v9arPReZmLfLRr997Xz9rRDPEGrL+Q8zmrP2j17t3bSnv/Z7sXznuun/srXnv3o/kpZ5DPtYjH7H6aN/6mqvIRw756NeXsn3fR8euIh855GOsPtr76u9mprWs7K75OFq/lZmyMdabq7WejLzJRw752K9vjbXOReeSj/nJx+s9WvvIkQyevXbGyMdYr0jv0WzIx7zk43ONfs7fU1ZxT3e834A2exIAAAAAAHCVP67DxKc=
+  </data>
+ </layer>
+ <layer name="ground" width="200" height="40">
+  <data encoding="base64" compression="zlib">
+   eJztm0dyFDEYhdXs8A7v8A7v8IYiY5MzHpOzTWZn5gSYsxAuQFiQ84I4hBU5bcnhBvC6yl10aSS1ulud36v6ylPupJH+p19Sj8YFRVVLsz0h5oC5YB6YDxaAhWARGARDXvrnDILx9LehqFy1GLG/BCwFy8BysAKsBKvAarDGgT/agv6gqqe1iP11YD3YAIZBC4yAjWAT2Ex/UA3VFsT+VrANbAc7wE6wC+wGe8Be+oNqqEYR+2NgH9gPDoCD4BA4DI6Ao/QHRWUq+oOi9KI/3OsiuDTJ5QyO6Qhfcw1cBzfATfAefAAfwSfFcUotW3/468ATCqpSz358yTGnOscUc7a6B+5P8iCDYzrC1zwGHfAEPAXfwQ/wE/xSHKfUsvWHf94xDeF6LtIvfr+o62dVMSdLFYOqa+RnyB56AV5O8iqDYzrka6j0CvwxYXGezh9l8YvfL5r62Sh/qGJQFXPyM6Lu2zSpxhllxiRd/pDvEccfLvzyB/yOKLtKpn7WVf8qP4P9dn3lYnyVxi9aT3tC/MWfofRfkaISy5U/RsFYBrTSf0WKSixX/uAaMVVHuZp/0B/Nlb/2H4yD5Xlv+JjrZ7qep/vlHJFg/qDSyhRDtvEVZ00puK+r+XA4hvPyh42/Ofeuh1z4I8kzq+yPYcG5d1NEf9R7fGXKdcxx0WqCP6LGf3X2hynXMcdFK+wBOYbq4o+05amyP6h04vw8H3/I45yyj21M47KT4FRxRctNU/w9ep7ZH358eA728oWf6dobVfCH/Iyy5yRTnZwF50T9fdLjmdsqqKOpDv3RUwJ/FPF+MIk/rlicczVNoQyyyfGBT8qwTybIdy7zcq+lP6Y59EdvCfwhqwz+UI1PH4LX4A14C96J7r1yjxyUzaa8UXTE/99lFpFXgvK6zMt9kj9U83P/+HSH/uijP2Ld8zP4Ar6Cb6J7r1xWSjNHLCKvBOt0LUf36/ei2ypcRzMMHrGdn/dn5I2s/eH/Fj3Jfo1A/n4P4XWXt8xytYZSdF5JqoGY/pjpIIcMVNQfgUfitu9pcMb/oPje4XLFXf/LQ1msMVZlXi/3Zzb+yKIPzcsfad8Pyu2rGzfcArfBHXAXnAcXDOUts7Lwh2095i253WxzvVxHrvvQKuUPmY7o3if4DDy3vP640L9fKAMnHLdPnHrMm6h207WVqo5c9qF5+UP+v+q8PGKBNIuOSNeHuiRvf8yKoOi2ISQM8wcheuLMz+XzbPZzEFJlWiJ5/iCkibQF/UGIjragPwjR0Rb0ByE62qL87+EIKQr//eY/k+9yUg==
+  </data>
+ </layer>
+ <layer name="foreground" width="200" height="40">
+  <data encoding="base64" compression="zlib">
+   eJzt1kVuA0EURVHXspLthJnJYWZmXGue01YmGcaS29I50lVNevAHVerfaAAAAADA/4yU6hzLOZ4m0mTp7kxQF3Ptt7CQczEtpWXvA36st9/CZs6ttJ12vA86pC8100Du1GAaSsOl2ltGy9+9pdn+vr+7Y/86bL+F45wn6TSdeR902FTu1HSaSbOl2lvmS+/sLbeZ7S7dp4caz0lvWsmdWk1rrX9EqfaWjdI7e8t7ZvtIn+mrxnPSm3Zzp/bSfjoo1d5yVOwt0HKeu3+RLtNVuk43xd4CLY+5+0/pOb2k1/RW7C0AAAAAAAAAAAAAAAAAAAAAAAAAAHX2DaGsLoQ=
+  </data>
+ </layer>
+ <objectgroup name="Object Layer 1">
+  <object id="1" type="player-start" x="2446.26" y="109.732" width="31.795" height="44.6721">
+   <properties>
+    <property name="sprite-sheet" value="mc"/>
+   </properties>
+  </object>
+  <object id="3" type="launcher" gid="23" x="3102.25" y="624.754" width="16" height="17">
+   <properties>
+    <property name="boost" value="-250, 0"/>
+   </properties>
+  </object>
+  <object id="18" type="launcher" gid="23" x="2973.41" y="624.232" width="16" height="17">
+   <properties>
+    <property name="boost" value="-250, 0"/>
+   </properties>
+  </object>
+  <object id="25" type="launcher" gid="23" x="2844.31" y="624.232" width="16" height="17">
+   <properties>
+    <property name="boost" value="-250, 0"/>
+   </properties>
+  </object>
+  <object id="32" type="launcher" gid="23" x="2715.21" y="624.232" width="16" height="17">
+   <properties>
+    <property name="boost" value="-250, 0"/>
+   </properties>
+  </object>
+  <object id="34" type="launcher" gid="25" x="1232" y="480.527" width="16" height="17">
+   <properties>
+    <property name="launch" value="0, -467"/>
+   </properties>
+  </object>
+  <object id="35" type="launcher" gid="22" x="2159.31" y="481.527" width="16" height="17">
+   <properties>
+    <property name="boost" value="150, 0"/>
+   </properties>
+  </object>
+  <object id="36" type="launcher" gid="23" x="2589.84" y="625.544" width="16" height="17">
+   <properties>
+    <property name="boost" value="-250, 0"/>
+   </properties>
+  </object>
+  <object id="43" type="launcher" gid="23" x="2463.84" y="626.21" width="16" height="17">
+   <properties>
+    <property name="boost" value="-250, 0"/>
+   </properties>
+  </object>
+  <object id="50" type="launcher" gid="23" x="2335.18" y="625.21" width="16" height="17">
+   <properties>
+    <property name="boost" value="-250, 0"/>
+   </properties>
+  </object>
+  <object id="57" type="launcher" gid="23" x="2207.18" y="625.21" width="16" height="17">
+   <properties>
+    <property name="boost" value="-250, 0"/>
+   </properties>
+  </object>
+  <object id="64" type="launcher" gid="23" x="2075.18" y="624.544" width="16" height="17">
+   <properties>
+    <property name="boost" value="-250, 0"/>
+   </properties>
+  </object>
+  <object id="71" type="launcher" gid="23" x="1948.51" y="624.544" width="16" height="17">
+   <properties>
+    <property name="boost" value="-250, 0"/>
+   </properties>
+  </object>
+  <object id="78" type="launcher" gid="23" x="1819.51" y="627.544" width="16" height="17">
+   <properties>
+    <property name="boost" value="-250, 0"/>
+   </properties>
+  </object>
+  <object id="85" type="launcher" gid="23" x="1688.18" y="628.21" width="16" height="17">
+   <properties>
+    <property name="boost" value="-250, 0"/>
+   </properties>
+  </object>
+  <object id="92" type="launcher" gid="23" x="1554.18" y="624.877" width="16" height="17">
+   <properties>
+    <property name="boost" value="-250, 0"/>
+   </properties>
+  </object>
+  <object id="99" type="launcher" gid="23" x="1418.18" y="625.544" width="16" height="17">
+   <properties>
+    <property name="boost" value="-250, 0"/>
+   </properties>
+  </object>
+  <object id="113" type="launcher" gid="23" x="1284.84" y="626.21" width="16" height="17">
+   <properties>
+    <property name="boost" value="-250, 0"/>
+   </properties>
+  </object>
+  <object id="120" type="launcher" gid="23" x="1150.84" y="626.21" width="16" height="17">
+   <properties>
+    <property name="boost" value="-250, 0"/>
+   </properties>
+  </object>
+  <object id="127" type="launcher" gid="23" x="1016.84" y="626.21" width="16" height="17">
+   <properties>
+    <property name="boost" value="-250, 0"/>
+   </properties>
+  </object>
+  <object id="130" type="diamond" x="986.883" y="611.456" width="16" height="16"/>
+  <object id="132" type="diamond" x="921.823" y="612" width="16" height="16"/>
+  <object id="134" type="launcher" gid="23" x="883.51" y="626.877" width="16" height="17">
+   <properties>
+    <property name="boost" value="-250, 0"/>
+   </properties>
+  </object>
+  <object id="136" type="diamond" x="772.49" y="612.667" width="16" height="16"/>
+  <object id="138" type="diamond" x="804.49" y="612.667" width="16" height="16"/>
+  <object id="140" type="diamond" x="837.55" y="612.123" width="16" height="16"/>
+  <object id="141" type="launcher" gid="23" x="751.51" y="625.544" width="16" height="17">
+   <properties>
+    <property name="boost" value="-250, 0"/>
+   </properties>
+  </object>
+  <object id="143" type="diamond" x="640.49" y="611.334" width="16" height="16"/>
+  <object id="145" type="diamond" x="672.49" y="611.334" width="16" height="16"/>
+  <object id="147" type="diamond" x="705.55" y="610.79" width="16" height="16"/>
+  <object id="148" type="layer-transition" x="2838.91" y="1.42362" width="19.058" height="68.9317"/>
+  <object id="149" type="launcher" gid="22" x="2705.05" y="161.6" width="16" height="17">
+   <properties>
+    <property name="boost" value="300, 0"/>
+   </properties>
+  </object>
+  <object id="150" type="platform" x="1510.82" y="429.096" width="307.719" height="23.079"/>
+  <object id="151" type="wall" x="1296.69" y="240.619" width="18.805" height="129.071"/>
+ </objectgroup>
+ <layer name="background" width="200" height="40">
+  <data encoding="base64" compression="zlib">
+   eJzt0ycOAmEUhdF/tsAWKcFQgqEEQwmG4ijL5WYYgyEBAwnnJNc89cxXCgAAAAC8p12V0sm6Wa963PrVd3+CXzFIC8NslI2bLib6gNo0LcyyebZouljqA2qrtLDONtm26WKnD6jt08IhO2YnXcCTc5q4ZNfspg8AAAAAAAAAAAAAAPhrrRcDAAAAAAAAAAAAgE/cAdD1Djs=
+  </data>
+ </layer>
+</map>
