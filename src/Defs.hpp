@@ -176,6 +176,14 @@ uint8_t component_average(int total_steps, int step, uint8_t begin, uint8_t end)
 template <typename T>
 inline std::ostream & operator << (std::ostream & out, const sf::Vector2<T> & r)
     { return (out << r.x << ", " << r.y); }
+
+template <typename T>
+inline std::ostream & operator << (std::ostream & out, const sf::Rect<T> & rect) {
+    return (out
+            << rect.left << ", " << rect.top << ", w: " << rect.width
+            << ", h: " << rect.height);
+}
+
 #if 0
 template <IsCharacterFunction is_char, typename Func>
 inline void for_split(const std::string & str, Func && f) {

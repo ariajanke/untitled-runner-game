@@ -11,7 +11,8 @@ LIBS           += "-L$$PWD/../lib/cul" \
                   "-L$$PWD/../lib/tmap" \
                   "-L$$PWD/../lib/ecs"
 LIBS           += -lsfml-graphics -lsfml-window -lsfml-system \
-                  -ltmap -lz -ltinyxml2 -lcommon -lpthread
+                  -ltmap \
+                  -lz -ltinyxml2 -lcommon -lpthread
 
 DEFINES += MACRO_COMPILER_GCC
 
@@ -42,6 +43,17 @@ SOURCES += \
     ../src/systems/EnvironmentCollisionSystem.cpp \
     ../src/systems/FreeBodyPhysics.cpp \
     ../src/systems/DrawSystems.cpp
+
+#SOURCES += \
+#    ../lib/tmap/src/TileSet.cpp \
+#    ../lib/tmap/src/Base64.cpp \
+#    ../lib/tmap/src/TiXmlHelpers.cpp \
+#    ../lib/tmap/src/TileEffect.cpp \
+#    ../lib/tmap/src/ColorLayer.cpp \
+#    ../lib/tmap/src/TiledMapImpl.cpp \
+#    ../lib/tmap/src/TileLayer.cpp \
+#    ../lib/tmap/src/TiledMap.cpp \
+#    ../lib/tmap/src/ZLib.cpp
 
 HEADERS += \
     ../src/Drawers.hpp \

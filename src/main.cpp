@@ -305,7 +305,10 @@ int main(int argc, char ** argv) {
         }
 #       endif
 
-        win.setView(old_view);
+        auto hud_view = old_view;
+        hud_view.setCenter(hud_view.getSize().x / 2.f, hud_view.getSize().y / 2.f);
+        win.setView(hud_view);
+        gdriver.render_hud_to(win);
         }
         gen.update(1./60.);
         win.display();

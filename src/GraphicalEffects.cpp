@@ -97,26 +97,67 @@ void TextDrawer::load_internal_font() {
             write_pos.x = 0;
         }
     }
+#   if 0
     preren_img.saveToFile("/media/ramdisk/textout.png");
+#   endif
     if (!m_font->char_pool.loadFromImage(preren_img)) {
         throw std::runtime_error("TextDrawer::load_internal_font: failed to create font texture.");
     }
 }
 
-void TextDrawer::set_text(VectorD r, const std::string & text) {
+void TextDrawer::set_text_center(VectorD r, const std::string & text) {
+    m_string = text;
+    set_text_center(r, std::move(m_string));
+#   if 0
+    if (!m_font) {
+        load_internal_font();
+    }
+
+    auto text_width  = float(unsigned(k_font_dim + k_padding)*text.length());
+    auto text_height = float(k_font_dim);
+    set_text_top_left(r - VectorD(text_width, text_height)*0.5, text);
+#   endif
+}
+
+void TextDrawer::set_text_top_left(VectorD r, const std::string & text) {
+    auto copy = text;
+    set_text_top_left(r, std::move(copy));
+#   if 0
     if (!m_font) {
         load_internal_font();
     }
     m_string = text;
     m_start_brush.setTexture(m_font->char_pool);
+    m_start_brush.setPosition(sf::Vector2f(r));
+#   endif
+}
+
+void TextDrawer::set_text_center(VectorD r, std::string && text) {
+    if (!m_font) {
+        load_internal_font();
+    }
+
     auto text_width  = float(unsigned(k_font_dim + k_padding)*text.length());
     auto text_height = float(k_font_dim);
-    m_start_brush.setPosition(sf::Vector2f(r) - sf::Vector2f(text_width, text_height)*0.5f);
+    set_text_top_left(r - VectorD(text_width, text_height)*0.5, std::move(text));
 }
+
+void TextDrawer::set_text_top_left(VectorD r, std::string && text) {
+    if (!m_font) {
+        load_internal_font();
+    }
+    m_string = std::move(text);
+    m_start_brush.setTexture(m_font->char_pool);
+    m_start_brush.setPosition(sf::Vector2f(r));
+}
+
 
 void TextDrawer::move(VectorD r) {
     m_start_brush.move(sf::Vector2f(r));
 }
+
+std::string TextDrawer::take_string()
+    { return std::move(m_string); }
 
 /* private */ void TextDrawer::draw
     (sf::RenderTarget & target, sf::RenderStates states) const

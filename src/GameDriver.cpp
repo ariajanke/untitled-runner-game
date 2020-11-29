@@ -38,6 +38,43 @@ ControlEvent to_control_event(const sf::Event &);
 
 } // end of <anonymous> namespace
 
+
+std::string HudTimePiece::get_seconds() const {
+    auto sec_part = int(std::floor(std::fmod(m_total_elapsed_time, 60.)));
+    return pad_two(std::to_string(sec_part));
+}
+
+std::string HudTimePiece::get_centiseconds() const {
+    auto cs_part = int(std::floor(std::fmod(m_total_elapsed_time, 1.)*100.));
+    return pad_two(std::to_string(cs_part));
+}
+
+std::string HudTimePiece::get_minutes() const {
+    auto mins = int(std::floor(m_total_elapsed_time / 60.));
+    return pad_two(std::to_string(mins));
+}
+
+void HudTimePiece::update(double et) {
+    m_total_elapsed_time += et;
+    //auto s = m_timer_text.take_string();
+    auto s = "Time: " + get_minutes() + ":" + get_seconds() + "." + get_centiseconds();
+    m_timer_text.set_text_top_left(VectorD(), s);
+}
+
+void HudTimePiece::update_velocity(VectorD r) {
+    auto t = m_velocity.take_string();
+    t.clear();
+    t += "speed " + std::to_string(int(std::round(magnitude(r))))
+         + " (" + std::to_string(int(std::round(r.x))) + ", "
+         + std::to_string(int(std::round(r.y))) + ")";
+    m_velocity.set_text_top_left(VectorD(0, 8), std::move(t));
+}
+
+void HudTimePiece::draw(sf::RenderTarget & target, sf::RenderStates states) const {
+    target.draw(m_timer_text, states);
+    target.draw(m_velocity, states);
+}
+
 void GameDriver::setup(const StartupOptions & opts, const sf::View & view) {
     m_rng = std::default_random_engine { std::random_device()() };
     m_tmap.load_from_file(opts.test_map);
@@ -63,11 +100,14 @@ void GameDriver::update(double et) {
     for (auto * tsys : m_time_aware_systems) {
         tsys->set_elapsed_time(et);
     }
+    m_timer.update(et);
     m_emanager.update_systems();
 #   if 0
     m_event_proc.process_events();
 #   endif
     m_emanager.process_deletion_requests();
+
+    m_timer.update_velocity(m_player.get<PhysicsComponent>().velocity());
 }
 
 void GameDriver::render_to(sf::RenderTarget & target) {
@@ -78,6 +118,10 @@ void GameDriver::render_to(sf::RenderTarget & target) {
         sys->render_to(target);
     }
     m_tmap.apply_view(target.getView());
+}
+
+void GameDriver::render_hud_to(sf::RenderTarget & target) {
+    target.draw(m_timer);
 }
 
 void GameDriver::process_event(const sf::Event & event) {

@@ -26,10 +26,11 @@ class PlayerControlSystem final : public System, public TimeAware
         , public PhysicsHistoryAware
 #endif
 {
-    static constexpr const double k_acc                 = 125.;
+    static constexpr const double k_acceleration        = 125.;
     static constexpr const double k_breaking_boost      = 3.;
-    static constexpr const double k_max_voluntary_speed = 350;
+    static constexpr const double k_max_voluntary_speed = 400;
     static constexpr const double k_booster_factor      = 2.5;
+    static constexpr const double k_jump_speed          = 333.;
 
     void update(const ContainerView & view) {
 #       if 0
@@ -96,7 +97,7 @@ private:
     std::vector<Entity> m_collectors;
 };
 
-class BouncySurfaceSystem final : public System, public MapAware {
+class LauncherSystem final : public System, public MapAware {
     void update(const ContainerView &) override;
 
     static void do_bounce(PhysicsComponent &, const Launcher &);
@@ -253,11 +254,12 @@ class FallOffSystem final : public System
             } else {
                 if (Entity(eref).has<Platform>()) continue;
             }
-
+#           if 0
             auto & pcomp = e.get<PhysicsComponent>();
             // can't get tracker's location here, the reference is no longer
             // valid!
             pcomp.reset_state<FreeBody>().location = pcomp.history.location;
+#           endif
         }
     }
 };

@@ -41,6 +41,7 @@ void load_launcher    (MapObjectLoader &, const MapObject &);
 void load_platform    (MapObjectLoader &, const MapObject &);
 void load_waypoints   (MapObjectLoader &, const MapObject &);
 void load_wall        (MapObjectLoader &, const MapObject &);
+void load_ball        (MapObjectLoader &, const MapObject &);
 
 void load_scale_pivot (MapObjectLoader &, const MapObject &);
 void load_scale_left  (MapObjectLoader &, const MapObject &);
@@ -55,6 +56,7 @@ const auto k_loader_functions = {
     std::make_pair("platform"      , load_platform      ),
     std::make_pair("waypoints"     , load_waypoints     ),
     std::make_pair("wall"          , load_wall          ),
+    std::make_pair("ball"          , load_ball          ),
 
     std::make_pair("scale-left"    , load_scale_left    ),
     std::make_pair("scale-right"   , load_scale_right   ),
@@ -258,6 +260,26 @@ void load_wall(MapObjectLoader & loader, const MapObject & obj) {
         obj.bounds.left + obj.bounds.width*0.5, obj.bounds.top,
         obj.bounds.left + obj.bounds.width*0.5, obj.bounds.top + obj.bounds.height)) });
 
+}
+
+void load_ball(MapObjectLoader & loader, const MapObject & obj) {
+    Item::HoldType hold_type = Item::simple;
+    auto itr = obj.custom_properties.find("ball-type");
+    if (itr != obj.custom_properties.end()) { if (itr->second == "jump-booster") {
+        hold_type = Item::jump_booster;
+    }}
+    auto recall_e = loader.create_entity();
+    recall_e.add<PhysicsComponent>().reset_state<Rect>() = Rect(obj.bounds);
+
+    auto ball_e = loader.create_entity();
+    ball_e.add<PhysicsComponent>().reset_state<FreeBody>().location = center_of(obj);
+    ball_e.add<Item>().hold_type = hold_type;
+    if (obj.texture) {
+        load_display_frame(ball_e.add<DisplayFrame>(), obj);
+    } else {
+        ball_e.add<DisplayFrame>().reset<ColorCircle>().color = sf::Color(200, 100, 100);
+    }
+    ball_e.add<ReturnPoint>().ref = recall_e;
 }
 
 void load_scale_pivot(MapObjectLoader & loader, const MapObject & obj) {

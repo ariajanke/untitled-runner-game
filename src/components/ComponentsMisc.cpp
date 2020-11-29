@@ -27,6 +27,7 @@ void release(PlayerControl &, PlayerControl::Direction);
 
 } // end of <anonymous> namespace
 
+/* static */ const VectorD Collector::k_no_location = k_no_intersection;
 
 /* free fn */ double direction_of(const PlayerControl & pc) {
     using Pc = PlayerControl;

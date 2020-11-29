@@ -37,6 +37,8 @@ struct Item {
 
 struct Collector {
     friend class ItemPickerPriv;
+    static const VectorD k_no_location;
+    VectorD   last_location = k_no_location; // last location of the entity
     VectorD   collection_offset;
     int       diamond = 0;
     EntityRef held_object() const { return m_held_object; }
@@ -51,6 +53,10 @@ struct Lifetime {
 struct Launcher {
     VectorD launch_velocity = VectorD(0, -467);
     bool detaches_entity = true;
+};
+
+struct LauncherSubjectHistory {
+    VectorD last_location;
 };
 
 struct Snake {

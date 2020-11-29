@@ -90,7 +90,7 @@ private:
         if (auto holder = get_holder(e.get<PhysicsComponent>())) {
             cwl.location = hand_point_of<HeadOffset, PhysicsComponent>(Entity(holder));
         } else {
-            cwl.location = e.get<PhysicsComponent>().location();
+            cwl.location = e.get<PhysicsComponent>().location() - VectorD(0, color_circle.radius);
         }
         m_circles.push_back(cwl);
     }
@@ -116,9 +116,7 @@ private:
         if (e.get<PlayerControl>().last_direction == PlayerControl::k_left) {
             spt.setScale(-1.f, 1.f);
         }
-#       if 0
-        auto & pstate = get_physics_state(e);
-#       endif
+
         auto pcomp = e.get<PhysicsComponent>();
         if (pcomp.state_is_type<LineTracker>()) {
             static const VectorD k_head_vector(0, -1);
@@ -142,15 +140,15 @@ private:
         } (e, spt);
     }
     void update(const Entity & e, const SingleImage & simg) {
-        //const auto & pstate = get_physics_state(e);
-        //const auto & bounds = pstate.as<Rect>();
-        const auto & bounds = e.get<PhysicsComponent>().state_as<Rect>();
         sf::Sprite spt;
         spt.setTexture(*simg.texture);
         spt.setTextureRect(simg.texture_rectangle);
-        Rect text_bounds = Rect(simg.texture_rectangle);
-        spt.setPosition(float(bounds.left + (bounds.width  - text_bounds.width )*0.5),
-                        float(bounds.top  + (bounds.height - text_bounds.height)*0.5));
+        auto loc = e.get<PhysicsComponent>().location();
+        if (!e.get<PhysicsComponent>().state_is_type<Rect>()) {
+            Rect text_bounds = Rect(simg.texture_rectangle);
+            loc -= VectorD(text_bounds.width*0.5, text_bounds.height);
+        }
+        spt.setPosition(sf::Vector2f(loc));
         m_sprites.push_back(spt);
     }
     void render_to(sf::RenderTarget & render_target) override;

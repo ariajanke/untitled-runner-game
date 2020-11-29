@@ -107,19 +107,23 @@ const constexpr int k_tracker_state   = PhysicsState::GetTypeId<LineTracker>::k_
 const constexpr int k_freebody_state  = PhysicsState::GetTypeId<FreeBody   >::k_value;
 const constexpr int k_rectangle_state = PhysicsState::GetTypeId<Rect       >::k_value;
 const constexpr int k_held_state      = PhysicsState::GetTypeId<HeldState  >::k_value;
-
+#if 0
 struct PhysicsHistory {
     VectorD    location;
+#   if 0
     VectorD    velocity;
     SurfaceRef surface_ref;
+#   endif
 };
-
+#endif
 struct PhysicsComponent {
 
 #   if 0
     VectorD previous_location;
 #   endif
-    PhysicsHistory history;
+#   if 0
+    [[deprecated]] PhysicsHistory history;
+#   endif
     double bounce_thershold = std::numeric_limits<double>::infinity();
 
     Layer active_layer = Layer::foreground;
@@ -157,9 +161,9 @@ struct PhysicsComponent {
 private:
     PhysicsState m_state;
 };
-
+#if 0
 [[deprecated]] void update_history(PhysicsComponent &);
-
+#endif
 VectorD location_of(const LineTracker &);
 #if 0
 VectorD location_of(const PhysicsState &);

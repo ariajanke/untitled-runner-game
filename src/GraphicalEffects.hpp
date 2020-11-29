@@ -29,8 +29,12 @@
 class TextDrawer final : public sf::Drawable {
 public:
     void load_internal_font();
-    void set_text(VectorD, const std::string &);
+    void set_text_center  (VectorD, const std::string &);
+    void set_text_top_left(VectorD, const std::string &);
+    void set_text_center  (VectorD, std::string &&);
+    void set_text_top_left(VectorD, std::string &&);
     void move(VectorD);
+    std::string take_string();
 private:
     static constexpr const int k_font_dim = 8;
     static constexpr const int k_padding  = 1;

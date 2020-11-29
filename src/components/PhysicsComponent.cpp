@@ -194,6 +194,7 @@ VectorD normal_for(const PhysicsState & pstate) {
     }
 }
 #endif
+#if 0
 void update_history(PhysicsComponent &) {
 #   if 0
     pcomp.history.location = pcomp.location();// location_of(pcomp);
@@ -205,7 +206,7 @@ void update_history(PhysicsComponent &) {
     }
 #   endif
 }
-
+#endif
 VectorD location_of(const LineTracker & tracker) {
     return location_along(tracker.position, *tracker.surface_ref());
 }

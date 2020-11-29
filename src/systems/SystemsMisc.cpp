@@ -88,7 +88,7 @@
         }
     }
 
-    auto vdel = rot_grav*direction_of(pcon)*k_acc*elapsed_time()*breaking_boost;
+    auto vdel = rot_grav*direction_of(pcon)*k_acceleration*elapsed_time()*breaking_boost;
     bool new_vel_would_excede = magnitude(freebody.velocity + vdel) > k_max_voluntary_speed;
     if (magnitude(freebody.velocity) > k_max_voluntary_speed && new_vel_would_excede) {
         // do nothing
@@ -107,7 +107,7 @@
     auto pixels_per_length = magnitude(seg.a - seg.b);
     // (pix / s) * (length / pix)
     auto dir = (tracker.inverted_normal ? 1. : -1.)*direction_of(pcon);
-    auto vdel = k_acc*elapsed_time()*dir / pixels_per_length;
+    auto vdel = k_acceleration*elapsed_time()*dir / pixels_per_length;
     auto max_vs_segplen = k_max_voluntary_speed / pixels_per_length;
 
     if (carrying) {
@@ -143,7 +143,7 @@
     freebody.location = location_along(tracker.position, segment) +
                         normal*k_error;
     freebody.velocity = velocity_along(tracker.speed, segment) +
-                        normal*333.;
+                        normal*k_jump_speed;
     pcomp.reset_state<FreeBody>() = freebody;
 }
 
@@ -257,6 +257,9 @@ void ItemCollisionSystem::update(const ContainerView & cont) {
         if (get_rectangle(e) && e.has<Item>()) { m_items.push_back(e); }
     }
     check_item_collection();
+    for (auto e : m_collectors) {
+        e.get<Collector>().last_location = e.get<PhysicsComponent>().location();
+    }
 }
 void ItemCollisionSystem::check_item_collection() {
     for (auto & item : m_items) {
@@ -266,11 +269,15 @@ void ItemCollisionSystem::check_item_collection() {
 }
 void ItemCollisionSystem::check_item_collection(Entity & collector, Entity & item) {
     auto & item_rect = *get_rectangle(item);
+
     const auto & col_comp = collector.get<Collector>();
     auto offset = col_comp.collection_offset;
-    const auto & pcomp = collector.get<PhysicsComponent>();
-    auto cur_location = pcomp.location() + offset;
+    if (col_comp.last_location == Collector::k_no_location) return;
+    auto cur_location = collector.get<PhysicsComponent>().location() + offset;
+    auto old_location = col_comp.last_location + offset;
+#   if 0
     VectorD old_location = pcomp.history.location + offset;
+#   endif
     if (!item_rect.contains(old_location) &&
         line_crosses_rectangle(item_rect, old_location, cur_location))
     {
@@ -280,7 +287,7 @@ void ItemCollisionSystem::check_item_collection(Entity & collector, Entity & ite
 
 // ----------------------------------------------------------------------------
 
-/* private */ void BouncySurfaceSystem::update(const ContainerView & cont) {
+/* private */ void LauncherSystem::update(const ContainerView & cont) {
     m_bouncy_surfaces.clear();
     m_bouncables.clear();
     for (auto & e : cont) {
@@ -295,18 +302,25 @@ void ItemCollisionSystem::check_item_collection(Entity & collector, Entity & ite
         }
     }
     for (auto & bouncable : m_bouncables) {
+        if (!bouncable.has<LauncherSubjectHistory>()) continue;
         for (auto & bouncy_surface : m_bouncy_surfaces) {
-            VectorD old_loc = bouncable.get<PhysicsComponent>().history.location;
-            VectorD cur_loc = bouncable.get<PhysicsComponent>().location();// location_of(get_physics_state(bouncable));
+            VectorD old_loc = bouncable.get<LauncherSubjectHistory>().last_location;
+            VectorD cur_loc = bouncable.get<PhysicsComponent>().location();
             const Rect & rect = *get_rectangle(bouncy_surface);
             if (!rect.contains(old_loc) && rect.contains(cur_loc)) {
+#               if 0
+                std::cout << "Launched occured. (old " << old_loc << " new " << cur_loc << "rect " << rect << std::endl;
+#               endif
                 do_bounce(bouncable.get<PhysicsComponent>(), bouncy_surface.get<Launcher>());
             }
         }
     }
+    for (auto & bouncable : m_bouncables) {
+        bouncable.ensure<LauncherSubjectHistory>().last_location = bouncable.get<PhysicsComponent>().location();
+    }
 }
 
-/* private static */ void BouncySurfaceSystem::do_bounce
+/* private static */ void LauncherSystem::do_bounce
     (PhysicsComponent & pstate, const Launcher & bsurface)
 {
     if (!bsurface.detaches_entity && pstate.state_is_type<LineTracker>()) {
@@ -416,6 +430,12 @@ void ItemCollisionSystem::check_item_collection(Entity & collector, Entity & ite
 
     auto & fb = held.get<PhysicsComponent>().reset_state<FreeBody>();
     fb.location = hand_point_of<HeadOffset, PhysicsComponent>(holder);
-    fb.velocity = holder.get<PhysicsComponent>().velocity() +
-                  VectorD(direction_of(holder.get<PlayerControl>())*40, -200);
+    fb.velocity = holder.get<PhysicsComponent>().velocity()
+                  + VectorD(direction_of(holder.get<PlayerControl>())*40, 0);
+
+    if (held.get<Item>().hold_type != Item::jump_booster) {
+        fb.velocity += -normalize(k_gravity)*200.;
+    } else {
+        fb.velocity +=  normalize(k_gravity)*200.;
+    }
 }

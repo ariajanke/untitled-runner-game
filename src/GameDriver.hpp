@@ -25,6 +25,7 @@
 
 #include "Components.hpp"
 #include "Systems.hpp"
+#include "GraphicalEffects.hpp"
 
 #include "maps/Maps.hpp"
 #include "maps/MapObjectLoader.hpp"
@@ -41,7 +42,7 @@ using CompleteSystemList = TypeList<
     AnimatorSystem,
     DrawSystem,
     ItemCollisionSystem,
-    BouncySurfaceSystem,
+    LauncherSystem,
     GravityUpdateSystem,
     ExtremePositionsControlSystem,
     PlatformDrawer,
@@ -84,12 +85,39 @@ private:
     std::default_random_engine m_rng;
 };
 
+class HudTimePiece final : public sf::Drawable {
+public:
+    HudTimePiece() {
+        m_timer_text.load_internal_font();
+        m_velocity = m_timer_text;
+    }
+    void update(double et);
+    void update_velocity(VectorD);
+private:
+    void draw(sf::RenderTarget &, sf::RenderStates) const override;
+
+    static std::string pad_two(std::string && str)
+        { return (str.length() < 2) ? "0" + std::move(str) : std::move(str); }
+
+    std::string get_seconds() const;
+
+    std::string get_centiseconds() const;
+
+    std::string get_minutes() const;
+
+    double m_total_elapsed_time = 0.;
+    TextDrawer m_timer_text;
+    TextDrawer m_velocity;
+};
+
+
 class GameDriver final {
 public:
 
     void setup(const StartupOptions &, const sf::View &);
     void update(double);
     void render_to(sf::RenderTarget &);
+    void render_hud_to(sf::RenderTarget &);
     void process_event(const sf::Event &);
     VectorD camera_position() const;
 
@@ -120,6 +148,8 @@ private:
     Entity m_player;
 
     std::default_random_engine m_rng;
+
+    HudTimePiece m_timer;
 #   if 0
     PhysicsHistoryEventProcessor m_event_proc;
 #   endif

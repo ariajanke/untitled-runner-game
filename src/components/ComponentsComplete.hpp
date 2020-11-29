@@ -28,7 +28,8 @@
 using EntityManager = ecs::EntityManager<
     PhysicsComponent,
     Lifetime, Snake, PlayerControl, DisplayFrame, Item,
-    Launcher, Collector, HeadOffset, Platform,
+    Launcher, LauncherSubjectHistory,
+    Collector, HeadOffset, Platform,
     ReturnPoint, ScriptUPtr //ScriptEvents
 >;
 
