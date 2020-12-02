@@ -48,7 +48,7 @@ public:
     std::shared_ptr<MapInfo> load_map(const std::string & filename)
         { return m_maps.load(TypeTag<MapInfo>(), filename); }
 private:
-    CachedLoader<MapInfo> m_maps;
+    CachedLoader<MapInfo, std::string> m_maps;
 };
 
 class MapMultiplexerElement final {

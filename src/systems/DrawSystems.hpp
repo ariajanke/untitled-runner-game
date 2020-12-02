@@ -139,18 +139,7 @@ private:
             }
         } (e, spt);
     }
-    void update(const Entity & e, const SingleImage & simg) {
-        sf::Sprite spt;
-        spt.setTexture(*simg.texture);
-        spt.setTextureRect(simg.texture_rectangle);
-        auto loc = e.get<PhysicsComponent>().location();
-        if (!e.get<PhysicsComponent>().state_is_type<Rect>()) {
-            Rect text_bounds = Rect(simg.texture_rectangle);
-            loc -= VectorD(text_bounds.width*0.5, text_bounds.height);
-        }
-        spt.setPosition(sf::Vector2f(loc));
-        m_sprites.push_back(spt);
-    }
+    void update(const Entity & e, const SingleImage & simg);
     void render_to(sf::RenderTarget & render_target) override;
     CircleDrawer m_circle_drawer;
     LineDrawer m_ldrawer;

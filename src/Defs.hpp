@@ -42,6 +42,8 @@ using Rect    = sf::Rect<double>;
 
 constexpr const double k_error = 0.00005;
 constexpr const double k_pi    = get_pi<double>();
+constexpr const double k_inf   = std::numeric_limits<double>::infinity();
+
 extern const VectorD k_no_intersection;
 extern const VectorD k_gravity        ;
 
@@ -105,24 +107,12 @@ struct Surface final : public LineSegment, public SurfaceDetails {
 class LineMap;
 class LineMapLayer;
 enum class Layer : uint8_t { foreground, background, neither };
-#if 0
-// ---------------------- special floating point helpers ----------------------
 
-// first  low  bounds where f(first ) = false
-// second high bounds where f(second) = true
-template <typename Func>
-std::pair<double, double> find_smallest_diff(Func && f, double hint = 0);
+/// like it's member function varient EXCEPT it handles infinities
+/// @param r both components must be real numbers
+template <typename T>
+bool rect_contains(const sf::Rect<T> &, const sf::Vector2<T> & r);
 
-template <typename Func>
-double find_highest_false(Func && f, double hint = 0.5) {
-    return find_smallest_diff(std::move(f), hint).first;
-}
-
-template <typename Func>
-double find_lowest_true(Func && f, double hint = 0.5) {
-    return find_smallest_diff(std::move(f), hint).second;
-}
-#endif
 // ------------------------- LineSegments / Surfaces --------------------------
 
 LineSegment move_segment(const LineSegment &, VectorD);
@@ -184,13 +174,6 @@ inline std::ostream & operator << (std::ostream & out, const sf::Rect<T> & rect)
             << ", h: " << rect.height);
 }
 
-#if 0
-template <IsCharacterFunction is_char, typename Func>
-inline void for_split(const std::string & str, Func && f) {
-    const auto * beg = &str[0];
-    ::for_split<is_char>(beg, beg + str.length(), std::move(f));
-}
-#endif
 template <typename T>
 std::size_t ref_to_index(const std::vector<T> & cont, const T & ref) {
     if (&ref < &cont[0] || &ref >= (&cont[0] + cont.size())) {
@@ -215,13 +198,13 @@ public:
     }
 };
 
-template <typename T, typename SpecTag = TypeTag<T>>
+template <typename T, typename KeyType, typename SpecTag = TypeTag<T>>
 class CachedLoader {
 public:
     using LoaderFunction = void (*)(const std::string &, T &);
 
-    template <typename KeyType>
-    std::shared_ptr<T> load(SpecTag, const KeyType &);
+    template <typename KeyType2>
+    std::shared_ptr<T> load(SpecTag, const KeyType2 &);
 
     void set_loader_function(SpecTag, LoaderFunction);
 
@@ -230,38 +213,43 @@ private:
         throw std::runtime_error("default_loader: loading resource without setting loader function.");
     }
 
-    std::map<std::string, std::weak_ptr<T>> m_map;
+    std::map<KeyType, std::weak_ptr<T>> m_map;
 
     LoaderFunction m_loader_func = default_loader;
 };
 
 // --------------------------- function definitions ---------------------------
-#if 0
-template <typename Func>
-std::pair<double, double> find_smallest_diff(Func && f, double hint) {
-    if (f(0)) {
-        throw std::runtime_error("find_smallest_diff: f(0) is true");
-    }
-    if (!f(1)) {
-        throw std::runtime_error("find_smallest_diff: f(1) is false");
+
+template <typename T>
+bool rect_contains(const sf::Rect<T> & rect, const sf::Vector2<T> & r) {
+    if (rect.width < 0. || rect.height < 0.) {
+        throw std::invalid_argument("rect_contains: negative sized rectangle unhandled.");
     }
 
-    static constexpr const double k_good_enough = k_error;
-    bool   fg   = f(hint);
-    double low  = fg ? 0    : hint;
-    double high = fg ? hint : 1   ;
-
-    while ((high - low) > k_good_enough) {
-        double t = low + (high - low)*0.5;
-        if (f(t)) {
-            high = t;
-        } else {
-            low = t;
+    static auto is_within = [](T low, T size, T x) {
+        if (!is_real(x)) {
+            throw std::invalid_argument("rect_contains: r must be a vector of real number components.");
         }
-    }
-    return std::make_pair(low, high);
+        if (low == size) return false;
+        if constexpr (std::numeric_limits<T>::has_infinity) {
+            static constexpr const T k_inf_ = std::numeric_limits<T>::infinity();
+            if (low == -k_inf_ && size == k_inf_) {
+                return true;
+            } else if (low == k_inf_ || low == -k_inf_) {
+                return false;
+            } else if (size == k_inf_) {
+                return x > low;
+            }
+            if (!is_real(size) || !is_real(low)) {
+                throw std::runtime_error("rect_contains: bad branch for non-real numbers");
+            }
+        }
+        return x > low && x < low + size;
+    };
+    return    is_within(rect.left, rect.width , r.x)
+           && is_within(rect.top , rect.height, r.y);
 }
-#endif
+
 template <typename RngType>
 sf::Color random_color(RngType & rng) {
     using Uint8Range = std::uniform_int_distribution<uint8_t>;
@@ -313,9 +301,9 @@ inline bool are_same(const SurfaceDetails & rhs, const SurfaceDetails & lhs) {
 
 // ----------------------------------------------------------------------------
 
-template <typename T, typename SpecTag>
-template <typename KeyType>
-std::shared_ptr<T> CachedLoader<T, SpecTag>::load(SpecTag, const KeyType & key) {
+template <typename T, typename KeyType, typename SpecTag>
+template <typename KeyType2>
+std::shared_ptr<T> CachedLoader<T, KeyType, SpecTag>::load(SpecTag, const KeyType2 & key) {
     std::shared_ptr<T> rv;
     auto itr = m_map.find(key);
     bool need_reload = itr == m_map.end() ? true : itr->second.expired();
@@ -328,8 +316,8 @@ std::shared_ptr<T> CachedLoader<T, SpecTag>::load(SpecTag, const KeyType & key) 
     return rv;
 }
 
-template <typename T, typename SpecTag>
-void CachedLoader<T, SpecTag>::set_loader_function(SpecTag, LoaderFunction fn)
+template <typename T, typename KeyType, typename SpecTag>
+void CachedLoader<T, KeyType, SpecTag>::set_loader_function(SpecTag, LoaderFunction fn)
     { m_loader_func = fn; }
 
 // ----------------------------------------------------------------------------

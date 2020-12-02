@@ -30,8 +30,8 @@ inline VectorD box_in(VectorD r, const LineMapLayer & lmap) {
     auto miny = double(k_view_height)*0.5;
     auto maxx = double(lmap.width ())*lmap.tile_width () - minx;
     auto maxy = double(lmap.height())*lmap.tile_height() - miny;
-    return VectorD(std::max(std::min(maxx, r.x), minx),
-                   std::max(std::min(maxy, r.y), miny));
+    return VectorD(std::round(std::max(std::min(maxx, r.x), minx)),
+                   std::round(std::max(std::min(maxy, r.y), miny)));
 }
 
 ControlEvent to_control_event(const sf::Event &);
@@ -54,11 +54,20 @@ std::string HudTimePiece::get_minutes() const {
     return pad_two(std::to_string(mins));
 }
 
+void HudTimePiece::update_gems_count(int count) {
+    auto t = m_gems_count.take_string();
+    t.clear();
+    t = t + "Gems: " + std::to_string(count);
+    m_gems_count.set_text_top_left(VectorD(0, 8), std::move(t));
+}
+
 void HudTimePiece::update(double et) {
     m_total_elapsed_time += et;
-    //auto s = m_timer_text.take_string();
-    auto s = "Time: " + get_minutes() + ":" + get_seconds() + "." + get_centiseconds();
-    m_timer_text.set_text_top_left(VectorD(), s);
+    auto s = m_timer_text.take_string();
+    s.clear();
+    s += "Time: " + get_minutes() + ":"
+      + get_seconds() + "." + get_centiseconds();
+    m_timer_text.set_text_top_left(VectorD(), std::move(s));
 }
 
 void HudTimePiece::update_velocity(VectorD r) {
@@ -67,15 +76,16 @@ void HudTimePiece::update_velocity(VectorD r) {
     t += "speed " + std::to_string(int(std::round(magnitude(r))))
          + " (" + std::to_string(int(std::round(r.x))) + ", "
          + std::to_string(int(std::round(r.y))) + ")";
-    m_velocity.set_text_top_left(VectorD(0, 8), std::move(t));
+    m_velocity.set_text_top_left(VectorD(0, 16), std::move(t));
 }
 
 void HudTimePiece::draw(sf::RenderTarget & target, sf::RenderStates states) const {
     target.draw(m_timer_text, states);
     target.draw(m_velocity, states);
+    target.draw(m_gems_count, states);
 }
 
-void GameDriver::setup(const StartupOptions & opts, const sf::View & view) {
+void GameDriver::setup(const StartupOptions & opts, const sf::View &) {
     m_rng = std::default_random_engine { std::random_device()() };
     m_tmap.load_from_file(opts.test_map);
 
@@ -89,10 +99,12 @@ void GameDriver::setup(const StartupOptions & opts, const sf::View & view) {
             // unrecognized game object
         }
     }
+#   if 0
     m_tmap.set_translation(sf::Vector2f(0.f, 0.f));
     m_tmap.apply_view(view);
     m_tmap.set_translation(sf::Vector2f(0.f, 0.f));
     m_tmap.apply_view(view);
+#   endif
     setup_systems(CompleteSystemList());
 }
 
@@ -108,6 +120,7 @@ void GameDriver::update(double et) {
     m_emanager.process_deletion_requests();
 
     m_timer.update_velocity(m_player.get<PhysicsComponent>().velocity());
+    m_timer.update_gems_count(m_player.get<Collector>().diamond);
 }
 
 void GameDriver::render_to(sf::RenderTarget & target) {
@@ -117,7 +130,9 @@ void GameDriver::render_to(sf::RenderTarget & target) {
     for (auto sys : m_render_target_systems) {
         sys->render_to(target);
     }
+#   if 0
     m_tmap.apply_view(target.getView());
+#   endif
 }
 
 void GameDriver::render_hud_to(sf::RenderTarget & target) {

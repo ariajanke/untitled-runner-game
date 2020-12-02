@@ -51,6 +51,7 @@ using CompleteSystemList = TypeList<
     PlatformBreakingSystem,
     CratePositionUpdateSystem,
     // CollisionEventsSystem,
+    RecallBoundsSystem,
     FallOffSystem
 >;
 
@@ -89,8 +90,9 @@ class HudTimePiece final : public sf::Drawable {
 public:
     HudTimePiece() {
         m_timer_text.load_internal_font();
-        m_velocity = m_timer_text;
+        m_gems_count = m_velocity = m_timer_text;
     }
+    void update_gems_count(int);
     void update(double et);
     void update_velocity(VectorD);
 private:
@@ -106,6 +108,7 @@ private:
     std::string get_minutes() const;
 
     double m_total_elapsed_time = 0.;
+    TextDrawer m_gems_count;
     TextDrawer m_timer_text;
     TextDrawer m_velocity;
 };

@@ -120,13 +120,7 @@ LineTracker * get_tracker(Entity e);
 FreeBody * get_freebody(Entity e);
 
 Rect * get_rectangle(Entity e);
-#if 0
-inline PhysicsState & get_physics_state(Entity & e)
-    { return e.get<PhysicsComponent>().state; }
 
-inline const PhysicsState & get_physics_state(const Entity & e)
-    { return e.get<PhysicsComponent>().state; }
-#endif
 inline Layer & get_layer(Entity & e)
     { return e.get<PhysicsComponent>().active_layer; }
 
@@ -143,6 +137,8 @@ inline Script * get_script(Entity e) {
     if (auto * uptrptr = e.ptr<ScriptUPtr>()) return uptrptr->get();
     return nullptr;
 }
+
+// ----------------------------------------------------------------------------
 
 // yup... guess this project has a script type too!
 class Script {

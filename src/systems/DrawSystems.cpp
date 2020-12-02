@@ -21,6 +21,8 @@
 
 #include <SFML/Graphics/RenderTarget.hpp>
 
+#include <cassert>
+
 /* private static */ AnimatorSystem::CharAniUpdate
     AnimatorSystem::compute_animation_update
     (const PhysicsComponent & pcomp/*, bool should_flip_frame*/)
@@ -88,6 +90,30 @@
 }
 
 // ----------------------------------------------------------------------------
+
+/* private */ void DrawSystem::update(const Entity & e, const SingleImage & simg) {
+    sf::Sprite spt;
+    spt.setTexture(*simg.texture);
+    spt.setTextureRect(simg.texture_rectangle);
+    auto loc = e.get<PhysicsComponent>().location();
+    if (!e.get<PhysicsComponent>().state_is_type<Rect>()) {
+        Rect text_bounds = Rect(simg.texture_rectangle);
+        loc -= VectorD(text_bounds.width*0.5, text_bounds.height);
+    }
+    if (const auto * rt_point = e.ptr<ReturnPoint>()) {
+        static constexpr const double k_max_fade_time = 3.;
+        double t = 1.;
+        if (rt_point->recall_max_time > k_max_fade_time) {
+            t = std::min(1., rt_point->recall_time / k_max_fade_time);
+        } else {
+            t = rt_point->recall_time / rt_point->recall_max_time;
+        }
+        assert(is_real(t) && t >= 0. && t <= 1.);
+        spt.setColor(sf::Color(255, 255, 255, int(std::round(t*255.))));
+    }
+    spt.setPosition(sf::Vector2f(loc));
+    m_sprites.push_back(spt);
+}
 
 /* private */ void DrawSystem::render_to(sf::RenderTarget & render_target) {
     for (auto circle : m_circles) {

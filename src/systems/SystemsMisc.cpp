@@ -22,8 +22,12 @@
 #include "../maps/Maps.hpp"
 
 #include <SFML/Graphics/RenderTarget.hpp>
+#include <SFML/Graphics/Sprite.hpp>
 
+#include <algorithm>
 #include <iostream>
+
+#include <cassert>
 
 // things to implement with basic physics [~6/10]
 // slide landing*
@@ -164,7 +168,12 @@
             fb->location.y = -100.;
         } else if (fb->location.y > map_layer.height()*map_layer.tile_height()) {
             if (auto * rt = e.ptr<ReturnPoint>()) {
-                fb->location = Entity(rt->ref).get<PhysicsComponent>().location();
+                const auto & pcomp = Entity(rt->ref).get<PhysicsComponent>();
+                if (const auto * rect = pcomp.state_ptr<Rect>()) {
+                    fb->location = center_of(*rect);
+                } else {
+                    fb->location = pcomp.location();
+                }
                 fb->velocity = VectorD();
             } else {
                 e.request_deletion();
@@ -248,6 +257,37 @@
 
 // ----------------------------------------------------------------------------
 
+void DiamondCollectSparkles::post_effect(VectorD r, AnimationPtr aptr) {
+    Record rec;
+    rec.ptr = aptr;
+    rec.current_frame = aptr->tile_ids.begin();
+    rec.location = r;
+    m_records.push_back(rec);
+}
+
+void DiamondCollectSparkles::update(double et) {
+    for (auto & rec : m_records) {
+        if ((rec.elapsed_time += et) <= rec.ptr->time_per_frame) continue;
+        assert(rec.current_frame != rec.ptr->tile_ids.end());
+        rec.elapsed_time = 0.;
+        ++rec.current_frame;
+    }
+    auto end = m_records.end();
+    m_records.erase(std::remove_if(m_records.begin(), end, should_delete), end);
+}
+
+void DiamondCollectSparkles::render_to(sf::RenderTarget & target) const {
+    for (const auto & rec : m_records) {
+        sf::Sprite brush;
+        brush.setPosition(sf::Vector2f(rec.location));
+        brush.setTexture(rec.ptr->tileset->texture());
+        brush.setTextureRect(rec.ptr->tileset->texture_rectangle(*rec.current_frame));
+        target.draw(brush);
+    }
+}
+
+// ----------------------------------------------------------------------------
+
 void ItemCollisionSystem::update(const ContainerView & cont) {
     m_collectors.clear();
     m_items.clear();
@@ -260,14 +300,17 @@ void ItemCollisionSystem::update(const ContainerView & cont) {
     for (auto e : m_collectors) {
         e.get<Collector>().last_location = e.get<PhysicsComponent>().location();
     }
+    m_sparkles.update(elapsed_time());
 }
+
 void ItemCollisionSystem::check_item_collection() {
     for (auto & item : m_items) {
     for (auto & collector : m_collectors) {
         check_item_collection(collector, item);
     }}
 }
-void ItemCollisionSystem::check_item_collection(Entity & collector, Entity & item) {
+
+void ItemCollisionSystem::check_item_collection(Entity collector, Entity item) {
     auto & item_rect = *get_rectangle(item);
 
     const auto & col_comp = collector.get<Collector>();
@@ -275,13 +318,13 @@ void ItemCollisionSystem::check_item_collection(Entity & collector, Entity & ite
     if (col_comp.last_location == Collector::k_no_location) return;
     auto cur_location = collector.get<PhysicsComponent>().location() + offset;
     auto old_location = col_comp.last_location + offset;
-#   if 0
-    VectorD old_location = pcomp.history.location + offset;
-#   endif
-    if (!item_rect.contains(old_location) &&
-        line_crosses_rectangle(item_rect, old_location, cur_location))
+
+    if (   !item_rect.contains(old_location)
+        && line_crosses_rectangle(item_rect, old_location, cur_location))
     {
         item.request_deletion();
+        m_sparkles.post_effect(center_of(item_rect), item.get<Item>().collection_animation);
+        ++collector.get<Collector>().diamond;
     }
 }
 

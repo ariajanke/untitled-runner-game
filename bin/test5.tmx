@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.0" tiledversion="1.0.3" orientation="orthogonal" renderorder="right-down" width="800" height="60" tilewidth="16" tileheight="16" nextobjectid="30">
+<map version="1.0" tiledversion="1.0.3" orientation="orthogonal" renderorder="right-down" width="800" height="60" tilewidth="16" tileheight="16" nextobjectid="108">
  <tileset firstgid="1" source="atlastghd.tsrj.tsx"/>
  <tileset firstgid="1513" source="tileset4.tsx"/>
  <tileset firstgid="1769" source="items.tsx"/>
@@ -15,7 +15,7 @@
  </layer>
  <layer name="ground" width="800" height="60">
   <data encoding="base64" compression="zlib">
-   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
+   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
   </data>
  </layer>
  <objectgroup name="Object Layer 1">
@@ -126,11 +126,31 @@
     <property name="boost" value="300, 0"/>
    </properties>
   </object>
-  <object id="28" type="ball" gid="1770" x="4214.11" y="675.228" width="16" height="16">
+  <object id="28" type="ball" gid="1770" x="4240.64" y="624.102" width="16" height="16">
    <properties>
     <property name="ball-type" value="jump-booster"/>
+    <property name="recall-bounds" value="jumper01-bounds"/>
+    <property name="recall-time" value="8.0"/>
    </properties>
   </object>
+  <object id="32" type="diamond" gid="1769" x="3825.41" y="871.031" width="16" height="16"/>
+  <object id="33" type="diamond" gid="1769" x="3811.31" y="871.148" width="16" height="16"/>
+  <object id="34" type="diamond" gid="1769" x="3839.25" y="871.031" width="16" height="16"/>
+  <object id="37" type="diamond" gid="1769" x="4480" y="408" width="16" height="16"/>
+  <object id="77" type="diamond" gid="1769" x="4496" y="408" width="16" height="16"/>
+  <object id="80" type="diamond" gid="1769" x="4512" y="408" width="16" height="16"/>
+  <object id="81" type="diamond" gid="1769" x="4528" y="408" width="16" height="16"/>
+  <object id="82" type="diamond" gid="1769" x="4560" y="408" width="16" height="16"/>
+  <object id="83" type="diamond" gid="1769" x="4544" y="408" width="16" height="16"/>
+  <object id="102" type="diamond" gid="1769" x="4576.15" y="408" width="16" height="16"/>
+  <object id="103" type="diamond" gid="1769" x="4624.15" y="408" width="16" height="16"/>
+  <object id="104" type="diamond" gid="1769" x="4656.15" y="408" width="16" height="16"/>
+  <object id="105" type="diamond" gid="1769" x="4640.15" y="408" width="16" height="16"/>
+  <object id="106" type="diamond" gid="1769" x="4608.15" y="408" width="16" height="16"/>
+  <object id="107" type="diamond" gid="1769" x="4592.15" y="408" width="16" height="16"/>
+ </objectgroup>
+ <objectgroup name="Object Layer 2" visible="0">
+  <object id="31" name="jumper01-bounds" type="recall-bounds" x="3869.08" y="544.913" width="603.805" height="339.115"/>
  </objectgroup>
  <layer name="foreground" width="800" height="60">
   <data encoding="base64" compression="zlib">

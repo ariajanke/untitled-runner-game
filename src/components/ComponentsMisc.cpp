@@ -52,42 +52,7 @@ void release(PlayerControl &, PlayerControl::Direction);
     { release(pc, PlayerControl::k_right_only); }
 
 // ----------------------------------------------------------------------------
-#if 0
-void ScriptEvents::process_event(const ControlEvent & control_event) const {
-    m_script->process_control_event(control_event);
-}
 
-void ScriptEvents::set_script(ScriptPtr & script) {
-    set_script(std::move(script));
-}
-
-void ScriptEvents::set_script(ScriptPtr && script) {
-    auto temp = std::move(m_script);
-    m_script.swap(script);
-}
-
-void ScriptEvents::record_landing(VectorD hit_velocity, EntityRef other_entity) {
-    m_landings.emplace_back();
-    m_landings.back().ref = other_entity;
-    m_landings.back().vel = hit_velocity;
-}
-
-void ScriptEvents::record_departing(EntityRef other_entity) {
-    m_departings.push_back(other_entity);
-}
-
-void ScriptEvents::handle_landings_and_departings(EntityRef this_entity) {
-    Entity this_ent_comp(this_entity);
-    for (const auto & record : m_landings) {
-        m_script->on_landing(this_ent_comp, record.vel, record.ref);
-    }
-    for (const auto & e : m_departings) {
-        m_script->on_departing(this_ent_comp, e);
-    }
-    m_landings.clear();
-    m_departings.clear();
-}
-#endif
 namespace {
 
 void press(PlayerControl & pc, PlayerControl::Direction dir) {

@@ -24,6 +24,8 @@
 
 #include <common/StringUtil.hpp>
 
+#include <iostream>
+
 #include <cstring>
 
 namespace {
@@ -33,15 +35,16 @@ using MapLoaderFunctionMap = std::map<std::string, MapObjectLoaderFunction>;
 
 const MapLoaderFunctionMap & get_loader_functions();
 
-void load_player_start(MapObjectLoader &, const MapObject &);
-void load_snake       (MapObjectLoader &, const MapObject &);
-void load_coin        (MapObjectLoader &, const MapObject &);
-void load_diamond     (MapObjectLoader &, const MapObject &);
-void load_launcher    (MapObjectLoader &, const MapObject &);
-void load_platform    (MapObjectLoader &, const MapObject &);
-void load_waypoints   (MapObjectLoader &, const MapObject &);
-void load_wall        (MapObjectLoader &, const MapObject &);
-void load_ball        (MapObjectLoader &, const MapObject &);
+void load_player_start (MapObjectLoader &, const MapObject &);
+void load_snake        (MapObjectLoader &, const MapObject &);
+void load_coin         (MapObjectLoader &, const MapObject &);
+void load_diamond      (MapObjectLoader &, const MapObject &);
+void load_launcher     (MapObjectLoader &, const MapObject &);
+void load_platform     (MapObjectLoader &, const MapObject &);
+void load_waypoints    (MapObjectLoader &, const MapObject &);
+void load_wall         (MapObjectLoader &, const MapObject &);
+void load_ball         (MapObjectLoader &, const MapObject &);
+void load_recall_bounds(MapObjectLoader &, const MapObject &);
 
 void load_scale_pivot (MapObjectLoader &, const MapObject &);
 void load_scale_left  (MapObjectLoader &, const MapObject &);
@@ -57,7 +60,7 @@ const auto k_loader_functions = {
     std::make_pair("waypoints"     , load_waypoints     ),
     std::make_pair("wall"          , load_wall          ),
     std::make_pair("ball"          , load_ball          ),
-
+    std::make_pair("recall-bounds" , load_recall_bounds ),
     std::make_pair("scale-left"    , load_scale_left    ),
     std::make_pair("scale-right"   , load_scale_right   ),
     std::make_pair("scale-pivot"   , load_scale_pivot   )
@@ -96,13 +99,42 @@ void ScaleLoader::register_scale_pivot_part(const std::string & name, Entity e) 
 
 // ----------------------------------------------------------------------------
 
+// does nothing if there's an active exception
+RecallBoundsLoader::~RecallBoundsLoader() {
+    if (std::uncaught_exceptions() > 0) return;
+    for (auto & [name, record] : m_records) {
+        (void)name;
+        for (auto & recallable : record.recallables) {
+            recallable.get<ReturnPoint>().recall_bounds = record.bounds;
+        }
+    }
+}
+
+void RecallBoundsLoader::register_recallable
+    (const std::string & bounds_entity_name, Entity e)
+{ m_records[bounds_entity_name].recallables.push_back(e); }
+
+void RecallBoundsLoader::register_bounds
+    (const std::string & bounds_entity_name, const Rect & bounds)
+{
+    auto itr = m_records.find(bounds_entity_name);
+    if (itr != m_records.end()) { if (itr->second.bounds != ReturnPoint().recall_bounds) {
+        std::cout << "Warning: dupelicate recall bounds entity by name \""
+                  << bounds_entity_name << "\", this entity will be ignored.";
+        return;
+    }}
+    m_records[bounds_entity_name].bounds = bounds;
+}
+
+// ----------------------------------------------------------------------------
+
 MapObjectLoader::MapObjectLoader() {
-    CachedLoader<SpriteSheet>::set_loader_function(TypeTag<SpriteSheet>(), []
+    CachedLoader<SpriteSheet, std::string>::set_loader_function(TypeTag<SpriteSheet>(), []
         (const std::string & filename, SpriteSheet & sptsheet)
     {
         sptsheet.load_from_file(filename);
     });
-    CachedLoader<std::vector<VectorD>, WaypointsTag>::set_loader_function
+    CachedLoader<std::vector<VectorD>, std::string, WaypointsTag>::set_loader_function
         (WaypointsTag(), [](const std::string &, std::vector<VectorD> &) {});
 }
 
@@ -194,6 +226,7 @@ void load_diamond(MapObjectLoader & loader, const tmap::MapObject & obj) {
     e.add<PhysicsComponent>().reset_state<Rect>() = Rect(obj.bounds);
     e.add<Item>().diamond = 1;
     load_display_frame(e.add<DisplayFrame>(), obj);
+    loader.load_animation(e.get<Item>(), obj);
 }
 
 void load_launcher(MapObjectLoader & loader, const tmap::MapObject & obj) {
@@ -233,9 +266,6 @@ void load_platform(MapObjectLoader & loader, const tmap::MapObject & obj) {
         // the current segment
         string_to_number(itr->second, e.get<Platform>().position);
     }
-#   if 0
-    e.add<ScriptUPtr>() = std::make_unique<PrintOutLandingsDepartingsScript>();
-#   endif
 }
 
 void load_waypoints(MapObjectLoader & loader, const MapObject & obj) {
@@ -268,18 +298,44 @@ void load_ball(MapObjectLoader & loader, const MapObject & obj) {
     if (itr != obj.custom_properties.end()) { if (itr->second == "jump-booster") {
         hold_type = Item::jump_booster;
     }}
+
     auto recall_e = loader.create_entity();
     recall_e.add<PhysicsComponent>().reset_state<Rect>() = Rect(obj.bounds);
 
     auto ball_e = loader.create_entity();
     ball_e.add<PhysicsComponent>().reset_state<FreeBody>().location = center_of(obj);
     ball_e.add<Item>().hold_type = hold_type;
-    if (obj.texture) {
+    if (obj.tile_set) {
         load_display_frame(ball_e.add<DisplayFrame>(), obj);
     } else {
         ball_e.add<DisplayFrame>().reset<ColorCircle>().color = sf::Color(200, 100, 100);
     }
-    ball_e.add<ReturnPoint>().ref = recall_e;
+    auto & rt_point = ball_e.add<ReturnPoint>();
+    rt_point.ref = recall_e;
+    itr = obj.custom_properties.find("recall-time");
+    if (itr != obj.custom_properties.end()) {
+        double time = ReturnPoint::k_default_recall_time;
+        auto b = itr->second.begin(), e = itr->second.end();
+        trim<is_whitespace>(b, e);
+        if (string_to_number(b, e, time)) {
+            rt_point.recall_max_time = rt_point.recall_time = time;
+        } else {
+            std::cout << "recall-time was not numeric (value: \"" << itr->second << "\")." << std::endl;
+        }
+    }
+
+    itr = obj.custom_properties.find("recall-bounds");
+    if (itr != obj.custom_properties.end()) {
+        loader.register_recallable(itr->second, ball_e);
+    }
+}
+
+void load_recall_bounds(MapObjectLoader & loader, const MapObject & obj) {
+    if (obj.name.empty()) {
+        std::cout << "recall-bounds object is unnamed." << std::endl;
+        return;
+    }
+    loader.register_bounds(obj.name, Rect(obj.bounds));
 }
 
 void load_scale_pivot(MapObjectLoader & loader, const MapObject & obj) {
@@ -327,10 +383,10 @@ LineSegment to_floor_segment(const sf::Rect<T> & rect) {
 inline bool is_comma(char c) { return c == ','; }
 
 void load_display_frame(DisplayFrame & dframe, const tmap::MapObject & obj) {
-    if (obj.texture) {
+    if (obj.tile_set) {
         auto & si = dframe.reset<SingleImage>();
-        si.texture = obj.texture;
-        si.texture_rectangle = obj.texture_bounds;
+        si.texture = &obj.tile_set->texture();
+        si.texture_rectangle = obj.tile_set->texture_rectangle(obj.local_tile_id);
     }
 }
 

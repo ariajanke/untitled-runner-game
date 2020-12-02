@@ -69,8 +69,9 @@ struct PlatformTransfer final : public SegTransfer {
 using PlatformsCont = EnvColParams::PlatformsCont;
 
 static constexpr const double k_friction_thershold = k_pi*0.8;
+#if 0
 static constexpr const double k_inf = std::numeric_limits<double>::infinity();
-
+#endif
 bool in_segment_range(double x) { return x >= 0. && x <= 1.; }
 
 double check_for_traversal_interruption(EnvColParams &, double et_trav);

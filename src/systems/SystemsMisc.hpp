@@ -21,11 +21,7 @@
 
 #include "SystemsDefs.hpp"
 
-class PlayerControlSystem final : public System, public TimeAware
-#if 0
-        , public PhysicsHistoryAware
-#endif
-{
+class PlayerControlSystem final : public System, public TimeAware {
     static constexpr const double k_acceleration        = 125.;
     static constexpr const double k_breaking_boost      = 3.;
     static constexpr const double k_max_voluntary_speed = 400;
@@ -33,9 +29,6 @@ class PlayerControlSystem final : public System, public TimeAware
     static constexpr const double k_jump_speed          = 333.;
 
     void update(const ContainerView & view) {
-#       if 0
-        auto pwc = make_watchers(view);
-#       endif
         for (auto e : view) update(e);
     }
 
@@ -81,18 +74,47 @@ class GravityUpdateSystem final : public System, public TimeAware {
     void update(Entity e);
 };
 
-class ItemCollisionSystem final : public System, public MapAware {
+class DiamondCollectSparkles {
+public:
+    using AnimationPtr = std::shared_ptr<const ItemCollectionAnimation>;
+    void post_effect(VectorD r, AnimationPtr aptr);
+    void update(double et);
+    void render_to(sf::RenderTarget & target) const;
+
+private:
+    struct Record {
+        AnimationPtr ptr;
+        std::vector<int>::const_iterator current_frame;
+        double elapsed_time = 0.;
+        VectorD location;
+    };
+
+    static bool should_delete(const Record & rec)
+        { return rec.current_frame == rec.ptr->tile_ids.end(); }
+
+    std::vector<Record> m_records;
+};
+
+class ItemCollisionSystem final :
+    public System, public MapAware, public RenderTargetAware, public TimeAware
+{
 public:
     void update(const ContainerView & cont) override;
 
     void check_item_collection();
 
-    void check_item_collection(Entity & collector, Entity & item);
+    void check_item_collection(Entity collector, Entity item);
 
+    void render_to(sf::RenderTarget & target) override {
+        m_sparkles.render_to(target);
+    }
+#   if 0
     void check_item_grabs();
 
     void check_item_grabs(Entity & grabber, Entity & grabable);
+#   endif
 private:
+    DiamondCollectSparkles m_sparkles;
     std::vector<Entity> m_items;
     std::vector<Entity> m_collectors;
 };
@@ -141,11 +163,7 @@ class PlatformWaypointSystem final : public System, public TimeAware {
     }
 };
 
-class HoldItemSystem final : public System
-#if 0
-        , public PhysicsHistoryAware
-#endif
-{
+class HoldItemSystem final : public System {
 
     void update(const ContainerView & view) override;
 
@@ -180,7 +198,6 @@ class PlatformBreakingSystem final : public System {
     }
 
     void update(Entity platform_e, Entity item_e) {
-        static constexpr const double k_inf = std::numeric_limits<double>::infinity();
         VectorD low(k_inf, k_inf), high(-k_inf, -k_inf);
         auto & plat = platform_e.get<Platform>();
         for (const auto & plat : plat.surface_view(platform_e.ptr<PhysicsComponent>())) {
@@ -234,15 +251,8 @@ class CratePositionUpdateSystem final : public System {
     }
 };
 #endif
-class FallOffSystem final : public System
-        #if 0
-        , public PhysicsHistoryAware
-        #endif
-{
+class FallOffSystem final : public System {
     void update(const ContainerView & view) override {
-#       if 0
-        auto pwc = make_watchers(view);
-#       endif
         for (auto e : view) {
             auto * tracker = get_tracker(e);
             if (!tracker) continue;
@@ -254,23 +264,35 @@ class FallOffSystem final : public System
             } else {
                 if (Entity(eref).has<Platform>()) continue;
             }
-#           if 0
-            auto & pcomp = e.get<PhysicsComponent>();
-            // can't get tracker's location here, the reference is no longer
-            // valid!
-            pcomp.reset_state<FreeBody>().location = pcomp.history.location;
-#           endif
         }
     }
 };
-#if 0
-class CollisionEventsSystem final : public System {
+
+class RecallBoundsSystem final : public System, public TimeAware {
     void update(const ContainerView & view) override {
         for (auto e : view) {
-            if (auto * script_ev = e.ptr<ScriptEvents>()) {
-                script_ev->handle_landings_and_departings(e);
-            }
+           update(e);
+        }
+    }
+
+    void update(Entity e) const {
+        if (!e.has<ReturnPoint>() || !e.has<PhysicsComponent>()) return;
+        const auto & pcomp = e.get<PhysicsComponent>();
+        auto & rt_point = e.get<ReturnPoint>();
+        if (   rect_contains(rt_point.recall_bounds, pcomp.location())
+            || pcomp.state_is_type<HeldState>())
+        {
+            rt_point.recall_time = rt_point.recall_max_time;
+            return;
+        }
+        if ((rt_point.recall_time -= elapsed_time()) <= 0.) {
+            rt_point.recall_time = 0.;
+            auto & pcomp = e.get<PhysicsComponent>();
+            auto & fb = pcomp.reset_state<FreeBody>();
+            fb.velocity = VectorD();
+            fb.location = center_of(Entity(rt_point.ref).get<PhysicsComponent>().state_as<Rect>());
+            // post disappear and reappear effects
         }
     }
 };
-#endif
+

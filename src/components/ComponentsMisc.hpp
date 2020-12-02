@@ -23,7 +23,16 @@
 
 #include <common/MultiType.hpp>
 
+#include <tmap/MapObject.hpp>
+
 #include <memory>
+
+struct ItemCollectionAnimation {
+    using TileSetPtr = tmap::MapObject::TileSetPtr;
+    std::vector<int> tile_ids;
+    TileSetPtr tileset = nullptr;
+    double time_per_frame = 0.;
+};
 
 struct Item {
     enum HoldType {
@@ -33,6 +42,7 @@ struct Item {
     static constexpr const int k_hold_type_count = not_holdable;
     int      diamond   = 0;
     HoldType hold_type = not_holdable;
+    std::shared_ptr<ItemCollectionAnimation> collection_animation = nullptr;
 };
 
 struct Collector {
@@ -70,7 +80,11 @@ struct Snake {
 };
 
 struct ReturnPoint {
+    static constexpr const double k_default_recall_time = 1.;
     EntityRef ref;
+    Rect recall_bounds     = Rect(-k_inf, -k_inf, k_inf, k_inf);
+    double recall_max_time = k_default_recall_time;
+    double recall_time     = k_default_recall_time;
 };
 
 struct HeadOffset : public VectorD {
@@ -138,39 +152,5 @@ constexpr const int k_press_event   = ControlEvent::GetTypeId<PressEvent  >::k_v
 constexpr const int k_release_event = ControlEvent::GetTypeId<ReleaseEvent>::k_value;
 
 class Script;
-#if 0
-class ScriptEvents {
-public:
-    using ScriptPtr = std::unique_ptr<Script>;
-    void process_event(const ControlEvent &) const;
-    template <typename T>
-    T & set_script();
-    void set_script(ScriptPtr &);
-    void set_script(ScriptPtr &&);
-    void record_landing(VectorD hit_velocity, EntityRef other_entity);
-    void record_departing(EntityRef other_entity);
-    // I don't particularly like this, is this game logic in a component?
-    // or is this just a conveince function/data hiding/container logic?
-    void handle_landings_and_departings(EntityRef this_entity);
-private:
-    struct HitRecord {
-        VectorD vel;
-        EntityRef ref;
-    };
-    ScriptPtr m_script;
-    std::vector<HitRecord> m_landings;
-    std::vector<EntityRef> m_departings;
-};
 
-template <typename T>
-T & ScriptEvents::set_script() {
-    static_assert(std::is_base_of_v<Script, T>, "Type T must be derived from Script.");
-    auto uptr = std::make_unique<T>();
-    T & rv = *uptr.get();
-    ScriptPtr usptr;
-    usptr.swap(uptr);
-    set_script(usptr);
-    return rv;
-}
-#endif
 using ScriptUPtr = std::unique_ptr<Script>;
