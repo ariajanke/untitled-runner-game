@@ -134,7 +134,7 @@ void LineMapLoader::load_layer_into
     dets.swap(*src_dets);
 }
 
-void LineMapLoader::load_transitions_into(Grid<bool> & grid) {
+void LineMapLoader::load_transitions_into(TransitionGrid & grid) {
     grid.clear();
     grid.swap(m_transition_tiles);
 }
@@ -201,18 +201,18 @@ void LineMapLoader::load_transitions_into(Grid<bool> & grid) {
 }
 
 /* private */ void LineMapLoader::load_transition_tiles
-    (const tmap::TiledMap & map, Grid<bool> & grid) const
+    (const tmap::TiledMap & map, TransitionGrid & grid) const
 {
     assert(has_tile_size_initialized());
 
-    grid.set_size(m_foreground.width(), m_foreground.height(), false);
+    grid.set_size(m_foreground.width(), m_foreground.height(), TransitionTileType::no_transition);
     for (const auto & obj : map.map_objects()) {
         if (obj.type != k_transition_object) continue;
         VectorD a(sf::Vector2f(obj.bounds.left, obj.bounds.top));
         VectorD b = a + VectorD(sf::Vector2f(obj.bounds.width, obj.bounds.height));
         auto range = compute_range_for_tiles(grid, a, b, tile_width(), tile_height());
-        using RefType = Grid<bool>::ReferenceType;
-        for (RefType b : range) { b = true; }
+        using RefType = TransitionGrid::ReferenceType;
+        for (RefType & b : range) { b = TransitionTileType::toggle_layers; }
     }
 }
 

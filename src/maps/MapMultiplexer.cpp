@@ -86,7 +86,7 @@ inline bool is_semicolon(char c) { return c == ';'; }
 
 LinkInfo load_link(const std::string & link_string);
 
-VectorD get_translation_from_edge(const LineMap &, VectorI offset, MapEdge edge);
+[[deprecated]] VectorD get_translation_from_edge(const LineMap &, VectorI offset, MapEdge edge);
 
 void prepare_element
     (/*const std::string & filename, MultiMapLoader & loader,*/
@@ -180,7 +180,7 @@ LinkInfo load_link(const std::string & link_string) {
                 // emit warning
                 phase = k_warned;
                 return;
-            default: throw ImpossibleBranchException();
+            default: throw BadBranchException();
             }
             return;
         case k_read_offset:
@@ -232,7 +232,7 @@ VectorI read_offset(const char * beg, const char * end, MapEdge edge) {
 
 
 
-    default: throw ImpossibleBranchException();
+    default: throw BadBranchException();
     }
 }
 

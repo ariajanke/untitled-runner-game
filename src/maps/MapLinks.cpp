@@ -181,7 +181,7 @@ void MapLinks::add_link(VectorI offset, MapSharedPtr mapptr, MapEdge edge) {
     case Mp::right       : return EdgeRun { Vec(m_width,        0), Vec(    m_width, m_height), Vec(0, 1) };
     case Mp::top         : return EdgeRun { Vec(      0,       -1), Vec(    m_width,       -1), Vec(1, 0) };
     case Mp::bottom      : return EdgeRun { Vec(      0, m_height), Vec(    m_width, m_height), Vec(1, 0) };
-    default: throw ImpossibleBranchException();
+    default: throw BadBranchException();
     }
 }
 
@@ -200,7 +200,7 @@ void MapLinks::add_link(VectorI offset, MapSharedPtr mapptr, MapEdge edge) {
     case Mp::right       : return MapTransf { Vec(         0,           0), Vec(0, 1) };
     case Mp::top         : return MapTransf { Vec(         0, oheight - 1), Vec(1, 0) };
     case Mp::bottom      : return MapTransf { Vec(         0,           0), Vec(1, 0) };
-    default: throw ImpossibleBranchException();
+    default: throw BadBranchException();
     }
 }
 
@@ -216,8 +216,8 @@ void MapLinks::add_link(VectorI offset, MapSharedPtr mapptr, MapEdge edge) {
     case Mp::right       : assert(offset.x == 0); return offset.y;
     case Mp::top         :
     case Mp::bottom      : assert(offset.y == 0); return offset.x;
+    default: throw BadBranchException();
     }
-    throw ImpossibleBranchException();
 }
 
 /* private */ std::size_t MapLinks::to_index(VectorI r) const {

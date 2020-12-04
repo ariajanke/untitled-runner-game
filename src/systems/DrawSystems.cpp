@@ -25,7 +25,7 @@
 
 /* private static */ AnimatorSystem::CharAniUpdate
     AnimatorSystem::compute_animation_update
-    (const PhysicsComponent & pcomp/*, bool should_flip_frame*/)
+    (const PhysicsComponent & pcomp)
 {
     using CharAni = CharacterAnimator;
     int sequence_by_state = CharAni::k_invalid_sequence;
@@ -65,17 +65,14 @@
             time_per_frame = std::numeric_limits<double>::infinity();
         }
     } else {
-        throw ImpossibleBranchException();
+        throw BadBranchException();
     }
-    return CharAniUpdate { sequence_by_state, /*should_flip_frame, */time_per_frame };
+    return CharAniUpdate { sequence_by_state, time_per_frame };
 }
 
 /* private static */ void AnimatorSystem::update_character_animation
     (double elapsed_time, const CharAniUpdate & ani_update, CharacterAnimator & animator)
 {
-#   if 0
-    auto ani_update = compute_animation_update(pstate);
-#   endif
     if (animator.current_sequence != ani_update.sequence_number) {
         // we must update frame
         animator.frame_time    = 0.;

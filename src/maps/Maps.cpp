@@ -82,7 +82,7 @@ VectorI LineMapLayer::limit_to(VectorI r) const {
     return limit_vector_to(m_segments_grid, r);
 }
 
-
+#if 0
 VectorI LineMapLayer::tile_location_of(VectorD r) const {
 
 }
@@ -90,7 +90,7 @@ VectorI LineMapLayer::tile_location_of(VectorD r) const {
 bool LineMapLayer::is_edge_tile(VectorI r) const {
 
 }
-
+#endif
 
 /* private */ void LineMapLayer::check_invarients() const {
     assert(m_segments_grid.height() == m_surface_details.height() &&
@@ -127,9 +127,13 @@ void LineMap::make_blank_of_size(int width_, int height_) {
     m_background.make_blank_of_size(width_, height_);
 }
 
-bool LineMap::point_in_transition(VectorI r) const {
+bool LineMap::tile_in_transition(VectorI r) const {
     if (!m_transition_tiles.has_position(r)) return false;
-    return m_transition_tiles(r);
+    return m_transition_tiles(r) != TransitionTileType::no_transition;
+}
+
+bool LineMap::point_in_transition(VectorI r) const {
+    return tile_in_transition(r);
 }
 
 bool LineMap::point_in_transition(VectorD point) const {
@@ -137,7 +141,7 @@ bool LineMap::point_in_transition(VectorD point) const {
     auto theight = m_foreground.tile_height();
 
     VectorI r(int(std::floor(point.x / twidth)), int(std::floor(point.y / theight)));
-    return point_in_transition(r);
+    return tile_in_transition(r);
 }
 
 VectorI LineMap::limit_to(VectorI r) const {

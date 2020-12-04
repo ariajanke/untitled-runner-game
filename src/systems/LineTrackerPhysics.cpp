@@ -142,7 +142,7 @@ void update_layer
             const auto & fb = params.state_as<FreeBody>();
             return handle_freebody_physics(params, fb.location + fb.velocity*rem_et);
             }
-        default: throw ImpossibleBranchException();
+        default: throw BadBranchException();
         }
     }
     assert(params.state_is_type<LineTracker>());
@@ -219,9 +219,6 @@ double check_for_traversal_interruption(EnvColParams & params, double et_trav) {
         LineTracker new_tracker = transfer_tracker(platxfer, tracker);
         update_layer(tracker, new_tracker, params.map, &params.layer);
         params.set_transfer(new_tracker);
-#       if 0
-        params.state = PhysicsState(new_tracker);
-#       endif
         return platxfer.et_after_transfer;
     }
 
@@ -239,9 +236,6 @@ double check_for_traversal_interruption(EnvColParams & params, double et_trav) {
         // remaining et...
         // incurs et debt here
         params.set_freebody(fbody);
-#       if 0
-        params.state = PhysicsState(fbody);
-#       endif
         return 0.;
     }
     // that "standard" position update
@@ -273,7 +267,7 @@ LinkSegTransfer find_linked_transfer(const LineTracker & tracker, const LineMapL
         switch (segend) {
         case LineSegmentEnd::k_a: next_segment = platform.previous_surface(next_segment); break;
         case LineSegmentEnd::k_b: next_segment = platform.next_surface    (next_segment); break;
-        default: throw ImpossibleBranchException();
+        default: throw BadBranchException();
         }
         LinkSegTransfer segxfer;
         if (std::size_t( next_segment ) != Platform::k_no_surface) {
@@ -310,15 +304,9 @@ bool check_for_segment_transfer_interrupt
     }
     if (segxfer.angle_of_transfer <= k_pi*0.5) {
         // no transfer (hit wall)
-#       if 0
-        LineTracker new_tracker = tracker;
-#       endif
         tracker.position = (new_pos > 1.) ? 1. - k_error : k_error;
         tracker.speed    = 0.;
         assert(in_segment_range(tracker.position));
-#       if 0
-        state = PhysicsState(new_tracker);
-#       endif
         return true;
     }
     return false;
@@ -364,7 +352,6 @@ void find_position_neighbor
 PlatformTransfer check_for_platform_transfer
     (const EnvColParams & params, const LineTracker & tracker, double fullet)
 {
-    //auto intersections = make_in_place_vector<IntersectionInfo, k_get_intersections_in_place_length>();
     DefineInPlaceVector<IntersectionInfo, k_intersections_in_place_length> intersections;
     intersections.reserve(k_intersections_in_place_length);
     auto old_pos = location_of(tracker);
@@ -377,21 +364,34 @@ PlatformTransfer check_for_platform_transfer
         add_map_intersections(params, intersections, old_pos, new_pos);
     }
 
+    intersections.erase(
+        std::remove_if(intersections.begin(), intersections.end(),
+        [&tracker](const IntersectionInfo & intr) {
+            assert(tracker.surface_ref());
+            return    tracker.surface_ref().attached_entity() == intr.attached_entity()
+                   && tracker.surface_ref().tile_location  () == intr.tile_location  ();
+        }), intersections.end());
+
     if (intersections.empty()) return PlatformTransfer();
 
     sort_intersections(intersections, old_pos);
     const auto & inx = intersections.front();
 
-    {
-    static int i = 0;
-    std::cout << ++i << " platform transfer ";
-    if (inx.attached_entity()) {
-        std::cout << inx.attached_entity().hash() << " " << inx.segment_number();
-    } else {
-        std::cout << "(" << inx.tile_location().x << ", " << inx.tile_location().y << ") "
-                  << inx.segment_number();
-    }
-    std::cout << std::endl;
+    if (params.should_log_debug()) {
+        static int i = 0;
+        std::cout << "platform transfer #" << ++i << " to ";
+        if (inx.attached_entity()) {
+            std::cout << inx.attached_entity().hash() << " " << inx.segment_number();
+        } else {
+            std::cout << "(" << inx.tile_location().x << ", " << inx.tile_location().y << ") "
+                      << inx.segment_number();
+        }
+        std::cout << " from ";
+        auto old_ref = tracker.surface_ref();
+        if (old_ref.attached_entity()) {
+            std::cout << old_ref.attached_entity().hash() << " " << old_ref.segment_number();
+        }
+        std::cout << std::endl;
     }
 
     PlatformTransfer rv;
@@ -413,13 +413,36 @@ PlatformTransfer check_for_platform_transfer
     auto inx_pos = tracker.position + tracker.speed*rv.et_after_transfer;
     [inx, &tracker, inx_pos](PlatformTransfer & rv) {
         LineSegment tracker_seg = *tracker.surface_ref();
+        // must be handled: tip-to-tip transfers
         if ( tracker.position < inx_pos )
              { tracker_seg.b = inx.intersection; }
         else { tracker_seg.a = inx.intersection; }
         LineSegment inxa = *inx;
         LineSegment inxb = *inx;
+
+        // I don't think this will work
+#       if 0
+        if (   are_very_close(inx.intersection, tracker_seg.a)
+            || are_very_close(inx.intersection, tracker_seg.b))
+        {
+            auto old_seg = inxa;
+            auto p = normalize(inxa.b - inxa.a);
+            inxa.b += p;
+            inxa.a -= p;
+            inxb.b += p;
+            inxb.a -= p;
+            tracker_seg.a += p;
+            tracker_seg.b -= p;
+            assert(segment_length(old_seg) < segment_length(inxa));
+            assert(!are_very_close(inx.intersection, inxa.a));
+            assert(!are_very_close(inx.intersection, inxa.b));
+
+        }
+#       endif
         inxa.a = inx.intersection;
         inxb.b = inx.intersection;
+        assert(!are_very_close(inxa.a, inxa.b));
+        assert(!are_very_close(inxb.a, inxb.b));
         auto inxa_ang = angle_between(tracker_seg, inxa, tracker.inverted_normal);
         auto inxb_ang = angle_between(tracker_seg, inxb, tracker.inverted_normal);
         const auto * ontoseg = (inxa_ang < inxb_ang) ? &inxa : &inxb;
@@ -473,7 +496,7 @@ LineTracker transfer_tracker
                        k_no_intersection;
             });
         }
-        throw ImpossibleBranchException();
+        throw BadBranchException();
     } ();
     LineSegment seg, oseg;
     if (new_speed > 0.) {
@@ -493,6 +516,8 @@ LineTracker transfer_tracker
 double angle_between(const LineSegment & old, const LineSegment & new_,
                      bool inverted_normal_on_old)
 {
+    assert(!are_very_close(old.a, old.b));
+    assert(!are_very_close(new_.a, new_.b));
     const VectorD * pivot     = nullptr;
     const VectorD * extremity = nullptr;
     const VectorD * other_ext = nullptr;

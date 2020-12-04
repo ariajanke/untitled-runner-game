@@ -21,7 +21,10 @@
 #include <iostream>
 
 #include <cassert>
-
+#if 0
+SurfaceView make_surface_view(const Platform & plat, const Entity & e)
+    { return make_surface_view(plat, e.ptr<PhysicsComponent>(), e.ptr<Waypoints>()); }
+#endif
 LineTracker * get_tracker(Entity e) {
     if (!e.has<PhysicsComponent>()) return nullptr;
     return e.get<PhysicsComponent>().state_ptr<LineTracker>();
@@ -69,7 +72,7 @@ PlayerScript::PlayerScript(Entity player_e):
             if (m_player.get<Collector>().held_object())
                 pcon.will_release = true;
             break;
-        default: throw ImpossibleBranchException();
+        default: throw BadBranchException();
         }
         break;
     case k_release_event:
@@ -84,11 +87,11 @@ PlayerScript::PlayerScript(Entity player_e):
                 pcon.releasing    = true ;
             }
             break;
-        default: throw ImpossibleBranchException();
+        default: throw BadBranchException();
         }
         break;
     case ControlEvent::k_no_type: break;
-    default: throw ImpossibleBranchException();
+    default: throw BadBranchException();
     }
 
 }
@@ -145,15 +148,19 @@ ScalePivotScript::ScalePivotScript(Entity pivot, Entity left, Entity right):
         Rect bounds = part.get<PhysicsComponent>().state_as<Rect>();
         part.remove<PhysicsComponent>();
         auto & plat = part.add<Platform>();
+        auto & waypts = part.add<Waypoints>();
         plat.set_surfaces(std::vector<Surface>{ Surface(LineSegment(VectorD(), VectorD(bounds.width, 0.))) });
         VectorD top_pt(bounds.left, bounds.top + bounds.height*0.5);
-        plat.waypoints = std::make_shared<std::vector<VectorD>>(std::vector<VectorD> {
+        waypts.waypoints = std::make_shared<std::vector<VectorD>>(std::vector<VectorD> {
             top_pt, VectorD(top_pt.x, pivot_bounds.top + pivot_bounds.height*0.5)
         });
-        plat.cycle_waypoints = false;
-        plat.speed = 50.;
-        plat.waypoint_number = 0;
-        plat.position = 0.;
+        waypts.set_behavior(Waypoints::k_forewards);
+#       if 0
+        waypts.cycle_waypoints = false;
+#       endif
+        waypts.speed = 50.;
+        waypts.waypoint_number = 0;
+        waypts.position = 0.;
     }
 }
 
@@ -186,18 +193,27 @@ void ScalePivotScript::leave_right(EntityRef) {
 }
 
 void ScalePivotScript::update_balance() {
-    auto & left_plat = m_left.get<Platform>();
-    auto & right_plat = m_right.get<Platform>();
+    auto & left_waypts = m_left.get<Waypoints>();
+    auto & right_waypts = m_right.get<Waypoints>();
     if (m_left_weight > m_right_weight) {
-        left_plat.speed = -50.;
-        right_plat.speed = 50.;
+        left_waypts.speed = -50.;
+        right_waypts.speed = 50.;
     } else if (m_left_weight < m_right_weight) {
-        left_plat.speed = 50.;
-        right_plat.speed = -50.;
+        left_waypts.speed = 50.;
+        right_waypts.speed = -50.;
     } else {
-        left_plat.speed = right_plat.speed = 0.;
+        left_waypts.speed = right_waypts.speed = 0.;
     }
 }
+
+void BasketScript::on_departing(Entity, EntityRef) {
+
+}
+
+void BasketScript::on_landing(Entity, VectorD, EntityRef) {
+
+}
+
 #if 0
 /* private */ void PrintOutLandingsDepartingsScript::on_departing
     (Entity this_ent, EntityRef eref)

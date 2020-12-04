@@ -67,70 +67,99 @@ using WaypointsTag = TypeTag<Platform>;
 
 class CachedItemAnimations {
 public:
-    void load_animation(Item & item, const tmap::MapObject & obj) {
-        auto & ptr = m_map[obj.tile_set->convert_to_gid(obj.local_tile_id)];
-        if (!ptr.expired()) {
-            item.collection_animation = ptr.lock();
-            return;
-        }
-
-        const auto * props = obj.tile_set->properties_on(obj.local_tile_id);
-        if (!props) return;
-        auto itr = props->find("on-collection");
-        if (itr == props->end()) return;
-
-        const char * beg = &itr->second.front();
-        const char * end = beg + itr->second.size();
-
-        ItemCollectionAnimation ica;
-        ica.tileset = obj.tile_set;
-        int num = 0;
-        for_split<is_colon>(beg, end, [&ica, &num](const char * beg, const char * end) {
-            if (num == 0) {
-                trim<is_whitespace>(beg, end);
-                if (!string_to_number(beg, end, ica.time_per_frame)) {}
-            } else if (num == 1) {
-                auto & vec = ica.tile_ids;
-                for_split<is_comma>(beg, end, [&vec](const char * beg, const char * end) {
-                    int i = 0;
-                    trim<is_whitespace>(beg, end);
-                    if (string_to_number(beg, end, i)) {
-                        vec.push_back(i);
-                    } else {}
-                });
-            }
-            ++num;
-        });
-        ptr = (item.collection_animation = std::make_shared<ItemCollectionAnimation>(std::move(ica)));
-    }
+    void load_animation(Item & item, const tmap::MapObject & obj);
 private:
     static bool is_colon(char c) { return c == ':'; }
     static bool is_comma(char c) { return c == ','; }
     std::map<int, std::weak_ptr<ItemCollectionAnimation>> m_map;
 };
 
+class CachedWaypoints {
+public:
+    using WaypointsPtr = Waypoints::WaypointsPtr;
+    using WaypointsContainer = Waypoints::WaypointsContainer;
+    WaypointsPtr load_waypoints(const tmap::MapObject * obj);
+private:
+    WaypointsPtr m_no_obj_waypoints;
+    std::map<std::string, std::weak_ptr<WaypointsContainer>> m_waypt_map;
+};
+
 class MapObjectLoader :
     public CachedLoader<SpriteSheet, std::string>,
-    public CachedLoader<std::vector<VectorD>, std::string, WaypointsTag>,
-    //public CachedLoader<ItemCollectionAnimation>,
-    public CachedItemAnimations,
+    public CachedWaypoints, public CachedItemAnimations,
     public ScaleLoader, public RecallBoundsLoader
 {
 public:
     using CachedLoader<SpriteSheet, std::string>::load;
-    using CachedLoader<std::vector<VectorD>, std::string, WaypointsTag>::load;
+    using WaypointsPtr = Waypoints::WaypointsPtr;
 
-    using WaypointsPtr = Platform::WaypointsPtr;
     MapObjectLoader();
 
     virtual ~MapObjectLoader();
     virtual Entity create_entity() = 0;
     virtual void set_player(Entity) = 0;
     virtual std::default_random_engine & get_rng() = 0;
+    virtual const tmap::MapObject * find_map_object(const std::string &) const = 0;
 };
 
 namespace tmap { struct MapObject; }
 using MapObjectLoaderFunction = void(*)(MapObjectLoader &, const tmap::MapObject &);
 
 MapObjectLoaderFunction get_loader_function(const std::string &);
+#if 0
+template <typename Key, typename T, typename Compare, typename Key2, typename Func>
+void do_if_found
+    (const std::map<Key, T, Compare> & map, Key2 saught_key, Func && f)
+{
+    auto itr = map.find(saught_key);
+    if (itr == map.end()) return;
+    const auto & obj = itr->second;
+    (void)f(obj);
+}
+#endif
+template <typename Key, typename T, typename Compare>
+class MapValueFinder {
+public:
+    using MapType = std::map<Key, T, Compare>;
+
+    explicit MapValueFinder(const MapType & map_): map(map_) {}
+
+    template <typename Key2, typename Func>
+    void operator () (Key2 saught_key, Func && f) const {
+        auto itr = map.find(saught_key);
+        if (itr == map.end()) return;
+        const auto & obj = itr->second;
+        (void)f(obj);
+    }
+private:
+    const MapType & map;
+};
+
+template <typename Key, typename T, typename Compare>
+MapValueFinder<Key, T, Compare> make_do_if_found(const std::map<Key, T, Compare> & map) {
+    return MapValueFinder(map);
+}
+
+template <typename T, typename U>
+std::vector<T> convert_vector_to(const std::vector<U> & vec) {
+    static_assert(std::is_constructible_v<U, T>, "Cannot convert source vector.");
+    std::vector<T> rv;
+    rv.reserve(vec.size());
+    for (const auto & src : vec)
+        rv.emplace_back(src);
+    return rv;
+}
+
+template <typename T, typename Func>
+void for_side_by_side(const std::vector<T> & vec, Func && f) {
+    if (vec.empty()) return;
+    auto itr = vec.begin();
+    auto jtr = itr + 1;
+    for (; jtr != vec.end(); ++itr, ++jtr) {
+        const auto & lhs = *itr;
+        const auto & rhs = *jtr;
+        if (adapt_to_flow_control_signal(std::move(f), lhs, rhs) == fc_signal::k_break)
+            return;
+    }
+}
 

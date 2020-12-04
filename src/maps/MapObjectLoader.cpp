@@ -27,6 +27,7 @@
 #include <iostream>
 
 #include <cstring>
+#include <cassert>
 
 namespace {
 
@@ -41,10 +42,10 @@ void load_coin         (MapObjectLoader &, const MapObject &);
 void load_diamond      (MapObjectLoader &, const MapObject &);
 void load_launcher     (MapObjectLoader &, const MapObject &);
 void load_platform     (MapObjectLoader &, const MapObject &);
-void load_waypoints    (MapObjectLoader &, const MapObject &);
 void load_wall         (MapObjectLoader &, const MapObject &);
 void load_ball         (MapObjectLoader &, const MapObject &);
 void load_recall_bounds(MapObjectLoader &, const MapObject &);
+void load_basket       (MapObjectLoader &, const MapObject &);
 
 void load_scale_pivot (MapObjectLoader &, const MapObject &);
 void load_scale_left  (MapObjectLoader &, const MapObject &);
@@ -57,13 +58,13 @@ const auto k_loader_functions = {
     std::make_pair("diamond"       , load_diamond       ),
     std::make_pair("launcher"      , load_launcher      ),
     std::make_pair("platform"      , load_platform      ),
-    std::make_pair("waypoints"     , load_waypoints     ),
     std::make_pair("wall"          , load_wall          ),
     std::make_pair("ball"          , load_ball          ),
     std::make_pair("recall-bounds" , load_recall_bounds ),
     std::make_pair("scale-left"    , load_scale_left    ),
     std::make_pair("scale-right"   , load_scale_right   ),
-    std::make_pair("scale-pivot"   , load_scale_pivot   )
+    std::make_pair("scale-pivot"   , load_scale_pivot   ),
+    std::make_pair("basket"        , load_basket        )
 };
 
 const auto k_reserved_objects = {
@@ -128,14 +129,72 @@ void RecallBoundsLoader::register_bounds
 
 // ----------------------------------------------------------------------------
 
+void CachedItemAnimations::load_animation(Item & item, const tmap::MapObject & obj) {
+    auto & ptr = m_map[obj.tile_set->convert_to_gid(obj.local_tile_id)];
+    if (!ptr.expired()) {
+        item.collection_animation = ptr.lock();
+        return;
+    }
+
+    const auto * props = obj.tile_set->properties_on(obj.local_tile_id);
+    if (!props) return;
+    auto itr = props->find("on-collection");
+    if (itr == props->end()) return;
+
+    const char * beg = &itr->second.front();
+    const char * end = beg + itr->second.size();
+
+    ItemCollectionAnimation ica;
+    ica.tileset = obj.tile_set;
+    int num = 0;
+    for_split<is_colon>(beg, end, [&ica, &num](const char * beg, const char * end) {
+        if (num == 0) {
+            trim<is_whitespace>(beg, end);
+            if (!string_to_number(beg, end, ica.time_per_frame)) {}
+        } else if (num == 1) {
+            auto & vec = ica.tile_ids;
+            for_split<is_comma>(beg, end, [&vec](const char * beg, const char * end) {
+                int i = 0;
+                trim<is_whitespace>(beg, end);
+                if (string_to_number(beg, end, i)) {
+                    vec.push_back(i);
+                } else {}
+            });
+        }
+        ++num;
+    });
+    ptr = (item.collection_animation = std::make_shared<ItemCollectionAnimation>(std::move(ica)));
+}
+
+// ----------------------------------------------------------------------------
+
+CachedWaypoints::WaypointsPtr CachedWaypoints::load_waypoints(const tmap::MapObject * obj) {
+    if (!obj) {
+        // log: no waypoints of name found
+        if (!m_no_obj_waypoints) {
+            m_no_obj_waypoints = std::make_shared<WaypointsContainer>();
+        }
+        return m_no_obj_waypoints;
+    }
+
+    auto & ptr = m_waypt_map[obj->name];
+    if (!ptr.expired()) { return ptr.lock(); }
+
+    WaypointsContainer waypoints = convert_vector_to<VectorD>(obj->points);
+    auto sptr = std::make_shared<WaypointsContainer>();
+    sptr->swap(waypoints);
+    ptr = sptr;
+    return sptr;
+}
+
+// ----------------------------------------------------------------------------
+
 MapObjectLoader::MapObjectLoader() {
     CachedLoader<SpriteSheet, std::string>::set_loader_function(TypeTag<SpriteSheet>(), []
         (const std::string & filename, SpriteSheet & sptsheet)
     {
         sptsheet.load_from_file(filename);
     });
-    CachedLoader<std::vector<VectorD>, std::string, WaypointsTag>::set_loader_function
-        (WaypointsTag(), [](const std::string &, std::vector<VectorD> &) {});
 }
 
 /* vtable anchor */ MapObjectLoader::~MapObjectLoader() {}
@@ -154,6 +213,8 @@ inline VectorD center_of(const tmap::MapObject & obj) {
     return VectorD(obj.bounds.left , obj.bounds.top   ) +
            VectorD(obj.bounds.width, obj.bounds.height)*0.5;
 }
+
+Waypoints::Behavior load_waypoints_behavior(const tmap::MapObject::PropertyMap &);
 
 VectorD parse_vector(const std::string &);
 
@@ -223,7 +284,10 @@ void load_coin(MapObjectLoader & loader, const tmap::MapObject & obj) {
 
 void load_diamond(MapObjectLoader & loader, const tmap::MapObject & obj) {
     auto e = loader.create_entity();
-    e.add<PhysicsComponent>().reset_state<Rect>() = Rect(obj.bounds);
+    auto & rect = e.add<PhysicsComponent>().reset_state<Rect>() = Rect(obj.bounds);
+    rect.top  -= std::remainder(rect.top , 8.);
+    rect.left -= std::remainder(rect.left, 8.);
+
     e.add<Item>().diamond = 1;
     load_display_frame(e.add<DisplayFrame>(), obj);
     loader.load_animation(e.get<Item>(), obj);
@@ -251,37 +315,35 @@ void load_platform(MapObjectLoader & loader, const tmap::MapObject & obj) {
     auto e = loader.create_entity();
     Surface surface(to_floor_segment(obj.bounds));
     e.add<Platform>().set_surfaces(std::vector<Surface> { surface });
-    auto itr = obj.custom_properties.find("waypoints");
-    if (itr != obj.custom_properties.end()) {
-        e.get<Platform>().waypoints = loader.load(WaypointsTag(), itr->second);
-        e.get<Platform>().waypoint_number = 0;
-    }
-    itr = obj.custom_properties.find("speed");
-    if (itr != obj.custom_properties.end()) {
-        string_to_number(itr->second, e.get<Platform>().speed);
-    }
-    itr = obj.custom_properties.find("position");
-    if (itr != obj.custom_properties.end()) {
+
+    Waypoints waypts;
+    waypts.set_behavior(load_waypoints_behavior(obj.custom_properties));
+    auto do_if_found = make_do_if_found(obj.custom_properties);
+    do_if_found("waypoints", [&waypts, &loader](const std::string & val) {
+        waypts.waypoints = loader.load_waypoints(loader.find_map_object(val));
+        waypts.waypoint_number = 0;
+    });
+    do_if_found("speed", [&waypts](const std::string & val) {
+        string_to_number(val, waypts.speed);
+    });
+    do_if_found("position", [&waypts](const std::string & val) {
+        if (waypts.waypoints->empty()) return;
         // should like the position to apply to the entire cycle and not just
         // the current segment
-        string_to_number(itr->second, e.get<Platform>().position);
+        double x = 0.;
+        if (!string_to_number(val, x)) {
+            return;
+        } else if (x < 0. || x > 1.) {
+            return;
+        }
+        x *= double(waypts.waypoints->size());
+        waypts.position        = std::remainder(x, 1.);
+        waypts.waypoint_number = std::size_t(std::floor(x));
+    });
+    if (waypts.waypoints) {
+        if (!waypts.waypoints->empty())
+            e.add<Waypoints>() = std::move(waypts);
     }
-}
-
-void load_waypoints(MapObjectLoader & loader, const MapObject & obj) {
-    std::vector<VectorD> waypoints;
-    waypoints.reserve(obj.points.size());
-    for (auto r : obj.points) {
-        waypoints.push_back(VectorD(r));
-    }
-    auto sptr = loader.load(WaypointsTag(), obj.name);
-    sptr->swap(waypoints);
-    // sptr isn't living anywhere...
-    // this is magic...
-    auto e = loader.create_entity();
-    e.add<Platform>().waypoints = sptr;
-    // deletes itself after map loading
-    e.request_deletion();
 }
 
 void load_wall(MapObjectLoader & loader, const MapObject & obj) {
@@ -294,10 +356,18 @@ void load_wall(MapObjectLoader & loader, const MapObject & obj) {
 
 void load_ball(MapObjectLoader & loader, const MapObject & obj) {
     Item::HoldType hold_type = Item::simple;
+#   if 0
     auto itr = obj.custom_properties.find("ball-type");
     if (itr != obj.custom_properties.end()) { if (itr->second == "jump-booster") {
         hold_type = Item::jump_booster;
     }}
+#   endif
+    auto do_if_found = make_do_if_found(obj.custom_properties);
+    do_if_found("ball-type", [&hold_type](const std::string & val) {
+        if (val == "jump-booster") {
+            hold_type = Item::jump_booster;
+        }
+    });
 
     auto recall_e = loader.create_entity();
     recall_e.add<PhysicsComponent>().reset_state<Rect>() = Rect(obj.bounds);
@@ -312,6 +382,17 @@ void load_ball(MapObjectLoader & loader, const MapObject & obj) {
     }
     auto & rt_point = ball_e.add<ReturnPoint>();
     rt_point.ref = recall_e;
+    do_if_found("recall-time", [&rt_point](const std::string & val) {
+        double time = ReturnPoint::k_default_recall_time;
+        auto b = val.begin(), e = val.end();
+        trim<is_whitespace>(b, e);
+        if (string_to_number(b, e, time)) {
+            rt_point.recall_max_time = rt_point.recall_time = time;
+        } else {
+            std::cout << "recall-time was not numeric (value: \"" << val << "\")." << std::endl;
+        }
+    });
+#   if 0
     itr = obj.custom_properties.find("recall-time");
     if (itr != obj.custom_properties.end()) {
         double time = ReturnPoint::k_default_recall_time;
@@ -323,11 +404,16 @@ void load_ball(MapObjectLoader & loader, const MapObject & obj) {
             std::cout << "recall-time was not numeric (value: \"" << itr->second << "\")." << std::endl;
         }
     }
-
+#   endif
+    do_if_found("recall-bounds", [&loader, &ball_e](const std::string & val) {
+        loader.register_recallable(val, ball_e);
+    });
+#   if 0
     itr = obj.custom_properties.find("recall-bounds");
     if (itr != obj.custom_properties.end()) {
         loader.register_recallable(itr->second, ball_e);
     }
+#   endif
 }
 
 void load_recall_bounds(MapObjectLoader & loader, const MapObject & obj) {
@@ -336,6 +422,75 @@ void load_recall_bounds(MapObjectLoader & loader, const MapObject & obj) {
         return;
     }
     loader.register_bounds(obj.name, Rect(obj.bounds));
+}
+
+void load_basket(MapObjectLoader & loader, const MapObject & obj) {
+    auto do_if_found = make_do_if_found(obj.custom_properties);
+    std::vector<VectorD> outline;
+    do_if_found("outline", [&loader, &outline](const std::string & val) {
+        auto * outline_obj = loader.find_map_object(val);
+        if (!outline_obj) return;
+        if (outline_obj->points.empty()) return;
+        outline = convert_vector_to<VectorD>(outline_obj->points);
+    });
+    using WaypointsPtr = Waypoints::WaypointsPtr;
+    WaypointsPtr waypts;
+    do_if_found("sink-points", [&loader, &waypts](const std::string & val) {
+        waypts = loader.load_waypoints(loader.find_map_object(val));
+    });
+    if (outline.empty() || !waypts) {
+        // required properties not found
+        return;
+    }
+
+    Rect outline_extremes = [&outline]() {
+        if (outline.empty()) throw BadBranchException();
+        VectorD low ( k_inf,  k_inf);
+        VectorD high(-k_inf, -k_inf);
+        for (const auto & pt : outline) {
+            low.x  = std::min(low.x , pt.x);
+            low.y  = std::min(low.y , pt.y);
+            high.x = std::max(high.x, pt.x);
+            high.y = std::max(high.y, pt.y);
+        }
+        return Rect(low.x, low.y, high.x - low.x, high.y - low.y);
+    } ();
+
+    VectorD scale(double(obj.bounds.width ) / outline_extremes.width ,
+                  double(obj.bounds.height) / outline_extremes.height);
+    // remove outline translation
+    for (auto & pt : outline) {
+        pt -= VectorD(outline_extremes.left, outline_extremes.top);
+        // scale to bounds
+        pt.x *= scale.x;
+        pt.y *= scale.y;
+        // add obj translation
+        pt += VectorD(double(obj.bounds.left), double(obj.bounds.top));
+        pt.x = std::round(pt.x);
+        pt.y = std::round(pt.y);
+    }
+
+    std::vector<Surface> surfaces;
+    surfaces.reserve(outline.size());
+    for_side_by_side(outline, [&surfaces](VectorD lhs, VectorD rhs) {
+        if (are_very_close(lhs, rhs)) return;
+        surfaces.emplace_back(LineSegment(lhs, rhs));
+    });
+    for (const auto & surface : surfaces) {
+        assert(!are_very_close(surface.a, surface.b));
+    }
+
+    auto basket_e = loader.create_entity();
+#   if 0
+    auto & waypt_comp = basket_e.add<Waypoints>();
+    waypt_comp.waypoints = waypts;
+#   endif
+
+    basket_e.add<Platform>().set_surfaces(std::move(surfaces));
+
+    for (auto surf : basket_e.get<Platform>().surface_view()) {
+        assert(!are_very_close(surf.a, surf.b));
+    }
 }
 
 void load_scale_pivot(MapObjectLoader & loader, const MapObject & obj) {
@@ -388,6 +543,21 @@ void load_display_frame(DisplayFrame & dframe, const tmap::MapObject & obj) {
         si.texture = &obj.tile_set->texture();
         si.texture_rectangle = obj.tile_set->texture_rectangle(obj.local_tile_id);
     }
+}
+
+Waypoints::Behavior load_waypoints_behavior(const tmap::MapObject::PropertyMap & props) {
+    static constexpr const auto k_default_behavior = Waypoints::k_cycles;
+    auto itr = props.find("cycle-behavior");
+    if (props.end() == itr) return k_default_behavior;
+    if (itr->second == "cycles") {
+        return Waypoints::k_cycles;
+    } else if (itr->second == "idle") {
+        return Waypoints::k_idle;
+    } else if (itr->second == "foreward" || itr->second == "forewards") {
+        return Waypoints::k_forewards;
+    }
+    // log invalid argument
+    return k_default_behavior;
 }
 
 VectorD parse_vector(const std::string & str) {

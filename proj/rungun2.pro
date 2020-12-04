@@ -63,7 +63,6 @@ HEADERS += \
     ../src/GameDriver.hpp \
     ../src/GraphicalEffects.hpp \
     ../src/get_8x8_char.hpp \
-    ../src/SubGrid.hpp \
     ../src/Components.hpp \
     \ # maps
     ../src/maps/Maps.hpp \

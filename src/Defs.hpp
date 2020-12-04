@@ -148,13 +148,13 @@ template <typename T>
 std::enable_if_t<std::is_arithmetic_v<T>, bool> are_very_close(T a, T b) {
     return magnitude(a - b) < k_error;
 }
-
+#if 0
 template <typename T>
 inline T & get_null_reference() {
     T * rv = nullptr;
     return *rv;
 }
-
+#endif
 template <typename RngType>
 sf::Color random_color(RngType & rng);
 
@@ -189,7 +189,7 @@ bool are_same_size(const Grid<Type1> & lhs, const Grid<Type2> & rhs)
 inline bool is_whitespace(char c)
     { return c == ' ' || c == '\t' || c == '\n' || c == '\r'; }
 
-class ImpossibleBranchException final : public std::exception {
+class BadBranchException final : public std::exception {
 public:
     const char * what() const noexcept override {
         return "\"impossible\" branch, this exception is thrown when a branch "
@@ -390,11 +390,3 @@ bool operator !=
     (typename DefineInPlace<k_in_place_length>::template Allocator<T> const & lhs,
      typename DefineInPlace<k_in_place_length>::template Allocator<T> const & rhs) noexcept
 { return !lhs.is_same_as(rhs); }
-#if 0
-template <typename T, std::size_t k_in_place_length>
-auto make_in_place_vector() {
-    std::vector<T, typename DefineInPlace<k_in_place_length>::template Allocator<T>> rv;
-    rv.reserve(k_in_place_length);
-    return rv;
-}
-#endif

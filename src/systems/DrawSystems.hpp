@@ -30,14 +30,12 @@ public:
         { for (auto & e : cont) { update(e); } }
 
     void update(Entity & e) {
-        if (e.has<DisplayFrame>() && e.has<PhysicsComponent>()) {
-            if (e.get<DisplayFrame>().is_type<CharacterAnimator>()) {
-                update_character_animation
-                    (elapsed_time(),
-                     compute_animation_update(e.get<PhysicsComponent>()),
-                     e.get<DisplayFrame>().as<CharacterAnimator>());
-            }
-        }
+        if (!e.has<DisplayFrame>() || !e.has<PhysicsComponent>()) return;
+        if (!e.get<DisplayFrame>().is_type<CharacterAnimator>()) return;
+        update_character_animation
+            (elapsed_time(),
+             compute_animation_update(e.get<PhysicsComponent>()),
+             e.get<DisplayFrame>().as<CharacterAnimator>());
     }
 
     struct CharAniUpdate {
@@ -45,7 +43,7 @@ public:
         double time_per_frame;
     };
 
-    static CharAniUpdate compute_animation_update(const PhysicsComponent &/*, bool should_flip_frame*/);
+    static CharAniUpdate compute_animation_update(const PhysicsComponent &);
 
     static void update_character_animation
         (double elapsed_time, const CharAniUpdate &, CharacterAnimator &);
@@ -161,12 +159,12 @@ class PlatformDrawer final : public System, public RenderTargetAware {
         m_lines.clear();
         for (auto e : cont) {
             if (!e.has<Platform>()) continue;
-            update(e.get<Platform>(), e.ptr<PhysicsComponent>());
+            update(e.get<Platform>());
         }
     }
 
-    void update(const Platform & platform, const PhysicsComponent * pcomp) {
-        for (LineSegment surface : platform.surface_view(pcomp)) {
+    void update(const Platform & platform) {
+        for (LineSegment surface : platform.surface_view()) {
             m_lines.push_back(surface);
         }
     }

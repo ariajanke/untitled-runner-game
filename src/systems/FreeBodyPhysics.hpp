@@ -37,14 +37,7 @@ static constexpr const std::size_t k_intersections_in_place_length = 8;
 using IntersectionsVec = std::vector<
     IntersectionInfo,
     DefineInPlace<k_intersections_in_place_length>::Allocator<IntersectionInfo>>;
-#if 0
-template <typename T, std::size_t k_in_place_length>
-auto make_in_place_vector() {
-    std::vector<T, typename DefineInPlace<k_in_place_length>::template Allocator<T>> rv;
-    rv.reserve(k_in_place_length);
-    return rv;
-}
-#endif
+
 void handle_freebody_physics(EnvColParams &, VectorD new_pos);
 
 void add_map_intersections

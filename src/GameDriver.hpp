@@ -30,6 +30,8 @@
 #include "maps/Maps.hpp"
 #include "maps/MapObjectLoader.hpp"
 
+#include <algorithm>
+
 static const constexpr int k_view_width  = 426;
 static const constexpr int k_view_height = 240;
 static const constexpr bool k_map_object_loader_rng_is_deterministic = false;
@@ -46,17 +48,18 @@ using CompleteSystemList = TypeList<
     GravityUpdateSystem,
     ExtremePositionsControlSystem,
     PlatformDrawer,
-    PlatformWaypointSystem,
+    WaypointPositionSystem,
+    //PlatformMovementSystem,
     HoldItemSystem,
     PlatformBreakingSystem,
     CratePositionUpdateSystem,
-    // CollisionEventsSystem,
     RecallBoundsSystem,
     FallOffSystem
 >;
 
 class DriverMapObjectLoader final : public MapObjectLoader {
 public:
+    using MapObjectContainer = tmap::MapObject::MapObjectContainer;
     DriverMapObjectLoader(Entity & player_, EntityManager & ent_man_):
         m_player(player_), m_ent_man(ent_man_)
     {
@@ -68,6 +71,7 @@ public:
         }
     }
 
+private:
     Entity create_entity() override {
         return m_ent_man.create_new_entity();
     }
@@ -80,7 +84,31 @@ public:
     std::default_random_engine & get_rng() override
         { return m_rng; }
 
+    const tmap::MapObject * find_map_object(const std::string & name) const override {
+        auto itr = m_name_obj_map.find(name);
+        if (itr == m_name_obj_map.end()) return nullptr;
+        return itr->second;
+    }
+
+public:
+    void load_map_objects(const MapObjectContainer & cont) {
+        for (const auto & obj : cont) {
+            if (obj.name.empty()) continue;
+            m_name_obj_map[obj.name] = &obj;
+        }
+        for (const auto & obj : cont) {
+            auto load_obj = get_loader_function(obj.type);
+            if (load_obj) {
+                load_obj(*this, obj);
+            } else {
+                // unrecognized game object
+            }
+        }
+        m_name_obj_map.clear();
+    }
+
 private:
+    std::map<std::string, const tmap::MapObject *> m_name_obj_map;
     Entity & m_player;
     EntityManager & m_ent_man;
     std::default_random_engine m_rng;
@@ -153,7 +181,4 @@ private:
     std::default_random_engine m_rng;
 
     HudTimePiece m_timer;
-#   if 0
-    PhysicsHistoryEventProcessor m_event_proc;
-#   endif
 };

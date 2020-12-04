@@ -21,6 +21,8 @@
 #include "LineTrackerPhysics.hpp"
 #include "FreeBodyPhysics.hpp"
 
+#include <iostream>
+
 #include <cassert>
 
 /* static */ void EnvironmentCollisionSystem::run_tests() {
@@ -73,15 +75,27 @@ EnvColParams::EnvColParams
     auto & pcomp = e.get<PhysicsComponent>();
     EnvColParams ecp(pcomp, line_map(), e.ptr<PlayerControl>(), m_platforms);
     ecp.set_owner(e);
+    auto old_id = pcomp.state_type_id();
     switch (pcomp.state_type_id()) {
     case k_freebody_state: {
         const auto & fb =  pcomp.state_as<FreeBody>();
         handle_freebody_physics(ecp, fb.location + fb.velocity*elapsed_time());
         }
-        return;
+        break;
     case k_tracker_state:
         handle_tracker_physhics(ecp, elapsed_time());
-        return;
+        break;
     default: return;
+    }
+    if (old_id != pcomp.state_type_id() && ecp.should_log_debug()) {
+        switch (pcomp.state_type_id()) {
+        case k_freebody_state:
+            std::cout << "Transformed into freebody." << std::endl;
+            break;
+        case k_tracker_state :
+            std::cout << "Transformed into line tracker." << std::endl;
+            break;
+        default: break;
+        }
     }
 }

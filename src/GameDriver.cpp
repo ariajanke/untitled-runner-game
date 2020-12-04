@@ -30,8 +30,8 @@ inline VectorD box_in(VectorD r, const LineMapLayer & lmap) {
     auto miny = double(k_view_height)*0.5;
     auto maxx = double(lmap.width ())*lmap.tile_width () - minx;
     auto maxy = double(lmap.height())*lmap.tile_height() - miny;
-    return VectorD(std::round(std::max(std::min(maxx, r.x), minx)),
-                   std::round(std::max(std::min(maxy, r.y), miny)));
+    return VectorD(std::floor(std::max(std::min(maxx, r.x), minx)),
+                   std::floor(std::max(std::min(maxy, r.y), miny)));
 }
 
 ControlEvent to_control_event(const sf::Event &);
@@ -91,6 +91,8 @@ void GameDriver::setup(const StartupOptions & opts, const sf::View &) {
 
     m_lmapnn.load_map_from(m_tmap);
     DriverMapObjectLoader dmol(m_player, m_emanager);
+    dmol.load_map_objects(m_tmap.map_objects());
+#   if 0
     for (auto & obj : m_tmap.map_objects()) {
         auto load_obj = get_loader_function(obj.type);
         if (load_obj) {
@@ -99,11 +101,6 @@ void GameDriver::setup(const StartupOptions & opts, const sf::View &) {
             // unrecognized game object
         }
     }
-#   if 0
-    m_tmap.set_translation(sf::Vector2f(0.f, 0.f));
-    m_tmap.apply_view(view);
-    m_tmap.set_translation(sf::Vector2f(0.f, 0.f));
-    m_tmap.apply_view(view);
 #   endif
     setup_systems(CompleteSystemList());
 }
@@ -114,9 +111,7 @@ void GameDriver::update(double et) {
     }
     m_timer.update(et);
     m_emanager.update_systems();
-#   if 0
-    m_event_proc.process_events();
-#   endif
+
     m_emanager.process_deletion_requests();
 
     m_timer.update_velocity(m_player.get<PhysicsComponent>().velocity());
@@ -130,9 +125,6 @@ void GameDriver::render_to(sf::RenderTarget & target) {
     for (auto sys : m_render_target_systems) {
         sys->render_to(target);
     }
-#   if 0
-    m_tmap.apply_view(target.getView());
-#   endif
 }
 
 void GameDriver::render_hud_to(sf::RenderTarget & target) {
@@ -156,6 +148,7 @@ void GameDriver::process_event(const sf::Event & event) {
 
         add_color_circle(e, random_color(m_rng));
         e.add<Lifetime>();
+        e.add<PhysicsDebugDummy>();
 
         auto htype = e.add<Item>().hold_type = choose_random(m_rng, { Item::run_booster, Item::simple }); //Item::HoldType(IntDistri(0, Item::k_hold_type_count - 1)(m_rng));
         const char * msg = [htype]() {switch (htype) {

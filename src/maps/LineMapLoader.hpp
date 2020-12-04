@@ -43,7 +43,7 @@ public:
     /// meant to be called only by LineMap
     void load_layer_into(Grid<LinesView> &, SurfaceDetailsGrid &, Layer);
 
-    void load_transitions_into(Grid<bool> &);
+    void load_transitions_into(TransitionGrid &);
 
     SegmentsPtr get_segments() const { return m_segments; }
 
@@ -73,16 +73,16 @@ private:
 
     SegmentsInfo load_tileset_map(const tmap::TiledMap &) const;
 
-    void load_transition_tiles(const tmap::TiledMap &, Grid<bool> &) const;
+    void load_transition_tiles(const tmap::TiledMap &, TransitionGrid &) const;
 
     bool has_tile_size_initialized() const noexcept {
-        return m_tile_width  != k_initial_tile_size &&
-               m_tile_height != k_initial_tile_size;
+        return    m_tile_width  != k_initial_tile_size
+               && m_tile_height != k_initial_tile_size;
     }
 
     Grid<LinesView> m_foreground, m_background;
     SurfaceDetailsGrid m_foreground_details, m_background_details;
-    Grid<bool> m_transition_tiles;
+    TransitionGrid m_transition_tiles;
     double m_tile_width = k_initial_tile_size;
     double m_tile_height = k_initial_tile_size;
     SegmentsPtr m_segments;

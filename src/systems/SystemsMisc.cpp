@@ -68,9 +68,6 @@
         }
         handle_tracker_running(*tracker, pcon, carrying);
         handle_tracker_jumping(e.get<PhysicsComponent>(), *tracker, pcon);
-#       if 0
-        get_physics_state(e) = handle_tracker_jumping(*tracker, pcon);
-#       endif
     }
     if (direction_of(pcon) < 0.) {
         pcon.last_direction = PlayerControl::k_left;
@@ -401,9 +398,6 @@ void ItemCollisionSystem::check_item_collection(Entity collector, Entity item) {
 // ----------------------------------------------------------------------------
 
 /* private */ void HoldItemSystem::update(const ContainerView & view) {
-#   if 0
-    auto pwc = make_watchers(view);
-#   endif
     for (auto * c : { &m_holders, &m_holdables }) c->clear();
     for (auto e : view) {
         auto * pcomp = e.ptr<PhysicsComponent>();
@@ -450,7 +444,11 @@ void ItemCollisionSystem::check_item_collection(Entity collector, Entity item) {
     hstate.set_release_func([](EntityRef holder_ref) {
         auto & holder_pcomp = Entity(holder_ref).get<PhysicsComponent>();
         if (auto * fb = holder_pcomp.state_ptr<FreeBody>()) {
-            fb->velocity += VectorD(0, -500);
+            static constexpr const double k_jump_boost = -333.;
+            fb->velocity += -normalize(k_gravity)*k_jump_boost;
+            if (magnitude(fb->velocity) > k_jump_boost*2.) {
+                fb->velocity = normalize(fb->velocity)*k_jump_boost*2.;
+            }
         }
     });
 }

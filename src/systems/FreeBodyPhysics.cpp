@@ -27,9 +27,7 @@
 // need to code clean
 
 namespace {
-#if 0
-IntersectionsVec compute_intersections(const EnvColParams &, VectorD);
-#endif
+
 void compute_intersections(IntersectionsVec &, const EnvColParams &, VectorD);
 
 bool is_inverted_normal(const LineSegment &, VectorD old_pos, VectorD new_pos);
@@ -143,11 +141,7 @@ private:
             tracker.position = position;
             tracker.inverted_normal = inverted_normal;
             affect_speed(tracker, seg, freebody);
-#           if 0
-            params.events.record_landing(nfo.attached_entity(), freebody.velocity);
-#           endif
             return (void)params.set_landing(tracker, nfo, freebody.velocity);
-            //return (void)(params.state = PhysicsState(tracker));
         } else {
             return (void)(params.set_freebody(handle_bounce(seg, freebody, new_pos)));
         }
@@ -177,7 +171,7 @@ void add_map_intersections
      VectorD old_pos, VectorD new_pos)
 {
     for (Entity platform : params.platforms) {
-        auto surface_view = platform.get<Platform>().surface_view(platform.ptr<PhysicsComponent>());
+        auto surface_view = platform.get<Platform>().surface_view();
         for (auto itr = surface_view.begin(); itr != surface_view.end(); ++itr) {
             Layer layer = Layer::neither;
             if (auto * pcomp = platform.ptr<PhysicsComponent>())
@@ -215,16 +209,9 @@ VectorD reflect_approach(const LineSegment & seg, VectorD approach);
 
 void compute_intersections(IntersectionsVec & intersections, const EnvColParams & params, VectorD new_pos) {
     auto & freebody = params.state_as<FreeBody>();
-#   if 0
-    //IntersectionsVec intersections;// auto intersections = make_in_place_vector<IntersectionInfo, k_get_intersections_in_place_length>();
-    intersections.reserve(k_intersections_in_place_length);
-#   endif
     add_map_intersections(params, intersections, freebody.location, new_pos);
     add_platform_intersections(params, intersections, freebody.location, new_pos);
     sort_intersections(intersections, freebody.location);
-#   if 0
-    return intersections;
-#   endif
 }
 
 bool is_inverted_normal(const LineSegment & seg, VectorD old_pos, VectorD new_pos) {
@@ -311,7 +298,7 @@ FreeBodyMapIterator::FreeBodyMapIterator
         throw std::invalid_argument("FreeBodyMapIterator(): layer must not be a nullptr.");
     }
     auto start_loc = tile_location_of(parent, src);
-    m_previous_was_transition = parent.point_in_transition(start_loc);
+    m_previous_was_transition = parent.tile_in_transition(start_loc);
     set_view_to(start_loc);
 }
 
@@ -373,7 +360,7 @@ void FreeBodyMapIterator::operator ++ () {
     case k_top   : return { k_left, k_right,        k_bottom };
     case k_bottom: return { k_left, k_right, k_top           };
     }
-    throw ImpossibleBranchException();
+    throw BadBranchException();
 }
 
 /* private */ VectorD FreeBodyMapIterator::find_point_in_other_tile
@@ -422,16 +409,16 @@ void FreeBodyMapIterator::operator ++ () {
         m_cur_pos = gv;
         return set_view_to(cur_loc + dy);
     }
-    throw ImpossibleBranchException();
+    throw BadBranchException();
 }
 
 /* private */ void FreeBodyMapIterator::set_view_to(VectorI r) {
     // here lies the magic to the whole enterprise
     // here we switch to the other layer for freebodies
-    if (m_parent->point_in_transition(r) && !m_previous_was_transition) {
+    if (m_parent->tile_in_transition(r) && !m_previous_was_transition) {
         *m_current_layer = switch_layer(*m_current_layer);
     }
-    m_previous_was_transition = m_parent->point_in_transition(r);
+    m_previous_was_transition = m_parent->tile_in_transition(r);
     if (m_parent->get_segment_count(*m_current_layer, r) == 0)
         { return move_to_next_tile(); }
 

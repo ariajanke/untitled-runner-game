@@ -100,6 +100,9 @@ bool SurfaceRef::is_equal_to(const SurfaceRef & rhs) const {
         if (!plat) throw Error(k_attached_gone_msg);
 
         auto surf = plat->get_surface(m_segment_number);
+#       if 0
+        , e.ptr<Waypoints>());
+#       endif
 
         if (const auto * pcomp = e.ptr<PhysicsComponent>()) {
             auto loc = pcomp->location();

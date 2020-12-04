@@ -54,15 +54,7 @@ class LineMapLayer final {
 public:
     using SegmentsPtr       = std::shared_ptr<std::vector<LineSegment>>;
     using SurfaceDetailsPtr = std::shared_ptr<std::vector<SurfaceDetails>>;
-#   if 0
-    LineMapLayer() {}
 
-    LineMapLayer(const LineMapLayer &) = delete;
-
-    ~LineMapLayer() {}
-
-    LineMapLayer & operator = (const LineMapLayer &) = delete;
-#   endif
     Surface operator () (const VectorI &, int) const;
 
     int get_segment_count(const VectorI &) const;
@@ -84,11 +76,11 @@ public:
 
     bool has_position(VectorI r) const noexcept
         { return m_segments_grid.has_position(r); }
-
+#   if 0
     VectorI tile_location_of(VectorD) const;
 
     bool is_edge_tile(VectorI) const;
-
+#   endif
     void set_translation(VectorD r)
         { m_translation_to_global = r; }
 
@@ -113,15 +105,16 @@ private:
 
 namespace tmap { class TiledMap; }
 
+enum class TransitionTileType : uint8_t {
+    no_transition,
+    toggle_layers,
+    to_background,
+    to_foreground
+};
+using TransitionGrid = Grid<TransitionTileType>;
+
 class LineMap final {
 public:
-#   if 0
-    LineMap() {}
-    LineMap(const LineMap &) = delete;
-    ~LineMap() {}
-
-    LineMap & operator = (const LineMap &) = delete;
-#   endif
     Surface operator ()(Layer, const VectorI &, int) const;
 
     int get_segment_count(Layer, const VectorI &) const;
@@ -130,7 +123,9 @@ public:
 
     void load_map_from(const tmap::TiledMap &);
     void make_blank_of_size(int width, int height);
-    bool point_in_transition(VectorI) const;
+
+    bool tile_in_transition(VectorI) const;
+    [[deprecated]] bool point_in_transition(VectorI) const;
     bool point_in_transition(VectorD) const;
 
     double tile_height() const { return m_foreground.tile_height(); }
@@ -149,7 +144,7 @@ private:
     LineMapLayer m_foreground;
     LineMapLayer m_background;
 
-    Grid<bool> m_transition_tiles;
+    TransitionGrid m_transition_tiles;
 };
 
 // ----------------------------------------------------------------------------

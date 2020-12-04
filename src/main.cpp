@@ -19,7 +19,6 @@
 
 #include "Systems.hpp"
 #include "GameDriver.hpp"
-#include "SubGrid.hpp"
 
 #include "maps/MapLinks.hpp"
 
@@ -32,6 +31,7 @@
 
 #include <common/DrawRectangle.hpp>
 #include <common/ParseOptions.hpp>
+#include <common/SubGrid.hpp>
 
 #include <iostream>
 #include <future>

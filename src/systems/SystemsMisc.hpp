@@ -108,11 +108,7 @@ public:
     void render_to(sf::RenderTarget & target) override {
         m_sparkles.render_to(target);
     }
-#   if 0
-    void check_item_grabs();
 
-    void check_item_grabs(Entity & grabber, Entity & grabable);
-#   endif
 private:
     DiamondCollectSparkles m_sparkles;
     std::vector<Entity> m_items;
@@ -129,37 +125,59 @@ class LauncherSystem final : public System, public MapAware {
 };
 
 
-class PlatformWaypointSystem final : public System, public TimeAware {
+class WaypointPositionSystem final : public System, public TimeAware {
     void update(const ContainerView & view) override {
         for (auto e : view) {
-            if (!e.has<Platform>()) continue;
-            auto & plat = e.get<Platform>();
-            if (plat.waypoint_number == Platform::k_no_waypoint ||
-                !plat.waypoints) continue;
-            if (plat.waypoints->empty()) continue;
-            auto seg_len = segment_length(plat.current_waypoint_segment());
+            if (!e.has<Waypoints>()) continue;
+            auto & waypts = e.get<Waypoints>();
+            if (waypts.waypoint_number == Waypoints::k_no_waypoint ||
+                !waypts.waypoints) continue;
+            if (waypts.waypoints->empty()) continue;
+            auto seg_len = segment_length(waypts.current_waypoint_segment());
             if (seg_len < k_error) continue;
-            plat.position += plat.speed*elapsed_time() / seg_len;
-            auto next_waypt = Platform::k_no_waypoint;
-            if (plat.position < 0.) {
-                next_waypt = plat.previous_waypoint();
-            } else if (plat.position > 1.) {
-                next_waypt = plat.next_waypoint();
+            waypts.position += waypts.speed*elapsed_time() / seg_len;
+            auto next_waypt = Waypoints::k_no_waypoint;
+            if (waypts.position < 0.) {
+                next_waypt = waypts.previous_waypoint();
+            } else if (waypts.position > 1.) {
+                next_waypt = waypts.next_waypoint();
             } else {
                 continue;
             }
             // no change implies non-cycling waypoints
-            if (next_waypt == plat.waypoint_number) {
-                plat.position = std::max(1., std::min(0., plat.position));
+            if (next_waypt == waypts.waypoint_number) {
+                waypts.position = std::max(1., std::min(0., waypts.position));
             }
             // other cases, we are cycling
-            else if (plat.position < 0.) {
-                plat.position = 1.;
-            } else if (plat.position > 1.) {
-                plat.position = 0.;
+            else if (waypts.position < 0.) {
+                waypts.position = 1.;
+            } else if (waypts.position > 1.) {
+                waypts.position = 0.;
             }
-            plat.waypoint_number = next_waypt;
+            waypts.waypoint_number = next_waypt;
         }
+    }
+};
+
+class PlatformMovementSystem final : public System {
+    // waypoints position -> platform positions
+    // physics component
+    void update(const ContainerView & view) {
+        for (auto e : view) {
+            if (!e.has<Platform>()) continue;
+            update(e);
+        }
+    }
+
+    void update(Entity e) {
+        VectorD offset;
+        if (const auto * waypts = e.ptr<Waypoints>()) {
+            offset += waypts->waypoint_offset();
+        }
+        if (const auto * pcomp = e.ptr<PhysicsComponent>()) {
+            offset += pcomp->location();
+        }
+        e.get<Platform>().set_offset(offset);
     }
 };
 
@@ -200,7 +218,7 @@ class PlatformBreakingSystem final : public System {
     void update(Entity platform_e, Entity item_e) {
         VectorD low(k_inf, k_inf), high(-k_inf, -k_inf);
         auto & plat = platform_e.get<Platform>();
-        for (const auto & plat : plat.surface_view(platform_e.ptr<PhysicsComponent>())) {
+        for (const auto & plat : plat.surface_view()) {
             low .x = std::min(plat.a.x, low .x);
             low .x = std::min(plat.b.x, low .x);
             low .y = std::min(plat.a.y, low .y);
@@ -227,7 +245,7 @@ class PlatformBreakingSystem final : public System {
     std::vector<Entity> m_platforms;
     std::vector<Entity> m_items    ;
 };
-#if 1
+
 class CratePositionUpdateSystem final : public System {
     void update(const ContainerView & view) override {
         for (auto e : view) {
@@ -237,6 +255,7 @@ class CratePositionUpdateSystem final : public System {
             }
         }
     }
+
     void update(Entity e) {
         auto & pcomp = e.get<PhysicsComponent>();
         if (pcomp.state_is_type<HeldState>()) {
@@ -250,7 +269,7 @@ class CratePositionUpdateSystem final : public System {
         }
     }
 };
-#endif
+
 class FallOffSystem final : public System {
     void update(const ContainerView & view) override {
         for (auto e : view) {

@@ -25,18 +25,23 @@
 #include "PhysicsComponent.hpp"
 #include "Platform.hpp"
 
+struct PhysicsDebugDummy {};
+
 using EntityManager = ecs::EntityManager<
     PhysicsComponent,
     Lifetime, Snake, PlayerControl, DisplayFrame, Item,
     Launcher, LauncherSubjectHistory,
-    Collector, HeadOffset, Platform,
+    Collector, HeadOffset, Platform, Waypoints,
+    PhysicsDebugDummy,
     ReturnPoint, ScriptUPtr //ScriptEvents
 >;
 
 using Entity = EntityManager::EntityType;
 
 // ------------ Helpers that need Entity to be a complete type ----------------
-
+#if 0
+SurfaceView make_surface_view(const Platform &, const Entity &);
+#endif
 void land_tracker(LineTracker &, Entity, const SurfaceRef &, VectorD);
 void transfer_to(LineTracker &, const SurfaceRef &, VectorD);
 class LineTrackerLandingPriv {
@@ -175,6 +180,7 @@ public:
     void land_right(VectorD velo, EntityRef);
     void leave_left (EntityRef);
     void leave_right(EntityRef);
+
 private:
     void print_out_weights() const;
     void update_balance();
@@ -182,6 +188,16 @@ private:
 
     Entity m_pivot, m_left, m_right;
 };
+
+class BasketScript final : public Script {
+
+    void process_control_event(const ControlEvent &) override {}
+    void on_departing(Entity, EntityRef) override;
+    void on_landing(Entity, VectorD, EntityRef) override;
+
+    std::size_t m_held_weight = 0;
+};
+
 #if 0
 class PrintOutLandingsDepartingsScript final : public Script {
     void on_departing(Entity, EntityRef) override;

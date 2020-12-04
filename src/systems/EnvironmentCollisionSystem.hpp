@@ -20,37 +20,13 @@
 #pragma once
 
 #include "SystemsMisc.hpp"
-#if 0
-class EnvColEvents {
-public:
-    void set_entity(Entity e) { this_entity = e; }
-
-    void record_landing(EntityRef eref, VectorD velocity) {
-        if (Entity e = Entity(eref)) record_landing(e.ptr<ScriptEvents>(), velocity);
-    }
-    void record_departing(EntityRef eref) {
-        if (Entity e = Entity(eref)) record_departing(e.ptr<ScriptEvents>());
-    }
-private:
-    void record_landing  (ScriptEvents * events, VectorD velocity) {
-        if (events) events->record_landing(velocity, this_entity);
-    }
-    /**
-     *  @param events comes from the entity with the script events (e.g. the
-     *                left/right scale part)
-     */
-    void record_departing(ScriptEvents * events) {
-        if (events) events->record_departing(this_entity);
-    }
-    EntityRef this_entity;
-};
-#endif
 
 struct EnvColStateMask {
 
     void set_owner(Entity e) {
         m_owner = e;
         m_pcomp = e.ptr<PhysicsComponent>();
+        m_log   = e.has<PhysicsDebugDummy>();
     }
 
     template <typename T>
@@ -88,22 +64,27 @@ struct EnvColStateMask {
     const T * state_as_ptr() const { return m_pcomp->state_ptr<T>(); }
 
     int state_type_id() const { return m_pcomp->state_type_id(); }
+
+    bool should_log_debug() const { return m_log; }
 private:
     Entity m_owner;
+    bool m_log = false;
     PhysicsComponent * m_pcomp = nullptr;
 };
 
 struct EnvColParams final : public EnvColStateMask {
     using PlatformsCont = std::vector<Entity>;
+#   if 0
     EnvColParams() {}
+#   endif
     EnvColParams(PhysicsComponent &, const LineMap &, const PlayerControl *,
                  const PlatformsCont &);
 
           bool            acting_will      = false;
           double          bounce_thershold = std::numeric_limits<double>::infinity();
-          Layer         & layer            = get_null_reference<Layer>();
-    const LineMap       & map              = get_null_reference<LineMap>();
-    const PlatformsCont & platforms        = get_null_reference<PlatformsCont>();
+          Layer         & layer            ;//= get_null_reference<Layer>();
+    const LineMap       & map              ;//= get_null_reference<LineMap>();
+    const PlatformsCont & platforms        ;//= get_null_reference<PlatformsCont>();
 };
 
 class EnvironmentCollisionSystem final :
