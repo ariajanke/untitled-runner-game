@@ -359,3 +359,15 @@ class RecallBoundsSystem final : public System, public TimeAware {
     }
 };
 
+class ScriptUpdateSystem final : public System, public TimeAware {
+    void update(const ContainerView & view) override {
+        for (auto e : view) {
+            if (!should_skip(e)) continue;
+            e.get<ScriptUPtr>()->on_update(e, elapsed_time());
+        }
+    }
+
+    static bool should_skip(Entity e) {
+        return e.has<ScriptUPtr>();
+    }
+};

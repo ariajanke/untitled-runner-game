@@ -221,6 +221,22 @@ void ScalePivotScript::update_balance() {
     change_weight(1, e.get<InterpolativePosition>());
 }
 
+/* private */ void BasketScript::on_update(Entity e, double) {
+    if (!e.has<InterpolativePosition>()) return;
+    auto & intpos = e.get<InterpolativePosition>();
+    if (   intpos.current_segment().target == intpos.current_segment().source
+        && intpos.current_segment().target == intpos.point_count() - 1)
+    {
+        m_basket_wall.request_deletion();
+    }
+    if (m_seg != intpos.current_segment()) {
+        std::cout << "Segment (source: " << intpos.current_segment().source
+                  << " target: " << intpos.current_segment().target << ") targeting "
+                  << intpos.targeted_point() << std::endl;
+        m_seg = intpos.current_segment();
+    }
+}
+
 /* private static */ bool BasketScript::is_simple_item(const Entity & e) {
     if (const auto * item = e.ptr<Item>())
         { return item->hold_type == Item::simple; }

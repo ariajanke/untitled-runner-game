@@ -329,7 +329,7 @@ void load_platform(MapObjectLoader & loader, const tmap::MapObject & obj) {
 
     if (waypts.has_points()) {
         assert(waypts->size() > 1);
-        intpos.set_segment_count(waypts->size() - 1);
+        intpos.set_point_count(waypts->size());
         assert(intpos.point_count() == waypts->size());
     }
 
@@ -495,7 +495,7 @@ void load_basket(MapObjectLoader & loader, const MapObject & obj) {
     {
     auto & intpos = basket_e.add<InterpolativePosition>();
     intpos.set_speed(50.);
-    intpos.set_segment_count(basket_e.get<Waypoints>()->size() - 1);
+    intpos.set_point_count(basket_e.get<Waypoints>()->size());
     assert(intpos.point_count() == basket_e.get<Waypoints>()->size());
     intpos.target_point(0);
     }
@@ -504,7 +504,18 @@ void load_basket(MapObjectLoader & loader, const MapObject & obj) {
     for (auto surf : basket_e.get<Platform>().surface_view()) {
         assert(!are_very_close(surf.a, surf.b));
     }
-    basket_e.add<ScriptUPtr>() = std::make_unique<BasketScript>();
+    auto script = std::make_unique<BasketScript>();
+    do_if_found("wall-to-open", [&loader, &script](const std::string & val) {
+        const auto * obj = loader.find_map_object(val);
+        if (!obj) return;
+        auto wall_e = loader.create_entity();
+        wall_e.add<Platform>().set_surfaces(std::vector<Surface> { Surface(LineSegment(
+            obj->bounds.left + obj->bounds.width*0.5, obj->bounds.top,
+            obj->bounds.left + obj->bounds.width*0.5, obj->bounds.top + obj->bounds.height)) });
+        script->set_wall(wall_e);
+    });
+
+    basket_e.add<ScriptUPtr>() = std::move(script);
 }
 
 void load_scale_pivot(MapObjectLoader & loader, const MapObject & obj) {

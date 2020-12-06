@@ -54,7 +54,8 @@ using CompleteSystemList = TypeList<
     PlatformBreakingSystem,
     CratePositionUpdateSystem,
     RecallBoundsSystem,
-    FallOffSystem
+    FallOffSystem,
+    ScriptUpdateSystem
 >;
 
 class DriverMapObjectLoader final : public MapObjectLoader {

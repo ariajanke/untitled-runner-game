@@ -103,6 +103,26 @@ private:
 
 // ----------------------------------------------------------------------------
 
+/** @brief Represents a position in a series of points each seperated by
+ *         segment which are 1 unit in length.
+ *
+ *  Visually: @n
+ *  Example of a four point line, with three segments.
+ *
+ *  0           1           2          3
+ *  *-----------*-----------*----------*
+ *
+ *  This is used to describe the position in these segments, and which segment.
+ *  For example, a set up like this:
+ *  0           1           2          3
+ *  *-----------*----|------*----------*
+ *
+ *  represents a total position of ~1.4
+ *  which breaks down to
+ *  position() == ~0.4
+ *  current_segment() == { target = 2, source = 1 }
+ *
+ */
 class InterpolativePosition {
 public:
     enum Behavior : uint8_t {
@@ -117,7 +137,6 @@ public:
 
     // has a position, speed, and segment
     static constexpr const auto k_no_point = std::size_t(-1);
-    static const SegPair k_no_segment_pair;
 
     // ---------------------------- whole position ----------------------------
 
@@ -159,13 +178,14 @@ public:
 
     // ---------------------------- which segment -----------------------------
 
-    // second is target, first is source
+    /** @returns the two point indicies which describe the current segment.
+     */
     SegPair current_segment() const;
 
     /**
      *  @note may change destination point
      */
-    void set_segment_count(std::size_t);
+    void set_point_count(std::size_t);
 
     void set_segment_source(std::size_t);
 
@@ -193,6 +213,16 @@ private:
     double m_speed    = 0.;
     double m_position = 0.;
 };
+
+inline bool are_same
+    (const InterpolativePosition::SegPair & lhs, const InterpolativePosition::SegPair & rhs)
+{ return lhs.source == rhs.source && lhs.target == rhs.target; }
+
+inline bool operator == (const InterpolativePosition::SegPair & lhs, const InterpolativePosition::SegPair & rhs)
+{ return are_same(lhs, rhs); }
+
+inline bool operator != (const InterpolativePosition::SegPair & lhs, const InterpolativePosition::SegPair & rhs)
+{ return !are_same(lhs, rhs); }
 
 class Waypoints {
 public:
@@ -242,75 +272,9 @@ inline VectorD get_waypoint_location
     }
     auto seg = get_waypoint_segment(pts, intpos);
     auto t = intpos.position();
-    return seg.a*t + seg.b*(1. - t);
+    return seg.a*(1. - t) + seg.b*t;
 }
 
 inline VectorD get_waypoint_location
     (const Waypoints & waypts, const InterpolativePosition & intpos)
 { return get_waypoint_location(waypts.points(), intpos); }
-
-#if 0
-class Waypoints {
-public:
-    using WaypointsContainer = std::vector<VectorD>;
-    using WaypointsPtr = std::shared_ptr<WaypointsContainer>;
-    enum Behavior { k_cycles, k_idle, k_forewards, k_toward_destination };
-
-    static constexpr const std::size_t k_no_waypoint = std::size_t(-1);
-#   if 0
-    double position = 0.; // [0 1]
-    double speed    = 0.; // px/sec
-    std::size_t waypoint_number = k_no_waypoint;
-#   endif
-
-    void set_speed_pxs(double); // must be real number, pixels per second
-    void set_position(double); // [0 1] within segment
-    /** Changes waypoints at most once, return
-     *
-     * @return
-     */
-    double move_position(double);
-
-    double speed() const; // segments per second
-
-
-    // ------------------------- concerning waypoints -------------------------
-#   if 0
-    WaypointsPtr waypoints;
-#   endif
-    void set_waypoints(WaypointsPtr);
-
-    // ------------------------------- behavior -------------------------------
-
-    Behavior behavior() const;
-
-    void set_behavior(Behavior);
-
-    std::size_t destination_waypoint() const;
-
-    void set_destination_waypoint(std::size_t);
-
-    // ------------------------ local concern waypoints -----------------------
-
-    VectorD waypoint_offset() const;
-#   if 0
-    [[deprecated]] bool has_waypoint_offset() const noexcept;
-#   endif
-private:
-    LineSegment current_waypoint_segment() const;
-
-    std::size_t next_waypoint() const;
-
-    std::size_t previous_waypoint() const;
-
-private:
-    static constexpr auto k_no_waypoints_assigned_msg =
-        "no waypoints have been assigned";
-
-    std::size_t increment_index(bool cycle, std::size_t idx) const;
-    std::size_t decrement_index(bool cycle, std::size_t idx) const;
-
-    Behavior m_behavior = k_forewards;
-    std::size_t m_dest_waypoint = k_no_waypoint;
-};
-#endif

@@ -42,9 +42,7 @@ using EntityManager = ecs::EntityManager<
 using Entity = EntityManager::EntityType;
 
 // ------------ Helpers that need Entity to be a complete type ----------------
-#if 0
-SurfaceView make_surface_view(const Platform &, const Entity &);
-#endif
+
 void land_tracker(LineTracker &, Entity, const SurfaceRef &, VectorD);
 void transfer_to(LineTracker &, const SurfaceRef &, VectorD);
 class LineTrackerLandingPriv {
@@ -161,6 +159,8 @@ public:
      */
     virtual void on_landing(Entity, VectorD hit_velocity, EntityRef other) = 0;
     virtual void on_departing(Entity, EntityRef other) = 0;
+
+    virtual void on_update(Entity, double) {}
 };
 
 class PlayerScript final : public Script {
@@ -193,14 +193,20 @@ private:
 };
 
 class BasketScript final : public Script {
+public:
+    void set_wall(Entity e) { m_basket_wall = e; }
+private:
     void process_control_event(const ControlEvent &) override {}
     void on_departing(Entity, EntityRef) override;
     void on_landing(Entity, VectorD, EntityRef) override;
+    void on_update(Entity, double) override;
 
     static bool is_simple_item(const Entity &);
     void change_weight(int delta, InterpolativePosition &);
 
+    Entity m_basket_wall;
     int m_held_weight = 0;
+    InterpolativePosition::SegPair m_seg;
 };
 
 #if 0

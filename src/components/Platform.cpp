@@ -74,21 +74,12 @@ Surface Platform::get_surface(std::size_t idx) const
 
 // ----------------------------------------------------------------------------
 
-/* static */ const InterpolativePosition::SegPair InterpolativePosition::
-    k_no_segment_pair = []()
-{
-    SegPair pair;
-    pair.target = pair.source = std::size_t(-1);
-    return pair;
-}();
-
 double InterpolativePosition::move_position(double x) {
     if (!is_real(x)) {
         throw InvArg("InterpolativePosition::move_position: x must be a real number.");
     }
     if (m_behavior == k_idle) return x;
 
-    InterpolativePosition old = *this;
     double rv;
     if (m_position + x > 1.) {
         assert(x > 0.);
@@ -116,15 +107,12 @@ double InterpolativePosition::move_position(double x) {
     }
     check_invarients();
     // rv should be the same sign as x
-    if (rv*x < 0.) {
-        old.move_position(x);
-    }
     assert(rv*x >= 0.);
     return rv;
 }
 
 void InterpolativePosition::set_whole_position(double x) {
-    if (!is_real(x) || x < 0. || x >= double(m_segment_count)) {
+    if (!is_real(x) || x < 0. || x > double(m_segment_count)) {
         throw InvArg("InterpolativePosition::set_whole_position: x must be a "
                      "real non-negative number, not greater than "
                      + std::to_string(m_segment_count) + ".");
@@ -175,10 +163,10 @@ InterpolativePosition::Behavior InterpolativePosition::behavior() const noexcept
 
 void InterpolativePosition::target_point(std::size_t x) {
     auto t = verify_fit(x, "InterpolativePosition::target_point");
-    if (t > m_segment_count) {
+    if (t > point_count()) {
         std::string range_ = "(only 0)";
-        if (m_segment_count > 1) {
-            range_ = "[0 " + std::to_string(m_segment_count - 1) + "]";
+        if (point_count() > 1) {
+            range_ = "[0 " + std::to_string(point_count()) + "]";
         }
         throw InvArg("InterpolativePosition::target_point: cannot target point: "
                      + std::to_string(t) + " possible range is: " + range_       );
@@ -192,28 +180,32 @@ std::size_t InterpolativePosition::targeted_point() const noexcept {
 }
 
 InterpolativePosition::SegPair InterpolativePosition::current_segment() const {
-    auto mk_seg = [](SegUInt t, SegUInt s) {
+    auto mk_seg = [](SegUInt s, SegUInt t) {
         SegPair rv;
         rv.target = std::size_t(t);
         rv.source = std::size_t(s);
         return rv;
     };
     auto verify_pair = [this](SegPair pair) {
-        assert(pair.source <= m_segment_count);
-        assert(pair.target <= m_segment_count);
+        assert(pair.source <= point_count());
+        assert(pair.target <= point_count());
         return pair;
     };
     auto target = next_point() == k_no_point_back ? m_current_point : next_point();
     return verify_pair(mk_seg(m_current_point, target));
 }
 
-void InterpolativePosition::set_segment_count(std::size_t x) {
-    auto t = verify_fit(x, "InterpolativePosition::set_segment_count");
+void InterpolativePosition::set_point_count(std::size_t x) {
+    auto t = verify_fit(x, "InterpolativePosition::set_point_count");
+    if (t <= 0) {
+        throw InvArg("InterpolativePosition::set_point_count: point count must "
+                     "be positive integer.");
+    }
     m_position      = 0.;
     m_current_point = 0;
 
     if (m_destination > t) { m_destination = 0; }
-    m_segment_count = t;
+    m_segment_count = t - 1;
 }
 
 void InterpolativePosition::set_segment_source(std::size_t x) {
@@ -227,33 +219,117 @@ void InterpolativePosition::set_segment_source(std::size_t x) {
 }
 
 /* static */ void InterpolativePosition::run_tests() {
+    using IntPos = InterpolativePosition;
     ts::TestSuite suite;
     suite.start_series("InterpolativePosition tests");
     suite.test([]() {
-        ;
+        IntPos ip;
+        ip.set_behavior(IntPos::k_foreward);
+        ip.set_point_count(4);
+        assert(ip.point_count() == 4);
+        ip.move_position(0.55);
+        auto res = ip.move_position(0.55);
+        return ts::test(res > 0.05 && ip.current_segment().source == 1);
+    });
+    suite.test([]() {
+        IntPos ip;
+        ip.set_behavior(IntPos::k_foreward);
+        ip.set_point_count(4);
+        for (int i = 0; i != 2*4; ++i) {
+            ip.move_position(0.55);
+        }
+        return ts::test(ip.current_segment().target == ip.current_segment().source);
+    });
+    suite.test([]() {
+        IntPos ip;
+        ip.set_behavior(IntPos::k_cycles);
+        ip.set_point_count(4);
+        for (int i = 0; i != 2*3; ++i) {
+            ip.move_position(0.55);
+        }
+        ip.move_position(0.55);
+        return ts::test(   ip.current_segment().target == 0
+                        && ip.current_segment().source == 3);
+    });
+    suite.test([]() {
+        IntPos ip;
+        ip.set_behavior(IntPos::k_idle);
+        ip.set_point_count(4);
+        ip.set_whole_position(2.3);
+        return ts::test(   ip.current_segment().source == 2
+                        && ip.current_segment().target == 3
+                        && magnitude(ip.position() - 0.3) < k_error);
+    });
+    suite.test([]() {
+        IntPos ip;
+        ip.set_behavior(IntPos::k_idle);
+        ip.set_point_count(4);
+        ip.set_whole_position(2.3);
+        ip.move_position(0.8);
+        return ts::test(   ip.current_segment().source == 2
+                        && ip.current_segment().target == 3);
+    });
+    suite.test([]() {
+        try {
+            IntPos ip;
+            ip.set_position(IntPos::k_toward_destination);
+        } catch (...) {
+            return ts::test(true);
+        }
         return ts::test(false);
+    });
+    suite.test([]() {
+        IntPos ip;
+        ip.set_point_count(4);
+        ip.target_point(2);
+        assert(ip.behavior() == IntPos::k_toward_destination);
+        for (int i = 0; i != 2*4; ++i) {
+            ip.move_position(0.55);
+        }
+        return ts::test(   ip.current_segment().source == ip.current_segment().target
+                        && ip.current_segment().source == 2);
+    });
+    suite.test([]() {
+        IntPos ip;
+        ip.set_point_count(4);
+        ip.set_whole_position(3.);
+        return ts::test(   ip.current_segment().source == ip.current_segment().target
+                        && ip.current_segment().source == 3);
+
+    });
+    suite.test([]() {
+        IntPos ip;
+        ip.set_point_count(4);
+        ip.target_point(1);
+        ip.set_whole_position(3.);
+        ip.move_position(0.55);
+        auto res = ip.move_position(0.55);
+        return ts::test(   ip.current_segment().source == 2
+                        && ip.current_segment().target == 1
+                        && res > 0.05);
     });
 }
 
 /* private */ InterpolativePosition::SegUInt
     InterpolativePosition::previous_point() const noexcept
 {
+    const auto last_point = m_segment_count;
     switch (m_behavior) {
+    case k_idle:
     case k_foreward:
         if (m_current_point == 0) return k_no_point_back;
         return m_current_point - 1;
     case k_cycles:
-        if (m_current_point == 0) return m_segment_count;
+        if (m_current_point == 0) return last_point;
         return m_current_point - 1;
-    case k_idle: return k_no_point_back;
     case k_toward_destination:
         if (m_current_point == m_destination) {
             // I'm not sure what's the best value for this...
             return m_current_point;
         } else if (m_current_point > m_destination) {
-            return (m_current_point == m_segment_count) ? 0 : m_current_point + 1;
+            return (m_current_point == last_point) ? 0 : m_current_point + 1;
         } else {
-            return (m_current_point == 0) ? m_segment_count : m_current_point - 1;
+            return (m_current_point == 0) ? last_point : m_current_point - 1;
         }
     }
     std::cerr << "InterpolativePosition::previous_point: bad branch" << std::endl;
@@ -263,21 +339,22 @@ void InterpolativePosition::set_segment_source(std::size_t x) {
 /* private */ InterpolativePosition::SegUInt
     InterpolativePosition::next_point() const noexcept
 {
+    const auto last_point = m_segment_count;
     switch (m_behavior) {
+    case k_idle    :
     case k_foreward:
-        if (m_current_point == m_segment_count) return k_no_point_back;
+        if (m_current_point == last_point) return k_no_point_back;
         return m_current_point + 1;
     case k_cycles  :
-        if (m_current_point == m_segment_count) return 0;
+        if (m_current_point == last_point) return 0;
         return m_current_point + 1;
-    case k_idle    : return k_no_point_back;
     case k_toward_destination:
         if (m_current_point == m_destination) {
             return k_no_point_back;
         } else if (m_current_point > m_destination) {
-            return (m_current_point == 0) ? m_segment_count : m_current_point - 1;
+            return (m_current_point == 0) ? last_point : m_current_point - 1;
         } else {
-            return (m_current_point == m_segment_count) ? 0 : m_current_point + 1;
+            return (m_current_point == last_point) ? 0 : m_current_point + 1;
         }
     }
     std::cerr << "InterpolativePosition::next_point: bad branch" << std::endl;
@@ -297,113 +374,3 @@ void InterpolativePosition::set_segment_source(std::size_t x) {
     }
     return SegUInt(x);
 }
-
-#if 0
-Waypoints::Behavior Waypoints::behavior() const
-    { return m_behavior; }
-
-void Waypoints::set_behavior(Behavior behavior_) {
-    switch (behavior_) {
-    case k_idle: case k_forewards: case k_cycles:
-        m_dest_waypoint = k_no_waypoint;
-        m_behavior = behavior_;
-        break;
-    case k_toward_destination:
-        throw InvArg("Waypoints::set_behavior: this behavior may only be set "
-                     "from: set_destination_waypoint method");
-    default:
-        throw InvArg("Waypoints::set_behavior: invalid value for enumeration type.");
-    }
-}
-
-std::size_t Waypoints::destination_waypoint() const
-    { return m_dest_waypoint; }
-
-void Waypoints::set_destination_waypoint(std::size_t dest) {
-    static constexpr auto k_no_waypoints_msg =
-        "Waypoints::set_destination_waypoint: cannot set a destination for "
-        "waypoint component which no waypoints have been set.";
-
-    if (!waypoints) throw InvArg(k_no_waypoints_msg);
-    if (dest > waypoints->size()) throw InvArg(k_no_waypoints_msg);
-
-    m_dest_waypoint = dest;
-    m_behavior = k_toward_destination;
-}
-
-VectorD Waypoints::waypoint_offset() const {
-    if (!waypoints) return VectorD();
-    auto seg = current_waypoint_segment();
-    return seg.a + (seg.b - seg.a)*position;
-}
-
-bool Waypoints::has_waypoint_offset() const noexcept
-    { return waypoints ? waypoints->size() > 1 : false; }
-
-LineSegment Waypoints::current_waypoint_segment() const {
-    if (!has_waypoint_offset()) {
-        throw std::runtime_error("Platform has no line segment that "
-            "describes its travel between two waypoints as there are fewer "
-            "than two waypoints.");
-    }
-    return LineSegment((*waypoints)[waypoint_number], (*waypoints)[next_waypoint()]);
-}
-
-std::size_t Waypoints::next_waypoint() const {
-    switch (m_behavior) {
-    case k_idle     : return waypoint_number;
-    case k_forewards: return increment_index(false, waypoint_number);
-    case k_cycles   : return increment_index(true , waypoint_number);
-    case k_toward_destination:
-        if (waypoint_number == m_dest_waypoint)
-            return waypoint_number;
-        else if (waypoint_number < m_dest_waypoint)
-            return increment_index(false, waypoint_number);
-        else
-            return decrement_index(false, waypoint_number);
-    }
-    throw BadBranchException();
-}
-
-std::size_t Waypoints::previous_waypoint() const {
-    switch (m_behavior) {
-    case k_idle     : return waypoint_number;
-    case k_forewards: return decrement_index(false, waypoint_number);
-    case k_cycles   : return decrement_index(true , waypoint_number);
-    case k_toward_destination:
-        if (waypoint_number == m_dest_waypoint)
-            return waypoint_number;
-        else if (waypoint_number < m_dest_waypoint)
-            return decrement_index(false, waypoint_number);
-        else
-            return increment_index(false, waypoint_number);
-    }
-    throw BadBranchException();
-}
-
-/* private */ std::size_t Waypoints::increment_index
-    (bool cycle, std::size_t idx) const
-{
-    if (!waypoints) {
-        throw RtError(std::string("Waypoints::increment_index")
-                      + k_no_waypoints_assigned_msg);
-    }
-    if (idx + 1 == waypoints->size()) {
-        return cycle ? 0 : idx;
-    }
-    return idx + 1;
-}
-
-/* private */ std::size_t Waypoints::decrement_index
-    (bool cycle, std::size_t idx) const
-{
-    if (!waypoints) {
-        throw RtError(std::string("Waypoints::decrement_index")
-                      + k_no_waypoints_assigned_msg);
-    }
-    if (idx == 0) {
-        return cycle ? waypoints->size() - 1 : idx;
-    }
-    return idx - 1;
-}
-#endif
