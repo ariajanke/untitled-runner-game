@@ -147,10 +147,12 @@ void GameDriver::process_event(const sf::Event & event) {
             + VectorD(0, -100);
 
         add_color_circle(e, random_color(m_rng));
-        e.add<Lifetime>();
+        e.add<Lifetime>().value = 30.;
+#       if 0
         e.add<PhysicsDebugDummy>();
+#       endif
 
-        auto htype = e.add<Item>().hold_type = choose_random(m_rng, { Item::run_booster, Item::simple }); //Item::HoldType(IntDistri(0, Item::k_hold_type_count - 1)(m_rng));
+        auto htype = e.add<Item>().hold_type = Item::simple;//choose_random(m_rng, { Item::run_booster, Item::simple }); //Item::HoldType(IntDistri(0, Item::k_hold_type_count - 1)(m_rng));
         const char * msg = [htype]() {switch (htype) {
         case Item::platform_breaker: return "platform breaker";
         case Item::run_booster     : return "run booster";

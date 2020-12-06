@@ -28,10 +28,13 @@
 struct PhysicsDebugDummy {};
 
 using EntityManager = ecs::EntityManager<
-    PhysicsComponent,
+    PhysicsComponent, // essentially refers to other components
+                      // (which I hate, because this means coupling AND
+                      //  complex behaviors in a component)
     Lifetime, Snake, PlayerControl, DisplayFrame, Item,
     Launcher, LauncherSubjectHistory,
-    Collector, HeadOffset, Platform, Waypoints,
+    Collector, HeadOffset, Platform,
+    InterpolativePosition, Waypoints,
     PhysicsDebugDummy,
     ReturnPoint, ScriptUPtr //ScriptEvents
 >;
@@ -190,12 +193,14 @@ private:
 };
 
 class BasketScript final : public Script {
-
     void process_control_event(const ControlEvent &) override {}
     void on_departing(Entity, EntityRef) override;
     void on_landing(Entity, VectorD, EntityRef) override;
 
-    std::size_t m_held_weight = 0;
+    static bool is_simple_item(const Entity &);
+    void change_weight(int delta, InterpolativePosition &);
+
+    int m_held_weight = 0;
 };
 
 #if 0

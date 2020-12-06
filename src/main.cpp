@@ -21,6 +21,7 @@
 #include "GameDriver.hpp"
 
 #include "maps/MapLinks.hpp"
+#include "components/Platform.hpp"
 
 #include <tmap/TiledMap.hpp>
 
@@ -198,7 +199,7 @@ sf::Vector2f compute_view_for_window
 void load_test_map(StartupOptions &, char ** beg, char ** end);
 
 int main(int argc, char ** argv) {
-
+    InterpolativePosition::run_tests();
     {
     DefineInPlaceVector<int, 5> ipv; //std::vector<int, DefineInPlace<4>::Allocator<int>> ipv;
     reserve_in_place(ipv);

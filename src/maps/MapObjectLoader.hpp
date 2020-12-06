@@ -76,8 +76,8 @@ private:
 
 class CachedWaypoints {
 public:
-    using WaypointsPtr = Waypoints::WaypointsPtr;
-    using WaypointsContainer = Waypoints::WaypointsContainer;
+    using WaypointsPtr = Waypoints::ContainerPtr;
+    using WaypointsContainer = Waypoints::Container;
     WaypointsPtr load_waypoints(const tmap::MapObject * obj);
 private:
     WaypointsPtr m_no_obj_waypoints;
@@ -91,7 +91,7 @@ class MapObjectLoader :
 {
 public:
     using CachedLoader<SpriteSheet, std::string>::load;
-    using WaypointsPtr = Waypoints::WaypointsPtr;
+    using WaypointsPtr = Waypoints::ContainerPtr;
 
     MapObjectLoader();
 

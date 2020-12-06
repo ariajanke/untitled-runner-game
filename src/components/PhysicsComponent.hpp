@@ -79,7 +79,7 @@ const constexpr int k_freebody_state  = PhysicsState::GetTypeId<FreeBody   >::k_
 const constexpr int k_rectangle_state = PhysicsState::GetTypeId<Rect       >::k_value;
 const constexpr int k_held_state      = PhysicsState::GetTypeId<HeldState  >::k_value;
 
-struct PhysicsComponent {
+struct PhysicsComponent : public ecs::InlinedComponent {
     double bounce_thershold = std::numeric_limits<double>::infinity();
 
     Layer active_layer = Layer::foreground;
@@ -111,6 +111,7 @@ struct PhysicsComponent {
     VectorD location() const;
     VectorD velocity() const;
     VectorD normal  () const;
+
 private:
     PhysicsState m_state;
 };

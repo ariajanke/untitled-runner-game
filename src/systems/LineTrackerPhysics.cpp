@@ -32,6 +32,7 @@ namespace {
 using PhysicsStateMask = EnvColStateMask;
 
 struct NeighborPosition : public SurfaceRef {
+    // describes the segment end we are transferring to
     decltype (LineSegment::k_a) segment_end = LineSegment::k_neither;
 };
 
@@ -156,7 +157,7 @@ void update_layer
     //
     // it only makes sense to check for layer transition with intersegment
     // transfers... and platform transfers
-    LinkSegTransfer segxfer = find_linked_transfer
+    const LinkSegTransfer segxfer = find_linked_transfer
         (params.state_as<LineTracker>(), params.map.get_layer(params.layer), segment_end_of(new_pos));
 
     if (check_for_segment_transfer_interrupt(params, segxfer, new_pos)) {
@@ -174,7 +175,34 @@ void update_layer
     // this is where we test for layer transitions
     // recall that transition tiles must have the same surfaces for both layers
     update_layer(old_tracker, new_tracker, params.map, &params.layer);
+    if (params.should_log_debug()) {
+        transfer_tracker(segxfer, old_tracker, segment_end_of(new_pos));
+        std::cout << "Intersegment transfer occured from ";
+        if (old_tracker.surface_ref().attached_entity()) {
+            std::cout << old_tracker.surface_ref().attached_entity().hash();
+        } else {
+            std::cout << "tile " << old_tracker.surface_ref().tile_location();
+        }
+
+        std::cout << " num " << old_tracker.surface_ref().segment_number() << " to ";
+        if (new_tracker.surface_ref().attached_entity()) {
+            std::cout << new_tracker.surface_ref().attached_entity().hash();
+        } else {
+            std::cout << "tile " << new_tracker.surface_ref().tile_location();
+        }
+        std::cout << " num " << new_tracker.surface_ref().segment_number() << std::endl;
+    }
+
+#   if 0
     params.set_transfer(new_tracker);
+#   endif
+    {
+    auto & cur_tracker = params.state_as<LineTracker>();
+    cur_tracker.inverted_normal = new_tracker.inverted_normal;
+    cur_tracker.position        = new_tracker.position       ;
+    cur_tracker.speed           = new_tracker.speed          ;
+    cur_tracker.set_surface_ref(new_tracker.surface_ref());
+    }
     handle_tracker_physhics(params, et_after);
 } // end of handle_tracker_physhics function
 
@@ -259,24 +287,41 @@ void apply_friction(double & tracker_speed, const LineSegment & seg, double et) 
 }
 
 LinkSegTransfer find_linked_transfer(const LineTracker & tracker, const LineMapLayer & map_layer, LineSegmentEnd segend) {
+    auto verify_rv = [](LinkSegTransfer rv) {
+        if (rv.surface_ref) {
+            assert(   rv.segment_end == LineSegment::k_a
+                   || rv.segment_end == LineSegment::k_b);
+        } else {
+            assert(rv.segment_end == LineSegment::k_neither);
+        }
+        return rv;
+    };
     const auto & surface_ref = tracker.surface_ref();
     // handling for platforms
     if (surface_ref.attached_entity()) {
         const auto & platform = Entity(surface_ref.attached_entity()).get<Platform>();
-        auto next_segment = surface_ref.segment_number();
-        switch (segend) {
-        case LineSegmentEnd::k_a: next_segment = platform.previous_surface(next_segment); break;
-        case LineSegmentEnd::k_b: next_segment = platform.next_surface    (next_segment); break;
-        default: throw BadBranchException();
-        }
+        auto next_segment = [&]() {
+            switch (segend) {
+            case LineSegmentEnd::k_a: return platform.previous_surface(surface_ref.segment_number()); break;
+            case LineSegmentEnd::k_b: return platform.next_surface    (surface_ref.segment_number()); break;
+            default: throw BadBranchException();
+            }
+        } ();
+
+        if (std::size_t(next_segment) == Platform::k_no_surface) return LinkSegTransfer();
+
         LinkSegTransfer segxfer;
-        if (std::size_t( next_segment ) != Platform::k_no_surface) {
-            segxfer.surface_ref.set(surface_ref.attached_entity(), next_segment);
-            segxfer.angle_of_transfer = angle_between(*surface_ref, platform.get_surface(next_segment), tracker.inverted_normal);
-        }
-        return segxfer;
+        auto current_seg = *surface_ref;
+
+        segxfer.surface_ref.set(surface_ref.attached_entity(), next_segment);
+        segxfer.angle_of_transfer = angle_between(*surface_ref, platform.get_surface(next_segment), tracker.inverted_normal);
+        auto from_pt = (segend == LineSegmentEnd::k_a) ? current_seg.a : current_seg.b;
+        auto next_seg = *segxfer.surface_ref;
+        segxfer.segment_end = are_very_close(from_pt, next_seg.a) ? LineSegmentEnd::k_a : LineSegmentEnd::k_b;
+        assert(segxfer.segment_end == are_very_close(from_pt, next_seg.b) ? LineSegmentEnd::k_b :  LineSegmentEnd::k_a);
+        return verify_rv(segxfer);
     } else {
-        return find_smallest_angle_neighbor(map_layer, tracker, segend);
+        return verify_rv(find_smallest_angle_neighbor(map_layer, tracker, segend));
     }
 }
 

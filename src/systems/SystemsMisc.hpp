@@ -128,35 +128,77 @@ class LauncherSystem final : public System, public MapAware {
 class WaypointPositionSystem final : public System, public TimeAware {
     void update(const ContainerView & view) override {
         for (auto e : view) {
-            if (!e.has<Waypoints>()) continue;
-            auto & waypts = e.get<Waypoints>();
-            if (waypts.waypoint_number == Waypoints::k_no_waypoint ||
-                !waypts.waypoints) continue;
-            if (waypts.waypoints->empty()) continue;
-            auto seg_len = segment_length(waypts.current_waypoint_segment());
-            if (seg_len < k_error) continue;
-            waypts.position += waypts.speed*elapsed_time() / seg_len;
-            auto next_waypt = Waypoints::k_no_waypoint;
-            if (waypts.position < 0.) {
-                next_waypt = waypts.previous_waypoint();
-            } else if (waypts.position > 1.) {
-                next_waypt = waypts.next_waypoint();
-            } else {
-                continue;
-            }
-            // no change implies non-cycling waypoints
-            if (next_waypt == waypts.waypoint_number) {
-                waypts.position = std::max(1., std::min(0., waypts.position));
-            }
-            // other cases, we are cycling
-            else if (waypts.position < 0.) {
-                waypts.position = 1.;
-            } else if (waypts.position > 1.) {
-                waypts.position = 0.;
-            }
-            waypts.waypoint_number = next_waypt;
+            if (should_skip(e)) continue;
+            update(e.get<Waypoints>().points(), e.get<InterpolativePosition>(), elapsed_time());
         }
     }
+
+    static void update
+        (const Waypoints::Container & waypts, InterpolativePosition & intpos, double et)
+    {
+        if (et < k_error) return;
+        auto seg_len = segment_length(get_waypoint_segment(waypts, intpos));
+        // can't move anymore, we must be at a stopping point
+        if (seg_len < k_error) return;
+
+        auto delta = (intpos.speed() / seg_len)*et;
+        auto rem   = intpos.move_position(delta);
+
+        if (rem / delta > 1.) {
+            throw std::runtime_error("something's wrong");
+        }
+        update(waypts, intpos, et * (rem / delta));
+    }
+
+    static bool should_skip(Entity e) {
+        if (!e.has<Waypoints>() || !e.has<InterpolativePosition>()) return true;
+        return false;
+    }
+#   if 0
+    static bool should_skip(const Waypoints * waypts) {
+        if (!waypts) return true;
+
+        if (waypts->waypoint_number == Waypoints::k_no_waypoint ||
+            !waypts->waypoints) return true;
+        if (waypts->waypoints->empty()) return true;
+        auto seg_len = segment_length(waypts->current_waypoint_segment());
+        if (seg_len < k_error) {
+            // possibly log the segment as an issue
+            return true;
+        }
+        return false;
+    }
+
+    static void update(Waypoints & waypts, double et) {
+        auto seg_len = segment_length(waypts.current_waypoint_segment());
+        waypts.position += waypts.speed*et / seg_len;
+        if (   waypts.behavior() == Waypoints::k_toward_destination
+            && waypts.destination_waypoint() != 0)
+        {
+            int k = 0;
+            ++k;
+        }
+        auto next_waypt = Waypoints::k_no_waypoint;
+        if (waypts.position < 0.) {
+            next_waypt = waypts.previous_waypoint();
+        } else if (waypts.position > 1.) {
+            next_waypt = waypts.next_waypoint();
+        } else {
+            return;
+        }
+        // no change implies non-cycling waypoints
+        if (next_waypt == waypts.waypoint_number) {
+            waypts.position = std::max(1., std::min(0., waypts.position));
+        }
+        // other cases, we are cycling
+        else if (waypts.position < 0.) {
+            waypts.position = 1.;
+        } else if (waypts.position > 1.) {
+            waypts.position = 0.;
+        }
+        waypts.waypoint_number = next_waypt;
+    }
+#   endif
 };
 
 class PlatformMovementSystem final : public System {
@@ -171,8 +213,10 @@ class PlatformMovementSystem final : public System {
 
     void update(Entity e) {
         VectorD offset;
-        if (const auto * waypts = e.ptr<Waypoints>()) {
-            offset += waypts->waypoint_offset();
+        const auto * waypts = e.ptr<Waypoints>();
+        const auto * intpos = e.ptr<InterpolativePosition>();
+        if (waypts && intpos) {
+            offset += get_waypoint_location(*waypts, *intpos); //waypts->waypoint_offset();
         }
         if (const auto * pcomp = e.ptr<PhysicsComponent>()) {
             offset += pcomp->location();

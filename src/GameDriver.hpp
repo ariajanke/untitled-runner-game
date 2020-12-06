@@ -49,7 +49,7 @@ using CompleteSystemList = TypeList<
     ExtremePositionsControlSystem,
     PlatformDrawer,
     WaypointPositionSystem,
-    //PlatformMovementSystem,
+    PlatformMovementSystem,
     HoldItemSystem,
     PlatformBreakingSystem,
     CratePositionUpdateSystem,

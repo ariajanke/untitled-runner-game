@@ -54,7 +54,9 @@ LineTracker::~LineTracker() {
 }
 
 void LineTracker::set_surface_ref(const SurfaceRef & ref, VectorD impact_vel) {
-    if (m_owning_entity && m_surface_ref != ref) {
+    bool is_internal_transfer = (   m_surface_ref.attached_entity()
+                                 && m_surface_ref.attached_entity() == ref.attached_entity());
+    if (m_owning_entity && m_surface_ref != ref && !is_internal_transfer) {
         if (Entity e = Entity(m_surface_ref.attached_entity())) {
             if (auto * script = e.ptr<ScriptUPtr>()) {
                 (**script).on_departing(e, m_owning_entity);

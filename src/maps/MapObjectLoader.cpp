@@ -214,7 +214,7 @@ inline VectorD center_of(const tmap::MapObject & obj) {
            VectorD(obj.bounds.width, obj.bounds.height)*0.5;
 }
 
-Waypoints::Behavior load_waypoints_behavior(const tmap::MapObject::PropertyMap &);
+InterpolativePosition::Behavior load_waypoints_behavior(const tmap::MapObject::PropertyMap &);
 
 VectorD parse_vector(const std::string &);
 
@@ -316,18 +316,31 @@ void load_platform(MapObjectLoader & loader, const tmap::MapObject & obj) {
     Surface surface(to_floor_segment(obj.bounds));
     e.add<Platform>().set_surfaces(std::vector<Surface> { surface });
 
+    InterpolativePosition intpos;
     Waypoints waypts;
-    waypts.set_behavior(load_waypoints_behavior(obj.custom_properties));
+    intpos.set_behavior(load_waypoints_behavior(obj.custom_properties));
     auto do_if_found = make_do_if_found(obj.custom_properties);
     do_if_found("waypoints", [&waypts, &loader](const std::string & val) {
-        waypts.waypoints = loader.load_waypoints(loader.find_map_object(val));
+        waypts = loader.load_waypoints(loader.find_map_object(val));
+#       if 0
         waypts.waypoint_number = 0;
+#       endif
     });
-    do_if_found("speed", [&waypts](const std::string & val) {
-        string_to_number(val, waypts.speed);
+
+    if (waypts.has_points()) {
+        assert(waypts->size() > 1);
+        intpos.set_segment_count(waypts->size() - 1);
+        assert(intpos.point_count() == waypts->size());
+    }
+
+    do_if_found("speed", [&intpos](const std::string & val) {
+        double spd = 0.;
+        if (string_to_number(val, spd))
+            intpos.set_speed(spd);
     });
-    do_if_found("position", [&waypts](const std::string & val) {
-        if (waypts.waypoints->empty()) return;
+    do_if_found("position", [&intpos](const std::string & val) {
+        //if (waypts.waypoints->empty()) return;
+        if (intpos.segment_count() == 0) return;
         // should like the position to apply to the entire cycle and not just
         // the current segment
         double x = 0.;
@@ -336,14 +349,30 @@ void load_platform(MapObjectLoader & loader, const tmap::MapObject & obj) {
         } else if (x < 0. || x > 1.) {
             return;
         }
+        intpos.set_whole_position(x*double(intpos.point_count()));
+#       if 0
+        x *= double(intpos.point_count());
+        intpos.set_position      (std::remainder(x, 1.)     );
+        intpos.set_segment_source(std::size_t(std::floor(x)));
+#       endif
+#       if 0
         x *= double(waypts.waypoints->size());
         waypts.position        = std::remainder(x, 1.);
         waypts.waypoint_number = std::size_t(std::floor(x));
+#       endif
     });
+    if (waypts.has_points()) {
+        if (waypts.points().size() > 1) {
+            e.add<Waypoints>() = std::move(waypts);
+            e.add<InterpolativePosition>() = intpos;
+        }
+    }
+#   if 0
     if (waypts.waypoints) {
         if (!waypts.waypoints->empty())
             e.add<Waypoints>() = std::move(waypts);
     }
+#   endif
 }
 
 void load_wall(MapObjectLoader & loader, const MapObject & obj) {
@@ -356,12 +385,6 @@ void load_wall(MapObjectLoader & loader, const MapObject & obj) {
 
 void load_ball(MapObjectLoader & loader, const MapObject & obj) {
     Item::HoldType hold_type = Item::simple;
-#   if 0
-    auto itr = obj.custom_properties.find("ball-type");
-    if (itr != obj.custom_properties.end()) { if (itr->second == "jump-booster") {
-        hold_type = Item::jump_booster;
-    }}
-#   endif
     auto do_if_found = make_do_if_found(obj.custom_properties);
     do_if_found("ball-type", [&hold_type](const std::string & val) {
         if (val == "jump-booster") {
@@ -392,28 +415,9 @@ void load_ball(MapObjectLoader & loader, const MapObject & obj) {
             std::cout << "recall-time was not numeric (value: \"" << val << "\")." << std::endl;
         }
     });
-#   if 0
-    itr = obj.custom_properties.find("recall-time");
-    if (itr != obj.custom_properties.end()) {
-        double time = ReturnPoint::k_default_recall_time;
-        auto b = itr->second.begin(), e = itr->second.end();
-        trim<is_whitespace>(b, e);
-        if (string_to_number(b, e, time)) {
-            rt_point.recall_max_time = rt_point.recall_time = time;
-        } else {
-            std::cout << "recall-time was not numeric (value: \"" << itr->second << "\")." << std::endl;
-        }
-    }
-#   endif
     do_if_found("recall-bounds", [&loader, &ball_e](const std::string & val) {
         loader.register_recallable(val, ball_e);
     });
-#   if 0
-    itr = obj.custom_properties.find("recall-bounds");
-    if (itr != obj.custom_properties.end()) {
-        loader.register_recallable(itr->second, ball_e);
-    }
-#   endif
 }
 
 void load_recall_bounds(MapObjectLoader & loader, const MapObject & obj) {
@@ -433,7 +437,7 @@ void load_basket(MapObjectLoader & loader, const MapObject & obj) {
         if (outline_obj->points.empty()) return;
         outline = convert_vector_to<VectorD>(outline_obj->points);
     });
-    using WaypointsPtr = Waypoints::WaypointsPtr;
+    using WaypointsPtr = Waypoints::ContainerPtr;
     WaypointsPtr waypts;
     do_if_found("sink-points", [&loader, &waypts](const std::string & val) {
         waypts = loader.load_waypoints(loader.find_map_object(val));
@@ -484,13 +488,23 @@ void load_basket(MapObjectLoader & loader, const MapObject & obj) {
 #   if 0
     auto & waypt_comp = basket_e.add<Waypoints>();
     waypt_comp.waypoints = waypts;
+    waypt_comp.set_destination_waypoint(0);
+    waypt_comp.speed = 50.;
 #   endif
-
+    basket_e.add<Waypoints>() = std::move(waypts);
+    {
+    auto & intpos = basket_e.add<InterpolativePosition>();
+    intpos.set_speed(50.);
+    intpos.set_segment_count(basket_e.get<Waypoints>()->size() - 1);
+    assert(intpos.point_count() == basket_e.get<Waypoints>()->size());
+    intpos.target_point(0);
+    }
     basket_e.add<Platform>().set_surfaces(std::move(surfaces));
 
     for (auto surf : basket_e.get<Platform>().surface_view()) {
         assert(!are_very_close(surf.a, surf.b));
     }
+    basket_e.add<ScriptUPtr>() = std::make_unique<BasketScript>();
 }
 
 void load_scale_pivot(MapObjectLoader & loader, const MapObject & obj) {
@@ -545,16 +559,17 @@ void load_display_frame(DisplayFrame & dframe, const tmap::MapObject & obj) {
     }
 }
 
-Waypoints::Behavior load_waypoints_behavior(const tmap::MapObject::PropertyMap & props) {
-    static constexpr const auto k_default_behavior = Waypoints::k_cycles;
+InterpolativePosition::Behavior load_waypoints_behavior(const tmap::MapObject::PropertyMap & props) {
+    using IntPos = InterpolativePosition;
+    static constexpr const auto k_default_behavior = IntPos::k_cycles;
     auto itr = props.find("cycle-behavior");
     if (props.end() == itr) return k_default_behavior;
     if (itr->second == "cycles") {
-        return Waypoints::k_cycles;
+        return IntPos::k_cycles;
     } else if (itr->second == "idle") {
-        return Waypoints::k_idle;
+        return IntPos::k_idle;
     } else if (itr->second == "foreward" || itr->second == "forewards") {
-        return Waypoints::k_forewards;
+        return IntPos::k_foreward;
     }
     // log invalid argument
     return k_default_behavior;

@@ -21,10 +21,7 @@
 #include <iostream>
 
 #include <cassert>
-#if 0
-SurfaceView make_surface_view(const Platform & plat, const Entity & e)
-    { return make_surface_view(plat, e.ptr<PhysicsComponent>(), e.ptr<Waypoints>()); }
-#endif
+
 LineTracker * get_tracker(Entity e) {
     if (!e.has<PhysicsComponent>()) return nullptr;
     return e.get<PhysicsComponent>().state_ptr<LineTracker>();
@@ -124,7 +121,7 @@ private:
     SharedPivotScriptPtr m_pivot = nullptr;
 };
 
-}
+} // end of <anonymous> namespace
 
 /* static */ void ScalePivotScript::add_pivot_script_to
     (Entity pivot, Entity left, Entity right)
@@ -143,6 +140,7 @@ ScalePivotScript::ScalePivotScript(Entity pivot, Entity left, Entity right):
     m_left(left),
     m_right(right)
 {
+#   if 0
     Rect pivot_bounds = m_pivot.get<PhysicsComponent>().state_as<Rect>();
     for (auto part : { m_left, m_right }) {
         Rect bounds = part.get<PhysicsComponent>().state_as<Rect>();
@@ -151,6 +149,7 @@ ScalePivotScript::ScalePivotScript(Entity pivot, Entity left, Entity right):
         auto & waypts = part.add<Waypoints>();
         plat.set_surfaces(std::vector<Surface>{ Surface(LineSegment(VectorD(), VectorD(bounds.width, 0.))) });
         VectorD top_pt(bounds.left, bounds.top + bounds.height*0.5);
+
         waypts.waypoints = std::make_shared<std::vector<VectorD>>(std::vector<VectorD> {
             top_pt, VectorD(top_pt.x, pivot_bounds.top + pivot_bounds.height*0.5)
         });
@@ -162,6 +161,7 @@ ScalePivotScript::ScalePivotScript(Entity pivot, Entity left, Entity right):
         waypts.waypoint_number = 0;
         waypts.position = 0.;
     }
+#   endif
 }
 
 void ScalePivotScript::land_left(VectorD, EntityRef) {
@@ -193,8 +193,10 @@ void ScalePivotScript::leave_right(EntityRef) {
 }
 
 void ScalePivotScript::update_balance() {
+#   if 0
     auto & left_waypts = m_left.get<Waypoints>();
     auto & right_waypts = m_right.get<Waypoints>();
+
     if (m_left_weight > m_right_weight) {
         left_waypts.speed = -50.;
         right_waypts.speed = 50.;
@@ -204,14 +206,34 @@ void ScalePivotScript::update_balance() {
     } else {
         left_waypts.speed = right_waypts.speed = 0.;
     }
+#   endif
 }
 
-void BasketScript::on_departing(Entity, EntityRef) {
-
+/* private */ void BasketScript::on_departing(Entity e, EntityRef other_ref) {
+    if (!is_simple_item(Entity(other_ref))) return;
+    if (e.is_requesting_deletion()) return;
+    change_weight(-1, e.get<InterpolativePosition>());
 }
 
-void BasketScript::on_landing(Entity, VectorD, EntityRef) {
+/* private */ void BasketScript::on_landing(Entity e, VectorD, EntityRef other_ref) {
+    if (!is_simple_item(Entity(other_ref))) return;
+    if (e.is_requesting_deletion()) return;
+    change_weight(1, e.get<InterpolativePosition>());
+}
 
+/* private static */ bool BasketScript::is_simple_item(const Entity & e) {
+    if (const auto * item = e.ptr<Item>())
+        { return item->hold_type == Item::simple; }
+    return false;
+}
+
+/* private */ void BasketScript::change_weight(int delta, InterpolativePosition & intpos) {
+    assert(magnitude(delta) == 1);
+    m_held_weight += delta;
+
+    std::cout << "Weight " << m_held_weight;
+    intpos.target_point(std::min(std::size_t(std::max(m_held_weight, 0)), intpos.point_count()));
+    std::cout << " dest waypoint " << intpos.targeted_point() << std::endl;
 }
 
 #if 0

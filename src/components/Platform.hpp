@@ -20,11 +20,8 @@
 #pragma once
 
 #include "Defs.hpp"
-#include "PhysicsComponent.hpp"
 
 #include <memory>
-
-class Platform;
 
 class SurfaceIter {
 public:
@@ -67,7 +64,7 @@ private:
     IterBack m_beg, m_end;
 };
 
-class Waypoints;
+// ----------------------------------------------------------------------------
 
 // my thoughts on class ECS components
 // OK: maintain data's validity
@@ -78,81 +75,181 @@ class Waypoints;
 // I think the focus should be to divorce *game* behavior from data
 class Platform {
 public:
-#   if 0
-    friend SurfaceView make_surface_view(const Platform &, const PhysicsComponent *, const Waypoints *);
-#   endif
-#   if 0
-    using WaypointsPtr = std::shared_ptr<std::vector<VectorD>>;
-#   endif
     static constexpr const std::size_t k_no_surface  = std::size_t(-1);
-#   if 0
-    static constexpr const std::size_t k_no_waypoint = std::size_t(-1);
 
-    // let's seperate waypoints
-    // because some platforms have none!
-
-    double position = 0.; // [0 1]
-    double speed    = 0.; // px/sec
-
-    // ------------------------- concerning waypoints -------------------------
-
-    WaypointsPtr waypoints;
-    std::size_t waypoint_number = k_no_waypoint;
-    bool cycle_waypoints = true;
-
-    VectorD waypoint_offset() const;
-
-    bool has_waypoint_offset() const noexcept;
-
-    LineSegment current_waypoint_segment() const;
-
-    std::size_t next_waypoint() const;
-
-    std::size_t previous_waypoint() const;
-#   endif
-    // ------------------------- concerning surfaces --------------------------
-#if 0
-    [[deprecated]] SurfaceView surface_view() const
-        { return surface_view_relative(); }
-#   endif
     SurfaceView surface_view() const;
-#   if 0
-    SurfaceView surface_view_relative() const;
 
-    SurfaceView surface_view(const PhysicsComponent *) const;
-#   endif
     std::size_t next_surface(std::size_t idx) const noexcept;
 
     std::size_t previous_surface(std::size_t idx) const noexcept;
 
     std::size_t surface_count() const { return m_surfaces.size(); }
-#   if 0
-    [[deprecated]] Surface get_surface(std::size_t idx) const;
-#   endif
-#   if 0
-    Surface get_surface(std::size_t idx, const Waypoints *) const;
-#   endif
+
     Surface get_surface(std::size_t) const;
 
     void set_surfaces(std::vector<Surface> && surfaces)
         { m_surfaces = std::move(surfaces); }
-#if 0
-    void move_to(VectorD r);
 
-    void move_by(VectorD delta);
-#endif
     void set_offset(VectorD r) { m_offset = r; }
+
 private:
     bool surfaces_cycle() const noexcept;
 
     VectorD average_location() const;
-#   if 0
-    VectorD offset(const PhysicsComponent *) const;
-#   endif
+
     std::vector<Surface> m_surfaces;
     VectorD m_offset;
 };
 
+// ----------------------------------------------------------------------------
+
+class InterpolativePosition {
+public:
+    enum Behavior : uint8_t {
+        k_foreward, // position advances from one point to the other, maxing
+                    // out at the end point
+        k_cycles  , // same as forwards, but cycles around end to 0
+        k_idle    , // describes non-movement, position fixed at the start
+        // movement toward a set destination
+        k_toward_destination
+    };
+    struct SegPair { std::size_t target, source; };
+
+    // has a position, speed, and segment
+    static constexpr const auto k_no_point = std::size_t(-1);
+    static const SegPair k_no_segment_pair;
+
+    // ---------------------------- whole position ----------------------------
+
+    /** @brief moves the position within the segment. If the position hits 1 or
+     *         0, then the segment number is changed, and the remainder is
+     *         returned.
+     *  @returns positive real number, the remainder after the position hit
+     *           the end of the segment. Otherwise 0 is returned.
+     */
+    double move_position(double);
+
+    /** @param x maybe [0 n + m] where n is number of segments,
+     *           and m is in [0 1]
+     */
+    void set_whole_position(double x);
+
+    // --------------------------- position inside ----------------------------
+
+    /** sets position within segment */
+    void set_position(double);
+
+    double position() const noexcept;
+
+    // -------------------------------- speed ---------------------------------
+
+    void set_speed(double);
+
+    double speed() const noexcept;
+
+    // ------------------------------ behavioral ------------------------------
+
+    void set_behavior(Behavior);
+
+    Behavior behavior() const noexcept;
+
+    void target_point(std::size_t);
+
+    std::size_t targeted_point() const noexcept;
+
+    // ---------------------------- which segment -----------------------------
+
+    // second is target, first is source
+    SegPair current_segment() const;
+
+    /**
+     *  @note may change destination point
+     */
+    void set_segment_count(std::size_t);
+
+    void set_segment_source(std::size_t);
+
+    std::size_t point_count() const noexcept { return m_segment_count + 1; }
+
+    std::size_t segment_count() const noexcept { return m_segment_count; }
+
+    static void run_tests();
+
+private:
+    using SegUInt = uint16_t;
+    static constexpr const SegUInt k_no_point_back = SegUInt(-1);
+
+    SegUInt previous_point() const noexcept;
+    SegUInt next_point    () const noexcept;
+
+    void check_invarients() const;
+    static SegUInt verify_fit(std::size_t, const char * caller);
+
+    Behavior m_behavior     = k_idle;
+    SegUInt m_current_point = 0;
+    SegUInt m_segment_count = 1; // note: seg count == point count
+    SegUInt m_destination   = 0; // irrelevent if m_behavior != k_toward_destination
+
+    double m_speed    = 0.;
+    double m_position = 0.;
+};
+
+class Waypoints {
+public:
+    using Container    = std::vector<VectorD>;
+    using ContainerPtr = std::shared_ptr<const Container>;
+
+    Waypoints & operator = (ContainerPtr sptr) {
+        m_sptr = sptr;
+        return *this;
+    }
+
+    operator const Container & () const { return points(); }
+
+    const Container & points() const {
+        if (!m_sptr) throw std::runtime_error("Waypoints::points: container pointer not set");
+        return *m_sptr;
+    }
+
+    const Container * operator -> () const { return m_sptr.get(); }
+    const Container operator * () const { return *m_sptr; }
+
+    // should be true for all active entities
+    bool has_points() const noexcept { return m_sptr != nullptr; }
+
+private:
+    ContainerPtr m_sptr = nullptr;
+};
+
+// a == source, b == target
+inline LineSegment get_waypoint_segment
+    (const Waypoints::Container & pts, const InterpolativePosition & intpos)
+{
+    auto cseg = intpos.current_segment();
+    return LineSegment { pts.at(cseg.source), pts.at(cseg.target) };
+}
+
+inline LineSegment get_waypoint_segment
+    (const Waypoints & waypts, const InterpolativePosition & intpos)
+{ return get_waypoint_segment(waypts.points(), intpos); }
+
+inline VectorD get_waypoint_location
+    (const Waypoints::Container & pts, const InterpolativePosition & intpos)
+{
+    if (intpos.point_count() != pts.size()) {
+        throw std::invalid_argument("get_waypoint_location: number of waypoints "
+              "do not match points on the interpolative position component.");
+    }
+    auto seg = get_waypoint_segment(pts, intpos);
+    auto t = intpos.position();
+    return seg.a*t + seg.b*(1. - t);
+}
+
+inline VectorD get_waypoint_location
+    (const Waypoints & waypts, const InterpolativePosition & intpos)
+{ return get_waypoint_location(waypts.points(), intpos); }
+
+#if 0
 class Waypoints {
 public:
     using WaypointsContainer = std::vector<VectorD>;
@@ -160,17 +257,31 @@ public:
     enum Behavior { k_cycles, k_idle, k_forewards, k_toward_destination };
 
     static constexpr const std::size_t k_no_waypoint = std::size_t(-1);
-
+#   if 0
     double position = 0.; // [0 1]
     double speed    = 0.; // px/sec
+    std::size_t waypoint_number = k_no_waypoint;
+#   endif
+
+    void set_speed_pxs(double); // must be real number, pixels per second
+    void set_position(double); // [0 1] within segment
+    /** Changes waypoints at most once, return
+     *
+     * @return
+     */
+    double move_position(double);
+
+    double speed() const; // segments per second
+
 
     // ------------------------- concerning waypoints -------------------------
-
-    WaypointsPtr waypoints;
-    std::size_t waypoint_number = k_no_waypoint;
 #   if 0
-    bool cycle_waypoints = true;
+    WaypointsPtr waypoints;
 #   endif
+    void set_waypoints(WaypointsPtr);
+
+    // ------------------------------- behavior -------------------------------
+
     Behavior behavior() const;
 
     void set_behavior(Behavior);
@@ -179,34 +290,27 @@ public:
 
     void set_destination_waypoint(std::size_t);
 
+    // ------------------------ local concern waypoints -----------------------
+
     VectorD waypoint_offset() const;
-
-    bool has_waypoint_offset() const noexcept;
-
+#   if 0
+    [[deprecated]] bool has_waypoint_offset() const noexcept;
+#   endif
+private:
     LineSegment current_waypoint_segment() const;
 
     std::size_t next_waypoint() const;
 
     std::size_t previous_waypoint() const;
-#if 0
-private:
-    VectorD offset(const PhysicsComponent *) const;
-#endif
+
 private:
     static constexpr auto k_no_waypoints_assigned_msg =
         "no waypoints have been assigned";
+
     std::size_t increment_index(bool cycle, std::size_t idx) const;
     std::size_t decrement_index(bool cycle, std::size_t idx) const;
 
     Behavior m_behavior = k_forewards;
     std::size_t m_dest_waypoint = k_no_waypoint;
 };
-#if 0
-SurfaceView make_surface_view(const Platform &);
-
-SurfaceView make_surface_view(const Platform &, const PhysicsComponent *);
-
-SurfaceView make_surface_view(const Platform &, const Waypoints *);
-
-SurfaceView make_surface_view(const Platform &, const PhysicsComponent *, const Waypoints *);
 #endif
