@@ -36,6 +36,7 @@ public:
     void bind_to(sf::Sprite &, int sequence_number, int sequence_frame) const;
     int sequence_count() const noexcept { return m_seq_offsets.empty() ? 0 : int(m_seq_offsets.size() - 1); }
     int next_frame(int sequence_number, int frame_number) const noexcept;
+
 private:
     sf::Texture m_texture;
     std::vector<sf::IntRect> m_frames;
@@ -84,4 +85,9 @@ struct SingleImage {
     sf::IntRect texture_rectangle;
 };
 
-using DisplayFrame = MultiType<ColorCircle, CharacterAnimator, SingleImage>;
+struct HoloCrate {
+    sf::Color color;
+    sf::IntRect rect;
+};
+
+using DisplayFrame = MultiType<ColorCircle, CharacterAnimator, SingleImage, HoloCrate>;

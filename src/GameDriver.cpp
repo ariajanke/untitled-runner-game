@@ -23,6 +23,8 @@
 
 #include <iostream>
 
+#include <cassert>
+
 namespace {
 
 inline VectorD box_in(VectorD r, const LineMapLayer & lmap) {
@@ -85,6 +87,8 @@ void HudTimePiece::draw(sf::RenderTarget & target, sf::RenderStates states) cons
     target.draw(m_gems_count, states);
 }
 
+// ----------------------------------------------------------------------------
+
 void GameDriver::setup(const StartupOptions & opts, const sf::View &) {
     m_rng = std::default_random_engine { std::random_device()() };
     m_tmap.load_from_file(opts.test_map);
@@ -92,16 +96,6 @@ void GameDriver::setup(const StartupOptions & opts, const sf::View &) {
     m_lmapnn.load_map_from(m_tmap);
     DriverMapObjectLoader dmol(m_player, m_emanager);
     dmol.load_map_objects(m_tmap.map_objects());
-#   if 0
-    for (auto & obj : m_tmap.map_objects()) {
-        auto load_obj = get_loader_function(obj.type);
-        if (load_obj) {
-            load_obj(dmol, obj);
-        } else {
-            // unrecognized game object
-        }
-    }
-#   endif
     setup_systems(CompleteSystemList());
 }
 
@@ -113,6 +107,7 @@ void GameDriver::update(double et) {
     m_emanager.update_systems();
 
     m_emanager.process_deletion_requests();
+    m_graphics.update(et);
 
     m_timer.update_velocity(m_player.get<PhysicsComponent>().velocity());
     m_timer.update_gems_count(m_player.get<Collector>().diamond);
@@ -122,9 +117,7 @@ void GameDriver::render_to(sf::RenderTarget & target) {
     for (const auto & layer : m_tmap) {
         target.draw(*layer);
     }
-    for (auto sys : m_render_target_systems) {
-        sys->render_to(target);
-    }
+    m_graphics.render_to(target);
 }
 
 void GameDriver::render_hud_to(sf::RenderTarget & target) {
@@ -146,13 +139,10 @@ void GameDriver::process_event(const sf::Event & event) {
         freebody.location = m_player.get<PhysicsComponent>().location()
             + VectorD(0, -100);
 
-        add_color_circle(e, random_color(m_rng));
+        add_color_circle(e, random_color(m_rng), 8);
         e.add<Lifetime>().value = 30.;
-#       if 0
-        e.add<PhysicsDebugDummy>();
-#       endif
 
-        auto htype = e.add<Item>().hold_type = Item::simple;//choose_random(m_rng, { Item::run_booster, Item::simple }); //Item::HoldType(IntDistri(0, Item::k_hold_type_count - 1)(m_rng));
+        auto htype = e.add<Item>().hold_type = Item::simple;
         const char * msg = [htype]() {switch (htype) {
         case Item::platform_breaker: return "platform breaker";
         case Item::run_booster     : return "run booster";
@@ -211,14 +201,10 @@ template <typename HeadType, typename ... Types>
     if constexpr (std::is_base_of<MapAware, HeadType>::value) {
         m_map_aware_systems.push_back(&*new_sys);
     }
-    if constexpr (std::is_base_of<RenderTargetAware, HeadType>::value) {
-        m_render_target_systems.push_back(&*new_sys);
+    if constexpr (std::is_base_of_v<GraphicsAware, HeadType>) {
+        GraphicsAware & gfxaware = *new_sys;
+        gfxaware.assign_graphics(m_graphics);
     }
-#   if 0
-    if constexpr (std::is_base_of_v<PhysicsHistoryAware, HeadType>) {
-        new_sys->assign_event_sink(m_event_proc);
-    }
-#   endif
     m_systems.emplace_back(new_sys.release());
     setup_systems<Types...>(TypeList<Types...>());
 }

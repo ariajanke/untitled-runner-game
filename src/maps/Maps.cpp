@@ -131,11 +131,11 @@ bool LineMap::tile_in_transition(VectorI r) const {
     if (!m_transition_tiles.has_position(r)) return false;
     return m_transition_tiles(r) != TransitionTileType::no_transition;
 }
-
+#if 0
 bool LineMap::point_in_transition(VectorI r) const {
     return tile_in_transition(r);
 }
-
+#endif
 bool LineMap::point_in_transition(VectorD point) const {
     auto twidth  = m_foreground.tile_width ();
     auto theight = m_foreground.tile_height();

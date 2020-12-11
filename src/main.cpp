@@ -199,6 +199,10 @@ sf::Vector2f compute_view_for_window
 void load_test_map(StartupOptions &, char ** beg, char ** end);
 
 int main(int argc, char ** argv) {
+    std::cout << "Component table size " << Entity::k_component_table_size
+              << " bytes.\nNumber of inlined components "
+              << Entity::k_number_of_components_inlined << "." << std::endl;
+
     InterpolativePosition::run_tests();
     {
     DefineInPlaceVector<int, 5> ipv; //std::vector<int, DefineInPlace<4>::Allocator<int>> ipv;
@@ -1200,7 +1204,7 @@ void do_line_circle_segments(ConstSubGrid<sf::Color>, const std::vector<LineSegm
 }
 
 void Gen::setup() {
-
+    return;
 #   if 1
     const auto seed = std::random_device()();
     {

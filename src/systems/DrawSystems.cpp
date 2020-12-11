@@ -88,6 +88,75 @@
 
 // ----------------------------------------------------------------------------
 
+/* private */ void DrawSystem::update(const Entity & e) {
+    if (!e.has<DisplayFrame>()) return;
+    if (!e.get<PhysicsComponent>().state_is_valid()) return;
+    const auto & df = e.get<DisplayFrame>();
+    if (df.is_type<ColorCircle>()) {
+        update(e, df.as<ColorCircle>());
+    } else if (df.is_type<CharacterAnimator>()) {
+        update(e, df.as<CharacterAnimator>());
+    } else if (df.is_type<SingleImage>()) {
+        update(e, df.as<SingleImage>());
+    }
+}
+
+/* private */ void DrawSystem::update(const Entity & e, const ColorCircle & color_circle) {
+    VectorD loc;
+    if (auto holder = get_holder(e.get<PhysicsComponent>())) {
+        loc = hand_point_of<HeadOffset, PhysicsComponent>(Entity(holder));
+    } else {
+        loc = e.get<PhysicsComponent>().location() - VectorD(0, color_circle.radius);
+    }
+    graphics().draw_circle(loc, color_circle.radius, color_circle.color);
+}
+
+/* private */ void DrawSystem::update(const Entity & e, const CharacterAnimator & animator) {
+    sf::Sprite spt;
+    // need to translate for frame's size
+    animator.sprite_sheet->bind_to(spt, animator.current_sequence, animator.current_frame);
+    VectorD foot_anchor(double(spt.getTextureRect().width)*0.5, double(spt.getTextureRect().height));
+
+    [this](Entity e, VectorD r) {
+        auto & vec = m_previous_positions[e];
+        vec.push_back(r);
+        std::size_t max_history = 1;
+        static constexpr const auto k_high_run_speed = CharacterAnimator::k_high_run_speed_thershold;
+        if (magnitude(e.get<PhysicsComponent>().velocity()) > k_high_run_speed) {
+            max_history = 3;
+        }
+        if (vec.size() > max_history)
+            vec.erase(vec.begin(), vec.begin() + (vec.size() - max_history));
+    }(e, e.get<PhysicsComponent>().location());
+    spt.setPosition(sf::Vector2f(e.get<PhysicsComponent>().location()));
+    spt.setOrigin(sf::Vector2f(foot_anchor));
+    if (e.get<PlayerControl>().last_direction == PlayerControl::k_left) {
+        spt.setScale(-1.f, 1.f);
+    }
+
+    auto pcomp = e.get<PhysicsComponent>();
+    if (pcomp.state_is_type<LineTracker>()) {
+        static const VectorD k_head_vector(0, -1);
+        auto tnorm = normal_for(pcomp.state_as<LineTracker>());
+        auto ang = angle_between(tnorm, k_head_vector);
+        if (magnitude(rotate_vector(tnorm, ang) - k_head_vector) > k_error) {
+            ang *= -1.;
+        }
+        if (animator.current_sequence != CharacterAnimator::k_idle)
+            spt.rotate(-float(ang*180 / k_pi));
+    }
+
+    [this](Entity e, sf::Sprite spt) {
+        auto color = spt.getColor();
+        for (auto r : make_reverse_view(m_previous_positions[e])) {
+            spt.setPosition(sf::Vector2f(r));
+            graphics().draw_sprite(spt);
+            if (color.a > 50) color.a -= 50;
+            spt.setColor(color);
+        }
+    } (e, spt);
+}
+
 /* private */ void DrawSystem::update(const Entity & e, const SingleImage & simg) {
     sf::Sprite spt;
     spt.setTexture(*simg.texture);
@@ -109,18 +178,5 @@
         spt.setColor(sf::Color(255, 255, 255, int(std::round(t*255.))));
     }
     spt.setPosition(sf::Vector2f(loc));
-    m_sprites.push_back(spt);
-}
-
-/* private */ void DrawSystem::render_to(sf::RenderTarget & render_target) {
-    for (auto circle : m_circles) {
-        m_circle_drawer.set_color(circle.color);
-        m_circle_drawer.draw_circle(render_target, circle.location);
-    }
-    for (auto line : m_lines) {
-        m_ldrawer.draw_line(render_target, line.a, line.b);
-    }
-    for (const auto & spt : m_sprites) {
-        render_target.draw(spt);
-    }
+    graphics().draw_sprite(spt);
 }

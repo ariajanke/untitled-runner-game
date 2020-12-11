@@ -20,6 +20,8 @@
 #include "ComponentsMisc.hpp"
 #include "ComponentsComplete.hpp"
 
+#include <cassert>
+
 namespace {
 
 void press(PlayerControl &, PlayerControl::Direction);
@@ -52,6 +54,30 @@ void release(PlayerControl &, PlayerControl::Direction);
     { release(pc, PlayerControl::k_right_only); }
 
 // ----------------------------------------------------------------------------
+
+/* explicit */ MiniVector::MiniVector(VectorD r) {
+    auto m = magnitude(r);
+    if (m > k_max) {
+        throw std::invalid_argument("MiniVector cannot store a vector of this magnitude; max (" + std::to_string(k_max) + ").");
+    }
+    m_mag = std::round(m / k_scale);
+    auto ang = angle_between(k_unit_start, r);
+    if (magnitude(rotate_vector(k_unit_start, ang) - normalize(r)) > k_error) {
+        ang = 2.*k_pi - ang;
+        assert(magnitude(rotate_vector(k_unit_start, ang) - normalize(r)) < k_error);
+    }
+    assert(ang >= 0. && ang < 2.*k_pi);
+    assert(int(std::round((ang / (2.*k_pi))*k_angle_end)) <= std::numeric_limits<BaseType>::max());
+    m_dir = std::round((ang / (2.*k_pi))*k_angle_end);
+}
+
+VectorD MiniVector::expand() const noexcept {
+    auto ang = k_angle_step*double(m_dir);
+    return rotate_vector(k_unit_start, ang)*double(m_mag)*k_scale;
+}
+
+/* static */ const VectorD MiniVector::k_unit_start = VectorD(1, 0);
+/* static */ const VectorD TriggerBoxSubjectHistory::k_no_location = k_no_intersection;
 
 namespace {
 

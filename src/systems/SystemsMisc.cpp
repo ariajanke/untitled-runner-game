@@ -251,7 +251,7 @@
         tracker->speed += acc;
     }
 }
-
+#if 0
 // ----------------------------------------------------------------------------
 
 void DiamondCollectSparkles::post_effect(VectorD r, AnimationPtr aptr) {
@@ -282,7 +282,7 @@ void DiamondCollectSparkles::render_to(sf::RenderTarget & target) const {
         target.draw(brush);
     }
 }
-
+#endif
 // ----------------------------------------------------------------------------
 
 void ItemCollisionSystem::update(const ContainerView & cont) {
@@ -297,7 +297,9 @@ void ItemCollisionSystem::update(const ContainerView & cont) {
     for (auto e : m_collectors) {
         e.get<Collector>().last_location = e.get<PhysicsComponent>().location();
     }
+#   if 0
     m_sparkles.update(elapsed_time());
+#   endif
 }
 
 void ItemCollisionSystem::check_item_collection() {
@@ -320,13 +322,15 @@ void ItemCollisionSystem::check_item_collection(Entity collector, Entity item) {
         && line_crosses_rectangle(item_rect, old_location, cur_location))
     {
         item.request_deletion();
+#       if 0
         m_sparkles.post_effect(center_of(item_rect), item.get<Item>().collection_animation);
+#       endif
         ++collector.get<Collector>().diamond;
     }
 }
 
 // ----------------------------------------------------------------------------
-
+#if 0
 /* private */ void LauncherSystem::update(const ContainerView & cont) {
     m_bouncy_surfaces.clear();
     m_bouncables.clear();
@@ -394,7 +398,7 @@ void ItemCollisionSystem::check_item_collection(Entity collector, Entity item) {
         project_onto(cur_velocity, rotate_vector(bsurface.launch_velocity, k_pi*0.5));
     pstate.reset_state<FreeBody>() = freebody;
 }
-
+#endif
 // ----------------------------------------------------------------------------
 
 /* private */ void HoldItemSystem::update(const ContainerView & view) {
@@ -444,11 +448,22 @@ void ItemCollisionSystem::check_item_collection(Entity collector, Entity item) {
     hstate.set_release_func([](EntityRef holder_ref) {
         auto & holder_pcomp = Entity(holder_ref).get<PhysicsComponent>();
         if (auto * fb = holder_pcomp.state_ptr<FreeBody>()) {
-            static constexpr const double k_jump_boost = -333.;
-            fb->velocity += -normalize(k_gravity)*k_jump_boost;
-            if (magnitude(fb->velocity) > k_jump_boost*2.) {
-                fb->velocity = normalize(fb->velocity)*k_jump_boost*2.;
+            static constexpr const double k_jump_boost = 333.;
+            static constexpr const double k_max_boost  = 1.25;
+            auto fb_g = project_onto(fb->velocity, k_gravity);
+            auto fb_a = fb->velocity - fb_g;
+
+            fb_g -= normalize(k_gravity)*k_jump_boost;
+            if (   magnitude(angle_between(fb_g, k_gravity)) < k_error
+                || magnitude(fb_g) < k_jump_boost)
+            {
+                // speed minimum
+                fb_g = -normalize(k_gravity)*k_jump_boost;
+            } else if (magnitude(fb_g) > k_jump_boost*k_max_boost) {
+                // speed maximum
+                fb_g = normalize(fb_g)*k_jump_boost*k_max_boost;
             }
+            fb->velocity = fb_g + fb_a;
         }
     });
 }
@@ -474,9 +489,18 @@ void ItemCollisionSystem::check_item_collection(Entity collector, Entity item) {
     fb.velocity = holder.get<PhysicsComponent>().velocity()
                   + VectorD(direction_of(holder.get<PlayerControl>())*40, 0);
 
-    if (held.get<Item>().hold_type != Item::jump_booster) {
-        fb.velocity += -normalize(k_gravity)*200.;
-    } else {
-        fb.velocity +=  normalize(k_gravity)*200.;
+    double dir_adj_comp = 0.;
+    const auto * pcon = holder.ptr<PlayerControl>();
+    bool is_jump_booster = held.get<Item>().hold_type == Item::jump_booster;
+    if (pcon && !is_jump_booster) {
+        dir_adj_comp = pcon->last_direction == PlayerControl::k_right ? 1. : -1.;
     }
+
+    auto gunit  = normalize(k_gravity);
+    auto throwv = rotate_vector(-gunit, k_pi*0.15)*dir_adj_comp;
+
+    VectorD v = (!is_jump_booster) ? -gunit : gunit;
+    static constexpr const auto k_throw_speed = 275.;
+    v = normalize(v + throwv)*k_throw_speed;
+    fb.velocity = v;
 }

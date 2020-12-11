@@ -1,0 +1,184 @@
+/****************************************************************************
+
+    Copyright 2020 Aria Janke
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+*****************************************************************************/
+
+#include "GraphicsDrawer.hpp"
+
+#include <SFML/Graphics/RenderTarget.hpp>
+#include <SFML/Graphics/Sprite.hpp>
+
+#include <cassert>
+
+namespace {
+
+VectorD add_polar(VectorD r, double angle, double distance) {
+    return r + rotate_vector(VectorD(1.0, 0.0), angle)*distance;
+}
+
+sf::Vertex make_circle_vertex(double t)
+    { return sf::Vertex(sf::Vector2f(float(std::cos(t)), float(std::sin(t)))); }
+
+View<const sf::Vertex *> get_circle_verticies_for_radius(double rad);
+
+} // end of <anonymous> namespace
+
+void LineDrawer2::post_line(VectorD a, VectorD b, sf::Color color, double thickness) {
+    static const VectorD k_unit_start(1., 0.);
+    auto init_angle = angle_between(a - b, k_unit_start);
+
+    auto mk_vertex = [thickness, init_angle, color](VectorD pt, double ang_dir) {
+        auto theta = init_angle + ang_dir*(k_pi / 2.0);
+        auto r = add_polar(pt, theta, thickness / 2.0);
+        return sf::Vertex(sf::Vector2f(r), color);
+    };
+
+    auto verticies = {
+        mk_vertex(a,  1.0), mk_vertex(a, -1.0),
+        mk_vertex(b, -1.0), mk_vertex(b,  1.0)
+    };
+    m_verticies.insert(m_verticies.end(), verticies.begin(), verticies.end());
+}
+
+void LineDrawer2::render_to(sf::RenderTarget & target) {
+    static constexpr const auto k_quads = sf::PrimitiveType::Quads;
+    assert(m_verticies.size() % 4 == 0);
+    target.draw(m_verticies.data(), m_verticies.size(), k_quads);
+    m_verticies.clear();
+}
+
+// ----------------------------------------------------------------------------
+
+void CircleDrawer2::post_circle(VectorD r, double radius, sf::Color color) {
+    auto old_size_ = m_vertices.size();
+    auto get_begin = [this, old_size_]() { return m_vertices.begin() + old_size_; };
+    auto vertex_range = get_circle_verticies_for_radius(radius);
+    m_vertices.insert(m_vertices.end(), vertex_range.begin(), vertex_range.end());
+    for (auto itr = get_begin(); itr != m_vertices.end(); ++itr) {
+        itr->color = color;
+        itr->position = float(radius)*itr->position + sf::Vector2f(r);
+    }
+}
+
+void CircleDrawer2::render_to(sf::RenderTarget & target) {
+    assert(m_vertices.size() % 3 == 0);
+    target.draw(m_vertices.data(), m_vertices.size(), sf::PrimitiveType::Triangles);
+    m_vertices.clear();
+}
+
+// ----------------------------------------------------------------------------
+
+void ItemCollectAnimations::post_effect(VectorD r, AnimationPtr aptr) {
+    Record rec;
+    rec.ptr = aptr;
+    rec.current_frame = aptr->tile_ids.begin();
+    rec.location = r;
+    m_records.push_back(rec);
+}
+
+void ItemCollectAnimations::update(double et) {
+    for (auto & rec : m_records) {
+        if ((rec.elapsed_time += et) <= rec.ptr->time_per_frame) continue;
+        assert(rec.current_frame != rec.ptr->tile_ids.end());
+        rec.elapsed_time = 0.;
+        ++rec.current_frame;
+    }
+    auto end = m_records.end();
+    m_records.erase(std::remove_if(m_records.begin(), end, should_delete), end);
+}
+
+void ItemCollectAnimations::render_to(sf::RenderTarget & target) const {
+    for (const auto & rec : m_records) {
+        sf::Sprite brush;
+        brush.setPosition(sf::Vector2f(rec.location));
+        brush.setTexture(rec.ptr->tileset->texture());
+        brush.setTextureRect(rec.ptr->tileset->texture_rectangle(*rec.current_frame));
+        target.draw(brush);
+    }
+}
+
+// ----------------------------------------------------------------------------
+
+void GraphicsDrawer::render_to(sf::RenderTarget & target) {
+    m_item_anis.render_to(target);
+    m_line_drawer.render_to(target);
+    m_circle_drawer.render_to(target);
+    for (const auto & spt : m_sprites) {
+        target.draw(spt);
+    }
+    // clear once-per-frames
+    m_sprites.clear();
+}
+
+namespace {
+
+template <typename T>
+const T * as_cptr(const T & obj) { return &obj; }
+
+View<const sf::Vertex *> get_circle_verticies_for_radius(double rad) {
+    if (rad <= 0.) {
+        throw std::invalid_argument("get_circle_verticies_for_radius: radius must be a positive real number.");
+    }
+    using std::make_tuple;
+    static const auto k_pcount_list = {
+        make_tuple(-k_inf,  6),
+        make_tuple(   10.,  9),
+        make_tuple(   15., 12),
+        make_tuple(   20., 15),
+        make_tuple(   50., 18),
+        make_tuple(  100., 18),
+        make_tuple(  150., 24)
+    };
+
+    static const auto init_stuff = []() {
+        static std::vector<sf::Vertex> tris;
+        static std::vector<std::size_t> indicies;
+        if (!tris.empty())
+            { return std::make_tuple(as_cptr(tris), as_cptr(indicies)); }
+        indicies.reserve(k_pcount_list.size() + 1);
+        indicies.push_back(0);
+        auto add = [](double t1, double t2) {
+             tris.push_back(sf::Vertex());
+             tris.push_back(make_circle_vertex(t1));
+             tris.push_back(make_circle_vertex(t2));
+        };
+        for (auto [t_, steps] : k_pcount_list) {
+            (void)t_;
+            double cstep = 2.*k_pi / double(steps);
+            for (double t = 0.; t < 2.*k_pi; t += cstep) {
+                add(t, std::min(t + cstep, 2.*k_pi));
+            }
+            indicies.push_back(tris.size());
+        }
+        return std::make_tuple(as_cptr(tris), as_cptr(indicies));
+    };
+
+    static const std::vector<sf::Vertex> & k_circle_vec = *std::get<0>(init_stuff());
+    static const std::vector<std::size_t> & k_indicies = *std::get<1>(init_stuff());
+
+    auto itr = std::lower_bound(
+        k_pcount_list.begin(), k_pcount_list.end(), rad,
+        [](const std::tuple<double, int> & t, double rad)
+    { return std::get<0>(t) < rad; });
+    assert(itr != k_pcount_list.end());
+    auto beg_idx = k_indicies[itr - k_pcount_list.begin()];
+    auto end_idx = k_indicies[(itr - k_pcount_list.begin()) + 1];
+    return View<const sf::Vertex *>
+        (&k_circle_vec.front() + beg_idx, &k_circle_vec.front() + end_idx);
+}
+
+} // end of <anonymous> namespace

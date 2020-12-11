@@ -26,6 +26,7 @@
 #include "Components.hpp"
 #include "Systems.hpp"
 #include "GraphicalEffects.hpp"
+#include "GraphicsDrawer.hpp"
 
 #include "maps/Maps.hpp"
 #include "maps/MapObjectLoader.hpp"
@@ -44,7 +45,7 @@ using CompleteSystemList = TypeList<
     AnimatorSystem,
     DrawSystem,
     ItemCollisionSystem,
-    LauncherSystem,
+    TriggerBoxSystem,
     GravityUpdateSystem,
     ExtremePositionsControlSystem,
     PlatformDrawer,
@@ -142,7 +143,6 @@ private:
     TextDrawer m_velocity;
 };
 
-
 class GameDriver final {
 public:
 
@@ -175,11 +175,13 @@ private:
     std::vector<std::unique_ptr<System>> m_systems;
     std::vector<TimeAware *> m_time_aware_systems;
     std::vector<MapAware *> m_map_aware_systems;
+#   if 0
     std::vector<RenderTargetAware *> m_render_target_systems;
-
+#   endif
     Entity m_player;
 
     std::default_random_engine m_rng;
 
     HudTimePiece m_timer;
+    GraphicsDrawer m_graphics;
 };

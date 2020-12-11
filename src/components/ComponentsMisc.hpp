@@ -34,15 +34,19 @@ struct ItemCollectionAnimation {
     double time_per_frame = 0.;
 };
 
+struct ItemCollectionInfo : public ItemCollectionAnimation {
+    int diamond_quantity = 0;
+};
+
+using ItemCollectionSharedPtr = std::shared_ptr<const ItemCollectionInfo>;
+
 struct Item {
     enum HoldType {
         simple, jump_booster, heavy, bouncy, platform_breaker,
         run_booster, crate, not_holdable
     };
     static constexpr const int k_hold_type_count = not_holdable;
-    int      diamond   = 0;
     HoldType hold_type = not_holdable;
-    std::shared_ptr<ItemCollectionAnimation> collection_animation = nullptr;
 };
 
 struct Collector {
@@ -60,13 +64,55 @@ struct Lifetime {
     double value = 60.;
 };
 
-struct Launcher {
-    VectorD launch_velocity = VectorD(0, -467);
-    bool detaches_entity = true;
+class MiniVector {
+public:
+    using BaseType = uint8_t;
+    static constexpr const double k_error      = ::k_error;
+    static constexpr const double k_scale      = 12. / sizeof(BaseType);
+    static constexpr const double k_max        = k_scale*double(std::numeric_limits<BaseType>::max());
+    static constexpr const double k_angle_end  = double(std::numeric_limits<BaseType>::max()) + 1.;
+    static constexpr const double k_angle_step = (2.*k_pi) / k_angle_end;
+
+    MiniVector() {}
+    explicit MiniVector(VectorD);
+    VectorD expand() const noexcept;
+
+private:
+    static const VectorD k_unit_start;
+    uint8_t m_dir = 0;
+    BaseType m_mag = 0;
 };
 
-struct LauncherSubjectHistory {
-    VectorD last_location;
+struct TriggerBox {
+    struct Checkpoint {};
+    struct Launcher {
+        MiniVector launch_velocity = MiniVector(VectorD(0, -467));
+        bool detaches = true;
+    };
+
+    using StateType = MultiType<Checkpoint, Launcher, ItemCollectionSharedPtr>;
+
+    template <typename T>
+    T * ptr() { return state.as_pointer<T>(); }
+
+    template <typename T>
+    const T * ptr() const { return state.as_pointer<T>(); }
+
+    template <typename T>
+    T & as() { return state.as<T>(); }
+
+    template <typename T>
+    const T & as() const { return state.as<T>(); }
+
+    template <typename T>
+    T & reset() { return state.reset<T>(); }
+
+    StateType state;
+};
+
+struct TriggerBoxSubjectHistory {
+    static const VectorD k_no_location;
+    VectorD last_location = k_no_location;
 };
 
 struct Snake {

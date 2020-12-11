@@ -26,7 +26,7 @@
 
 namespace {
 
-using Error             = std::runtime_error;
+using RtError           = std::runtime_error;
 using InvArg            = std::invalid_argument;
 using SegmentsPtr       = LineMapLoader::SegmentsPtr;
 using LineViewMap       = LineMapLoader::LineViewMap;
@@ -42,22 +42,19 @@ constexpr const int k_empty_tile_gid = 0;
 
 /// @returns tile gids, if the tile has no segments, it's gid value is replaced
 /// with k_empty_tile_gid
-Grid<int> get_layer_gids(const tmap::TiledMap &, int width, int height, const SegmentMap &, const char * layer_name);
+Grid<int> get_layer_gids(const tmap::TiledMap &, int width, int height,
+                         const SegmentMap &, const char * layer_name);
+
 Grid<int> get_layer_gids(const tmap::TiledMap &, const SegmentMap &, const char * layer_name);
 
 std::pair<SegmentsPtr, LineViewMap> produce_segment_view_map(const SegmentsInfo &);
+
 std::pair<SurfaceDetailsPtr, SurfaceDetailsMap>
     produce_surface_details_map(const SegmentsInfo &);
 
 void overwrite_layer(Grid<int> &, const Grid<int> &, const char * layer_name);
 
 TileInfo load_tile_info(const TilePropertyMap &);
-
-template <typename T>
-T mv_copy(const T & obj) {
-    T rv(obj);
-    return rv;
-}
 
 template <typename Type>
 GridRange<Type> compute_range_for_tiles
@@ -91,7 +88,7 @@ void LineMapLoader::load_map(const tmap::TiledMap & map) {
     };
     for (auto & [grid, seggrid, detgrid] : layers) {
         seggrid.set_size(width, height);
-        detgrid.set_size(width, height, mv_copy(nullptr));
+        detgrid.set_size(width, height, nullptr);
         assert(grid.width() == seggrid.width() && grid.height() == seggrid.height());
         assert(detgrid.width() == seggrid.width() && detgrid.height() == seggrid.height());
         for (VectorI r; r != grid.end_position(); r = grid.next(r)) {
@@ -99,7 +96,7 @@ void LineMapLoader::load_map(const tmap::TiledMap & map) {
             auto segitr = segs_map    .find(grid(r));
             auto detitr = surf_det_map.find(grid(r));
             if (segitr == segs_map.end() || detitr == surf_det_map.end()) {
-                throw std::runtime_error("LineMapLoader::load_map: non empty tile has missing info");
+                throw RtError("LineMapLoader::load_map: non empty tile has missing info");
             }
             seggrid(r) = segitr->second;
             detgrid(r) = detitr->second;
@@ -112,26 +109,21 @@ void LineMapLoader::load_map(const tmap::TiledMap & map) {
 void LineMapLoader::load_layer_into
     (Grid<LinesView> & grid, Grid<const SurfaceDetails *> & dets, Layer layer)
 {
-    Grid<LinesView>    * src_grid = nullptr;
-    SurfaceDetailsGrid * src_dets = nullptr;
+    grid.clear();
+    dets.clear();
     switch (layer) {
     case Layer::neither:
         throw InvArg("LineMapLoader::load_layer_into: layer maybe foreground "
                      "or background only.");
     case Layer::background:
-        src_grid = &m_background;
-        src_dets = &m_background_details;
+        m_background        .swap(grid);
+        m_background_details.swap(dets);
         break;
     case Layer::foreground:
-        src_grid = &m_foreground;
-        src_dets = &m_foreground_details;
+        m_foreground        .swap(grid);
+        m_foreground_details.swap(dets);
         break;
     }
-    grid.clear();
-    grid.swap(*src_grid);
-
-    dets.clear();
-    dets.swap(*src_dets);
 }
 
 void LineMapLoader::load_transitions_into(TransitionGrid & grid) {
@@ -144,23 +136,23 @@ void LineMapLoader::load_transitions_into(TransitionGrid & grid) {
         auto * layer = map.find_tile_layer(layername);
         if (!layer) {
             if (layername == std::string(k_ground)) {
-                throw Error("LineMapLoader::load_map: missing required "
-                            "\"ground\" layer.");
+                throw RtError("LineMapLoader::load_map: missing required "
+                              "\"ground\" layer.");
             }
             continue;
         }
-        using EqualToD = std::equal_to<double>;
-        if (EqualToD()(m_tile_width , k_initial_tile_size) &&
-            EqualToD()(m_tile_height, k_initial_tile_size))
+        std::equal_to<double> eq_to;
+        if (   eq_to(m_tile_width , k_initial_tile_size)
+            && eq_to(m_tile_height, k_initial_tile_size))
         {
-            m_tile_width  = double(layer->tile_width());
+            m_tile_width  = double(layer->tile_width ());
             m_tile_height = double(layer->tile_height());
         }
-        if (!EqualToD()(m_tile_width , double(layer->tile_width())) ||
-            !EqualToD()(m_tile_height, double(layer->tile_height())))
+        if (   !eq_to(m_tile_width , double(layer->tile_width ()))
+            || !eq_to(m_tile_height, double(layer->tile_height())))
         {
-            throw Error("LineMapLoader::load_map: all layers must have tiles "
-                        "of the same size.");
+            throw RtError("LineMapLoader::load_map: all layers must have tiles "
+                          "of the same size.");
         }
     }
 }
@@ -197,7 +189,7 @@ void LineMapLoader::load_transitions_into(TransitionGrid & grid) {
             segment_map[layer->tile_gid(x, y)] = std::move(tileinfo);
         }}
     }
-    return SegmentsInfo { segment_map, total_segments_count };
+    return SegmentsInfo { std::move(segment_map), total_segments_count };
 }
 
 /* private */ void LineMapLoader::load_transition_tiles
@@ -218,9 +210,9 @@ void LineMapLoader::load_transitions_into(TransitionGrid & grid) {
 
 namespace {
 
-inline bool is_lines_delim(char c) { return c == ';'; }
-inline bool is_point_delim(char c) { return c == ':'; }
-inline bool is_tuple_delim(char c) { return c == ','; }
+inline bool is_semicolon(char c) { return c == ';'; }
+inline bool is_colon    (char c) { return c == ':'; }
+inline bool is_comma    (char c) { return c == ','; }
 
 template <typename Type>
 VectorI limit_vector_to(const Grid<Type> &, VectorI);
@@ -245,47 +237,52 @@ TileInfo load_tile_info(const TilePropertyMap & pmap) {
         "load_line_pairs: Cannot convert string to number for vector pairs.";
 
     auto & segments = rv.segments;
-    for_split<is_lines_delim>(lines->c_str(), lines->c_str() + lines->length(),
+    for_split<is_semicolon>(lines->c_str(), lines->c_str() + lines->length(),
         [&segments](const char * beg, const char * end)
     {
         VectorD a, b;
         auto pts = { &a, &b };
         auto vitr = pts.begin();
-        ::for_split<is_point_delim>(beg, end,
+        for_split<is_colon>(beg, end,
             [&pts, &vitr](const char * beg, const char * end)
         {
-            if (vitr == pts.end()) throw Error(k_exactly_points_msg);
+            if (vitr == pts.end()) throw RtError(k_exactly_points_msg);
             auto nums = { &(**vitr).x, &(**vitr).y };
             ++vitr;
             auto itr = nums.begin();
-            ::for_split<is_tuple_delim>(beg, end,
+            for_split<is_comma>(beg, end,
                 [&itr, &nums](const char * beg, const char * end)
             {
                 if (itr == nums.end())
-                    throw Error(k_exactly_two_nums_msg);
+                    throw RtError(k_exactly_two_nums_msg);
                 trim<is_whitespace>(beg, end);
                 if (!string_to_number(beg, end, **(itr++)))
-                    throw Error(k_failed_str_to_num_msg);
+                    throw RtError(k_failed_str_to_num_msg);
             });
-            if (itr != nums.end()) throw Error(k_exactly_two_nums_msg);
+            if (itr != nums.end()) throw RtError(k_exactly_two_nums_msg);
         });
-        if (vitr != pts.end()) throw Error(k_exactly_points_msg);
+        if (vitr != pts.end()) throw RtError(k_exactly_points_msg);
         segments.emplace_back(a, b);
     });
     return rv;
 }
 
-Grid<int> get_layer_gids(const tmap::TiledMap & map, const SegmentMap & surfacemap, const char * layer_name) {
+Grid<int> get_layer_gids
+    (const tmap::TiledMap & map, const SegmentMap & surfacemap,
+     const char * layer_name)
+{
     auto layer = map.find_tile_layer(layer_name);
     if (!layer) {
-        throw Error("Could not find required layer \"" + std::string(layer_name) + "\"");
+        throw RtError("Could not find required layer \"" + std::string(layer_name) + "\"");
     }
     return get_layer_gids(map, layer->width(), layer->height(), surfacemap, layer_name);
 }
 
-Grid<int> get_layer_gids(const tmap::TiledMap & map, int width, int height, const SegmentMap & surfacemap, const char * layer_name) {
+Grid<int> get_layer_gids(const tmap::TiledMap & map, int width, int height,
+                         const SegmentMap & surfacemap, const char * layer_name)
+{
     Grid<int> rv;
-    rv.set_size(width, height, mv_copy(k_empty_tile_gid));
+    rv.set_size(width, height, k_empty_tile_gid);
     auto layer = map.find_tile_layer(layer_name);
     if (!layer) return rv;
     for (VectorI r; r != rv.end_position(); r = rv.next(r)) {
@@ -368,9 +365,9 @@ void overwrite_layer
             tilestr += "(" + std::to_string(r.x) + ", " + std::to_string(r.y) + ") ";
         }
         tilestr.pop_back();
-        throw Error("overwrite_layer: tile mismatch between ground and " +
-                    std::string(layer_name) + " layer at the following locations: " +
-                    tilestr);
+        throw RtError("overwrite_layer: tile mismatch between ground and " +
+                      std::string(layer_name) + " layer at the following locations: " +
+                      tilestr);
     }
 }
 

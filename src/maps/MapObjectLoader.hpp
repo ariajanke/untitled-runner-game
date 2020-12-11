@@ -31,6 +31,7 @@ public:
     void register_scale_left_part (const std::string &, Entity);
     void register_scale_right_part(const std::string &, Entity);
     void register_scale_pivot_part(const std::string &, Entity);
+
 private:
     struct ScaleRecord {
         Entity pivot, left, right;
@@ -67,11 +68,14 @@ using WaypointsTag = TypeTag<Platform>;
 
 class CachedItemAnimations {
 public:
-    void load_animation(Item & item, const tmap::MapObject & obj);
+    void load_animation(TriggerBox &, const tmap::MapObject &);
+
 private:
     static bool is_colon(char c) { return c == ':'; }
     static bool is_comma(char c) { return c == ','; }
-    std::map<int, std::weak_ptr<ItemCollectionAnimation>> m_map;
+    std::shared_ptr<const ItemCollectionInfo> load(const tmap::MapObject &);
+
+    std::map<int, std::weak_ptr<ItemCollectionInfo>> m_map;
 };
 
 class CachedWaypoints {
@@ -79,6 +83,7 @@ public:
     using WaypointsPtr = Waypoints::ContainerPtr;
     using WaypointsContainer = Waypoints::Container;
     WaypointsPtr load_waypoints(const tmap::MapObject * obj);
+
 private:
     WaypointsPtr m_no_obj_waypoints;
     std::map<std::string, std::weak_ptr<WaypointsContainer>> m_waypt_map;
@@ -106,17 +111,7 @@ namespace tmap { struct MapObject; }
 using MapObjectLoaderFunction = void(*)(MapObjectLoader &, const tmap::MapObject &);
 
 MapObjectLoaderFunction get_loader_function(const std::string &);
-#if 0
-template <typename Key, typename T, typename Compare, typename Key2, typename Func>
-void do_if_found
-    (const std::map<Key, T, Compare> & map, Key2 saught_key, Func && f)
-{
-    auto itr = map.find(saught_key);
-    if (itr == map.end()) return;
-    const auto & obj = itr->second;
-    (void)f(obj);
-}
-#endif
+
 template <typename Key, typename T, typename Compare>
 class MapValueFinder {
 public:

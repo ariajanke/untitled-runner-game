@@ -1,4 +1,4 @@
-#pragma once/****************************************************************************
+/****************************************************************************
 
     Copyright 2020 Aria Janke
 
@@ -16,6 +16,8 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 *****************************************************************************/
+
+#pragma once
 
 #include "../Defs.hpp"
 
@@ -125,7 +127,9 @@ public:
     void make_blank_of_size(int width, int height);
 
     bool tile_in_transition(VectorI) const;
+#   if 0
     [[deprecated]] bool point_in_transition(VectorI) const;
+#   endif
     bool point_in_transition(VectorD) const;
 
     double tile_height() const { return m_foreground.tile_height(); }

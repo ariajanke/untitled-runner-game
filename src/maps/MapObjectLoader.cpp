@@ -129,41 +129,56 @@ void RecallBoundsLoader::register_bounds
 
 // ----------------------------------------------------------------------------
 
-void CachedItemAnimations::load_animation(Item & item, const tmap::MapObject & obj) {
+void CachedItemAnimations::load_animation
+    (TriggerBox & tbox, const tmap::MapObject & obj)
+{
+    tbox.reset<ItemCollectionSharedPtr>() = load(obj);
+}
+
+std::shared_ptr<const ItemCollectionInfo> CachedItemAnimations::load(const tmap::MapObject & obj) {
     auto & ptr = m_map[obj.tile_set->convert_to_gid(obj.local_tile_id)];
-    if (!ptr.expired()) {
-        item.collection_animation = ptr.lock();
-        return;
-    }
+    if (!ptr.expired()) return ptr.lock();
 
     const auto * props = obj.tile_set->properties_on(obj.local_tile_id);
-    if (!props) return;
-    auto itr = props->find("on-collection");
-    if (itr == props->end()) return;
+    if (!props) return nullptr;
+    auto do_if_found = make_do_if_found(*props);
+    ItemCollectionInfo ica;
+    do_if_found("on-collection", [&obj, &ica](const std::string & val) {
+        const char * beg = &val.front();
+        const char * end = beg + val.size();
 
-    const char * beg = &itr->second.front();
-    const char * end = beg + itr->second.size();
-
-    ItemCollectionAnimation ica;
-    ica.tileset = obj.tile_set;
-    int num = 0;
-    for_split<is_colon>(beg, end, [&ica, &num](const char * beg, const char * end) {
-        if (num == 0) {
-            trim<is_whitespace>(beg, end);
-            if (!string_to_number(beg, end, ica.time_per_frame)) {}
-        } else if (num == 1) {
-            auto & vec = ica.tile_ids;
-            for_split<is_comma>(beg, end, [&vec](const char * beg, const char * end) {
-                int i = 0;
+        ica.tileset = obj.tile_set;
+        int num = 0;
+        for_split<is_colon>(beg, end, [&ica, &num](const char * beg, const char * end) {
+            if (num == 0) {
                 trim<is_whitespace>(beg, end);
-                if (string_to_number(beg, end, i)) {
-                    vec.push_back(i);
-                } else {}
-            });
-        }
-        ++num;
+                if (!string_to_number(beg, end, ica.time_per_frame)) {}
+            } else if (num == 1) {
+                auto & vec = ica.tile_ids;
+                for_split<is_comma>(beg, end, [&vec](const char * beg, const char * end) {
+                    int i = 0;
+                    trim<is_whitespace>(beg, end);
+                    if (string_to_number(beg, end, i)) {
+                        vec.push_back(i);
+                    } else {}
+                });
+            }
+            ++num;
+        });
     });
-    ptr = (item.collection_animation = std::make_shared<ItemCollectionAnimation>(std::move(ica)));
+
+    do_if_found("diamond-value", [&ica](const std::string & val) {
+        auto beg = val.begin();
+        auto end = val.end();
+        trim<is_whitespace>(beg, end);
+        if (!string_to_number(beg, end, ica.diamond_quantity)) {
+            // warn or something
+        }
+    });
+
+    auto rv = std::make_shared<ItemCollectionInfo>(ica);
+    ptr = rv;
+    return rv;
 }
 
 // ----------------------------------------------------------------------------
@@ -287,24 +302,29 @@ void load_diamond(MapObjectLoader & loader, const tmap::MapObject & obj) {
     auto & rect = e.add<PhysicsComponent>().reset_state<Rect>() = Rect(obj.bounds);
     rect.top  -= std::remainder(rect.top , 8.);
     rect.left -= std::remainder(rect.left, 8.);
-
-    e.add<Item>().diamond = 1;
     load_display_frame(e.add<DisplayFrame>(), obj);
-    loader.load_animation(e.get<Item>(), obj);
+    loader.load_animation(e.add<TriggerBox>(), obj);
 }
 
 void load_launcher(MapObjectLoader & loader, const tmap::MapObject & obj) {
+
+    {
+    MiniVector mv(VectorD(0, -467));
+    auto v = mv.expand();
+    assert(magnitude(v - VectorD(0, -467)) < MiniVector::k_scale*0.5);
+    }
+
     auto e = loader.create_entity();
     e.add<PhysicsComponent>().reset_state<Rect>() = Rect(obj.bounds);
-    auto & launcher = e.add<Launcher>();
+    auto & launcher = e.add<TriggerBox>().reset<TriggerBox::Launcher>();
     auto & props    = obj.custom_properties;
     auto itr = props.find("launch");
     if (itr != props.end()) {
-        launcher.launch_velocity = parse_vector(itr->second);
-        launcher.detaches_entity = true;
+        launcher.launch_velocity = MiniVector(parse_vector(itr->second));
+        launcher.detaches = true;
     } else if ((itr = props.find("boost")) != props.end()) {
-        launcher.launch_velocity = parse_vector(itr->second);
-        launcher.detaches_entity = false;
+        launcher.launch_velocity = MiniVector(parse_vector(itr->second));
+        launcher.detaches = false;
     } else {
         throw std::invalid_argument("load_launcher: either \"launch\" or \"boost\" attribute required.");
     }
@@ -322,9 +342,6 @@ void load_platform(MapObjectLoader & loader, const tmap::MapObject & obj) {
     auto do_if_found = make_do_if_found(obj.custom_properties);
     do_if_found("waypoints", [&waypts, &loader](const std::string & val) {
         waypts = loader.load_waypoints(loader.find_map_object(val));
-#       if 0
-        waypts.waypoint_number = 0;
-#       endif
     });
 
     if (waypts.has_points()) {
@@ -350,16 +367,6 @@ void load_platform(MapObjectLoader & loader, const tmap::MapObject & obj) {
             return;
         }
         intpos.set_whole_position(x*double(intpos.point_count()));
-#       if 0
-        x *= double(intpos.point_count());
-        intpos.set_position      (std::remainder(x, 1.)     );
-        intpos.set_segment_source(std::size_t(std::floor(x)));
-#       endif
-#       if 0
-        x *= double(waypts.waypoints->size());
-        waypts.position        = std::remainder(x, 1.);
-        waypts.waypoint_number = std::size_t(std::floor(x));
-#       endif
     });
     if (waypts.has_points()) {
         if (waypts.points().size() > 1) {
@@ -367,12 +374,6 @@ void load_platform(MapObjectLoader & loader, const tmap::MapObject & obj) {
             e.add<InterpolativePosition>() = intpos;
         }
     }
-#   if 0
-    if (waypts.waypoints) {
-        if (!waypts.waypoints->empty())
-            e.add<Waypoints>() = std::move(waypts);
-    }
-#   endif
 }
 
 void load_wall(MapObjectLoader & loader, const MapObject & obj) {
@@ -485,12 +486,6 @@ void load_basket(MapObjectLoader & loader, const MapObject & obj) {
     }
 
     auto basket_e = loader.create_entity();
-#   if 0
-    auto & waypt_comp = basket_e.add<Waypoints>();
-    waypt_comp.waypoints = waypts;
-    waypt_comp.set_destination_waypoint(0);
-    waypt_comp.speed = 50.;
-#   endif
     basket_e.add<Waypoints>() = std::move(waypts);
     {
     auto & intpos = basket_e.add<InterpolativePosition>();

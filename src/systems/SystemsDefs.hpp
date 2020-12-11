@@ -26,6 +26,8 @@ namespace sf { class RenderTarget; }
 class System : public EntityManager::SystemType {
 public:
     virtual void setup() {}
+protected:
+    System() {}
 };
 
 class TimeAware {
@@ -54,10 +56,36 @@ private:
     const LineMap * m_lmap = nullptr;
 };
 
-class RenderTargetAware {
+class GraphicsBase {
 public:
-    virtual ~RenderTargetAware();
-    virtual void render_to(sf::RenderTarget &) = 0;
+    using AnimationPtr = std::shared_ptr<const ItemCollectionAnimation>;
+    virtual ~GraphicsBase();
+
+    virtual void draw_line(VectorD, VectorD, sf::Color, double thickness) = 0;
+    virtual void draw_circle(VectorD loc, double radius, sf::Color) = 0;
+    virtual void draw_sprite(const sf::Sprite &) = 0;
+    virtual void draw_holocrate(Rect, sf::Color) = 0;
+
+    // not once-per-frame
+    virtual void post_item_collection(VectorD, AnimationPtr) = 0;
+};
+
+class GraphicsAware {
+public:
+    void assign_graphics(GraphicsBase & gfx) {
+        m_graphics = &gfx;
+        on_graphics_assigned();
+    }
+
 protected:
-    RenderTargetAware() {}
+    GraphicsBase & graphics() {
+        if (!m_graphics) {
+            throw std::runtime_error("GraphicsAware::graphics: graphics are unassigned.");
+        }
+        return *m_graphics;
+    }
+    virtual void on_graphics_assigned() {}
+
+private:
+    GraphicsBase * m_graphics = nullptr;
 };

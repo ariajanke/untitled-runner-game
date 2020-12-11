@@ -27,4 +27,4 @@ const LineMapLayer & MapAware::get_map_layer(const Layer & layer) {
     return m_lmap->get_layer(layer);
 }
 
-/* vtable anchor */ RenderTargetAware::~RenderTargetAware() {}
+/* vtable anchor */ GraphicsBase::~GraphicsBase() {}

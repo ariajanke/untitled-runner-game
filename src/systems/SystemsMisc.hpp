@@ -74,29 +74,8 @@ class GravityUpdateSystem final : public System, public TimeAware {
     void update(Entity e);
 };
 
-class DiamondCollectSparkles {
-public:
-    using AnimationPtr = std::shared_ptr<const ItemCollectionAnimation>;
-    void post_effect(VectorD r, AnimationPtr aptr);
-    void update(double et);
-    void render_to(sf::RenderTarget & target) const;
-
-private:
-    struct Record {
-        AnimationPtr ptr;
-        std::vector<int>::const_iterator current_frame;
-        double elapsed_time = 0.;
-        VectorD location;
-    };
-
-    static bool should_delete(const Record & rec)
-        { return rec.current_frame == rec.ptr->tile_ids.end(); }
-
-    std::vector<Record> m_records;
-};
-
 class ItemCollisionSystem final :
-    public System, public MapAware, public RenderTargetAware, public TimeAware
+    public System, public MapAware, public TimeAware
 {
 public:
     void update(const ContainerView & cont) override;
@@ -105,25 +84,178 @@ public:
 
     void check_item_collection(Entity collector, Entity item);
 
-    void render_to(sf::RenderTarget & target) override {
-        m_sparkles.render_to(target);
-    }
-
 private:
-    DiamondCollectSparkles m_sparkles;
     std::vector<Entity> m_items;
     std::vector<Entity> m_collectors;
 };
 
-class LauncherSystem final : public System, public MapAware {
-    void update(const ContainerView &) override;
+class TriggerBoxSystem final : public System, public GraphicsAware {
+    template <typename ... Types>
+    using Tuple = std::tuple<Types...>;
 
-    static void do_bounce(PhysicsComponent &, const Launcher &);
+    using SubjectContainer = std::vector<Tuple<Entity, TriggerBoxSubjectHistory &>>;
+    using CheckPoint       = TriggerBox::Checkpoint;
+    using Launcher         = TriggerBox::Launcher;
 
-    std::vector<Entity> m_bouncy_surfaces;
-    std::vector<Entity> m_bouncables;
+    void update(const ContainerView & view) override {
+        m_subjects.clear();
+        for (auto e : view) {
+            if (is_subject(e)) {
+                m_subjects.emplace_back(e, e.ensure<TriggerBoxSubjectHistory>());
+                continue;
+            }
+
+            auto * tbox = e.ptr<TriggerBox>();
+            Rect * rect = nullptr;
+            if (auto * pcomp = e.ptr<PhysicsComponent>()) {
+                rect = pcomp->state_ptr<Rect>();
+            }
+            if (!tbox || !rect) continue;
+            if (tbox->ptr<CheckPoint>()) {
+                m_checkpoints.add(e);
+            } else if (tbox->ptr<Launcher>()) {
+                m_launchers.add(e);
+            } else if (tbox->ptr<ItemCollectionSharedPtr>()) {
+                m_item_checker.add(e);
+            }
+        }
+
+        m_checkpoints .do_checks(m_subjects);
+        m_launchers   .do_checks(m_subjects);
+        m_item_checker.do_checks(m_subjects);
+        for (auto & [e, history] : m_subjects) {
+            history.last_location = e.get<PhysicsComponent>().location();
+        }
+    }
+
+    void on_graphics_assigned() override {
+        m_item_checker.assign_graphics(graphics());
+    }
+
+    class BaseChecker {
+    public:
+        virtual ~BaseChecker() {}
+        void add(Entity e) { m_trespassees.push_back(e); }
+        void do_checks(const SubjectContainer & cont) {
+            for (const auto & [e, history] : cont) {
+                for (const auto & cp_ent : m_trespassees) {
+                    if (!is_entering_box(e, history, get_rect(cp_ent))) continue;
+                    handle_trespass(cp_ent, e);
+                }
+            }
+            m_trespassees.clear();
+        }
+    protected:
+        virtual void handle_trespass(Entity trespassee, Entity trespasser) const = 0;
+    private:
+        std::vector<Entity> m_trespassees;
+    };
+
+    class CheckPointChecker final : public BaseChecker {
+        void handle_trespass(Entity checkpoint, Entity e) const override {
+            if (!e.has<PlayerControl>()) return;
+            auto * rt_point = e.ptr<ReturnPoint>();
+            if (!rt_point) return;
+            // "activate" checkpoint
+            rt_point->ref = checkpoint;
+        }
+    };
+
+    class ItemChecker final : public BaseChecker {
+    public:
+        void assign_graphics(GraphicsBase & graphics)
+            { m_graphics = &graphics; }
+
+    private:
+        void handle_trespass(Entity collectable, Entity e) const override {
+            auto & gfx = *m_graphics;
+            [&]() {
+                auto ptr = collectable.get<TriggerBox>().as<ItemCollectionSharedPtr>();
+                if (!ptr) return;
+                const auto & collect_info = *ptr;
+                auto * collector = e.ptr<Collector>();
+                if (!collector) return;
+                collector->diamond += collect_info.diamond_quantity;
+                gfx.post_item_collection(center_of(collectable.get<PhysicsComponent>().state_as<Rect>()), ptr);
+            } ();
+            collectable.request_deletion();
+        }
+
+        GraphicsBase * m_graphics = nullptr;
+    };
+
+    class LauncherChecker final : public BaseChecker {
+        void handle_trespass(Entity launch_e, Entity e) const override {
+            auto & launcher = launch_e.get<TriggerBox>().as<Launcher>();
+            auto & pcomp    = e.get<PhysicsComponent>();
+            if (!launcher.detaches && pcomp.state_is_type<LineTracker>()) {
+                return do_boost(launcher, pcomp.state_as<LineTracker>());
+            } else {
+                return do_launch(launcher, pcomp);
+            }
+        }
+
+        static void do_boost(const Launcher & launcher, LineTracker & tracker) {
+            auto seg = *tracker.surface_ref();
+            auto proj = project_onto(launcher.launch_velocity.expand(), seg.b - seg.a);
+            auto boost = magnitude(proj);
+            if (magnitude(normalize(proj) - normalize(seg.b - seg.a)) >= k_error) {
+                boost *= -1;
+            }
+            // convert to segments per second
+            tracker.speed += (boost / magnitude(seg.b - seg.a));
+        }
+
+        static void do_launch(const Launcher & launcher, PhysicsComponent & pcomp) {
+            FreeBody freebody;
+            VectorD cur_velocity;
+            if (pcomp.state_is_type<FreeBody>()) {
+                freebody = pcomp.state_as<FreeBody>();
+                cur_velocity = freebody.velocity;
+            } else if (pcomp.state_is_type<LineTracker>()) {
+                const auto & tracker = pcomp.state_as<LineTracker>();
+                auto seg    = *tracker.surface_ref();
+                auto normal = normal_for(tracker);
+                freebody.location = location_along(tracker.position, seg) +
+                                    normal*k_error;
+                cur_velocity = velocity_along(tracker.speed, seg);
+            }
+            auto launch_vel = launcher.launch_velocity.expand();
+            freebody.velocity =
+                launch_vel + project_onto(cur_velocity, rotate_vector(launch_vel, k_pi*0.5));
+            pcomp.reset_state<FreeBody>() = freebody;
+        }
+    };
+
+    static Rect get_rect(const Entity & e)
+        { return e.get<PhysicsComponent>().state_as<Rect>(); }
+
+    static bool is_entering_box
+        (const Entity & e, const TriggerBoxSubjectHistory & history, const Rect & rect)
+    {
+        return is_entering_box(history.last_location,
+                               e.get<PhysicsComponent>().location(), rect);
+    }
+
+    static bool is_entering_box(VectorD old, VectorD new_, const Rect & rect) {
+        if (old == TriggerBoxSubjectHistory::k_no_location) return false;
+        return !rect.contains(old) && line_crosses_rectangle(rect, old, new_);
+    }
+
+    static bool is_subject(const Entity & e) {
+        if (auto * pcomp = e.ptr<PhysicsComponent>()) {
+            if (pcomp->state_is_type<FreeBody>() || pcomp->state_is_type<LineTracker>()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    SubjectContainer m_subjects;
+    ItemChecker m_item_checker;
+    LauncherChecker m_launchers;
+    CheckPointChecker m_checkpoints;
 };
-
 
 class WaypointPositionSystem final : public System, public TimeAware {
     void update(const ContainerView & view) override {
@@ -154,51 +286,6 @@ class WaypointPositionSystem final : public System, public TimeAware {
         if (!e.has<Waypoints>() || !e.has<InterpolativePosition>()) return true;
         return false;
     }
-#   if 0
-    static bool should_skip(const Waypoints * waypts) {
-        if (!waypts) return true;
-
-        if (waypts->waypoint_number == Waypoints::k_no_waypoint ||
-            !waypts->waypoints) return true;
-        if (waypts->waypoints->empty()) return true;
-        auto seg_len = segment_length(waypts->current_waypoint_segment());
-        if (seg_len < k_error) {
-            // possibly log the segment as an issue
-            return true;
-        }
-        return false;
-    }
-
-    static void update(Waypoints & waypts, double et) {
-        auto seg_len = segment_length(waypts.current_waypoint_segment());
-        waypts.position += waypts.speed*et / seg_len;
-        if (   waypts.behavior() == Waypoints::k_toward_destination
-            && waypts.destination_waypoint() != 0)
-        {
-            int k = 0;
-            ++k;
-        }
-        auto next_waypt = Waypoints::k_no_waypoint;
-        if (waypts.position < 0.) {
-            next_waypt = waypts.previous_waypoint();
-        } else if (waypts.position > 1.) {
-            next_waypt = waypts.next_waypoint();
-        } else {
-            return;
-        }
-        // no change implies non-cycling waypoints
-        if (next_waypt == waypts.waypoint_number) {
-            waypts.position = std::max(1., std::min(0., waypts.position));
-        }
-        // other cases, we are cycling
-        else if (waypts.position < 0.) {
-            waypts.position = 1.;
-        } else if (waypts.position > 1.) {
-            waypts.position = 0.;
-        }
-        waypts.waypoint_number = next_waypt;
-    }
-#   endif
 };
 
 class PlatformMovementSystem final : public System {

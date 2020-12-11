@@ -38,8 +38,10 @@ Rect * get_rectangle(Entity e) {
     return e.get<PhysicsComponent>().state_ptr<Rect>();
 }
 
-void add_color_circle(Entity e, sf::Color c) {
-    e.add<DisplayFrame>().reset<ColorCircle>().color = c;
+void add_color_circle(Entity e, sf::Color c, double radius) {
+    auto & cir = e.add<DisplayFrame>().reset<ColorCircle>();
+    cir.color = c;
+    cir.radius = radius;
 }
 
 // ----------------------------------------------------------------------------

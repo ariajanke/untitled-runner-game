@@ -27,19 +27,21 @@
 
 struct PhysicsDebugDummy {};
 
-using EntityManager = ecs::EntityManager<
+using Entity = ecs::Entity<
+    ScriptUPtr, // By being first, it guaranteed that this is deleted first
     PhysicsComponent, // essentially refers to other components
                       // (which I hate, because this means coupling AND
                       //  complex behaviors in a component)
     Lifetime, Snake, PlayerControl, DisplayFrame, Item,
-    Launcher, LauncherSubjectHistory,
+    /*Launcher, LauncherSubjectHistory,*/
+    TriggerBox, TriggerBoxSubjectHistory,
     Collector, HeadOffset, Platform,
     InterpolativePosition, Waypoints,
     PhysicsDebugDummy,
-    ReturnPoint, ScriptUPtr //ScriptEvents
+    /*Checkpoint,*/ ReturnPoint
 >;
 
-using Entity = EntityManager::EntityType;
+using EntityManager = Entity::ManagerType;
 
 // ------------ Helpers that need Entity to be a complete type ----------------
 
@@ -133,7 +135,7 @@ inline Layer & get_layer(Entity & e)
 inline const Layer & get_layer(const Entity & e)
     { return e.get<PhysicsComponent>().active_layer; }
 
-void add_color_circle(Entity, sf::Color);
+void add_color_circle(Entity, sf::Color, double = ColorCircle().radius);
 
 struct EntityHasher {
     std::size_t operator () (const Entity & e) const { return e.hash(); }
