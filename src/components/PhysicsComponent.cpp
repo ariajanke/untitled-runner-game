@@ -99,7 +99,7 @@ VectorD PhysicsComponent::location() const {
             return e.get<PhysicsComponent>().location();
         }
     case k_rectangle_state:
-        return center_of(m_state.as<Rect>());
+        return VectorD(m_state.as<Rect>().left, m_state.as<Rect>().top);
     default: break;
     }
 

@@ -250,20 +250,6 @@ void ScalePivotScript::update_balance() {
     m_held_weight += delta;
 
     std::cout << "Weight " << m_held_weight;
-    intpos.target_point(std::min(std::size_t(std::max(m_held_weight, 0)), intpos.point_count()));
+    intpos.target_point(std::min(std::size_t(std::max(m_held_weight, 0)), intpos.point_count() - 1));
     std::cout << " dest waypoint " << intpos.targeted_point() << std::endl;
 }
-
-#if 0
-/* private */ void PrintOutLandingsDepartingsScript::on_departing
-    (Entity this_ent, EntityRef eref)
-{
-    std::cout << eref.hash() << " has departed from " << this_ent.hash() << std::endl;
-}
-
-/* private */ void PrintOutLandingsDepartingsScript::on_landing
-    (Entity this_ent, VectorD, EntityRef eref)
-{
-    std::cout << eref.hash() << " has landed on " << this_ent.hash() << std::endl;
-}
-#endif

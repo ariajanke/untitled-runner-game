@@ -22,10 +22,13 @@
 #include "Defs.hpp"
 #include "systems/SystemsDefs.hpp"
 
+#include <common/DrawRectangle.hpp>
+
 #include <SFML/Graphics/Vertex.hpp>
 
 namespace sf {
     class RenderTarget;
+    class View;
 }
 
 class ItemCollectAnimations {
@@ -83,24 +86,40 @@ public:
         m_item_anis.update(et);
     }
 
+    void set_view(const sf::View &);
 private:
     void draw_line(VectorD a, VectorD b, sf::Color color, double thickness) override {
+        if (!m_view_rect.contains(a) && !m_view_rect.contains(b)) return;
         m_line_drawer.post_line(a, b, color, thickness);
     }
     void draw_circle(VectorD loc, double radius, sf::Color color) override {
+        Rect expanded = m_view_rect;
+        expanded.left -= radius;
+        expanded.top  -= radius;
+        expanded.width += radius;
+        expanded.height += radius;
+        if (!expanded.contains(loc)) return;
         m_circle_drawer.post_circle(loc, radius, color);
     }
-    void draw_sprite(const sf::Sprite & spt) override {
-        m_sprites.push_back(spt);
-    }
+
+    void draw_sprite(const sf::Sprite & spt) override;
 
     void draw_holocrate(Rect, sf::Color) override {}
 
     void post_item_collection(VectorD r, AnimationPtr ptr) override
         { m_item_anis.post_effect(r, ptr); }
 
+    void draw_rectangle
+        (VectorD r, double width, double height, sf::Color color) override
+    {
+        m_draw_rectangles.emplace_back(float(r.x), float(r.y),
+                                       float(width), float(height), color);
+    }
+
+    Rect m_view_rect;
     CircleDrawer2 m_circle_drawer;
     LineDrawer2 m_line_drawer;
     std::vector<sf::Sprite> m_sprites;
     ItemCollectAnimations m_item_anis;
+    std::vector<DrawRectangle> m_draw_rectangles;
 };

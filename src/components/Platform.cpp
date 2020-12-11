@@ -163,10 +163,10 @@ InterpolativePosition::Behavior InterpolativePosition::behavior() const noexcept
 
 void InterpolativePosition::target_point(std::size_t x) {
     auto t = verify_fit(x, "InterpolativePosition::target_point");
-    if (t > point_count()) {
+    if (t >= point_count()) {
         std::string range_ = "(only 0)";
         if (point_count() > 1) {
-            range_ = "[0 " + std::to_string(point_count()) + "]";
+            range_ = "[0 " + std::to_string(point_count()) + ")";
         }
         throw InvArg("InterpolativePosition::target_point: cannot target point: "
                      + std::to_string(t) + " possible range is: " + range_       );
@@ -307,6 +307,17 @@ void InterpolativePosition::set_segment_source(std::size_t x) {
         return ts::test(   ip.current_segment().source == 2
                         && ip.current_segment().target == 1
                         && res > 0.05);
+    });
+    suite.test([]() {
+        IntPos ip;
+        ip.set_point_count(4);
+        ip.target_point(3);
+        for (int i = 0; i != 2*4 - 1; ++i) {
+            ip.move_position(0.55);
+        }
+        ip.move_position(0.55);
+        return ts::test(   ip.current_segment().source == ip.current_segment().target
+                        && ip.current_segment().source == 3);
     });
 }
 

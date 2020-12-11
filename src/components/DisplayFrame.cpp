@@ -108,6 +108,16 @@ int SpriteSheet::next_frame(int sequence_number, int frame_number) const noexcep
     return (frame_number + 1) % seq_len;
 }
 
+const sf::IntRect & SpriteSheet::frame
+    (int sequence_number, int sequence_frame) const
+{
+    auto seq_off = m_seq_offsets.at(std::size_t(sequence_number));
+    return m_frames.at(std::size_t(seq_off + sequence_frame));
+}
+
+std::size_t SpriteSheet::total_frame_count() const noexcept
+    { return m_frames.size(); }
+
 namespace {
 
 inline bool is_ss_param(char c) { return c == ','; }

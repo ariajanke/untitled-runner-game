@@ -166,6 +166,12 @@
         Rect text_bounds = Rect(simg.texture_rectangle);
         loc -= VectorD(text_bounds.width*0.5, text_bounds.height);
     }
+#   if 0
+    else {
+        auto rect = e.get<PhysicsComponent>().state_as<Rect>();
+        graphics().draw_rectangle(VectorD(rect.left, rect.top), rect.width, rect.height, sf::Color(200, 50, 50, 128));
+    }
+#   endif
     if (const auto * rt_point = e.ptr<ReturnPoint>()) {
         static constexpr const double k_max_fade_time = 3.;
         double t = 1.;

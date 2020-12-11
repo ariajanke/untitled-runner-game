@@ -26,8 +26,10 @@
 
 namespace {
 
+static const VectorD k_unit_start(1., 0.);
+
 VectorD add_polar(VectorD r, double angle, double distance) {
-    return r + rotate_vector(VectorD(1.0, 0.0), angle)*distance;
+    return r + rotate_vector(k_unit_start, angle)*distance;
 }
 
 sf::Vertex make_circle_vertex(double t)
@@ -38,7 +40,6 @@ View<const sf::Vertex *> get_circle_verticies_for_radius(double rad);
 } // end of <anonymous> namespace
 
 void LineDrawer2::post_line(VectorD a, VectorD b, sf::Color color, double thickness) {
-    static const VectorD k_unit_start(1., 0.);
     auto init_angle = angle_between(a - b, k_unit_start);
 
     auto mk_vertex = [thickness, init_angle, color](VectorD pt, double ang_dir) {
@@ -114,14 +115,32 @@ void ItemCollectAnimations::render_to(sf::RenderTarget & target) const {
 // ----------------------------------------------------------------------------
 
 void GraphicsDrawer::render_to(sf::RenderTarget & target) {
-    m_item_anis.render_to(target);
     m_line_drawer.render_to(target);
     m_circle_drawer.render_to(target);
     for (const auto & spt : m_sprites) {
         target.draw(spt);
     }
+    for (const auto & rect : m_draw_rectangles) {
+        target.draw(rect);
+    }
+    m_item_anis.render_to(target);
     // clear once-per-frames
     m_sprites.clear();
+    m_draw_rectangles.clear();
+}
+
+void GraphicsDrawer::set_view(const sf::View & view) {
+    m_view_rect = Rect(VectorD( view.getCenter() - view.getSize()*0.5f), VectorD(view.getSize()));
+}
+
+/* private */ void GraphicsDrawer::draw_sprite(const sf::Sprite & spt) {
+    Rect spt_rect;
+    spt_rect.left = spt.getPosition().x;
+    spt_rect.top  = spt.getPosition().y;
+    spt_rect.width = spt.getTextureRect().width;
+    spt_rect.height = spt.getTextureRect().height;
+    if (!spt_rect.intersects(m_view_rect)) return;
+    m_sprites.push_back(spt);
 }
 
 namespace {

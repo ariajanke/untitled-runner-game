@@ -254,37 +254,6 @@
 #if 0
 // ----------------------------------------------------------------------------
 
-void DiamondCollectSparkles::post_effect(VectorD r, AnimationPtr aptr) {
-    Record rec;
-    rec.ptr = aptr;
-    rec.current_frame = aptr->tile_ids.begin();
-    rec.location = r;
-    m_records.push_back(rec);
-}
-
-void DiamondCollectSparkles::update(double et) {
-    for (auto & rec : m_records) {
-        if ((rec.elapsed_time += et) <= rec.ptr->time_per_frame) continue;
-        assert(rec.current_frame != rec.ptr->tile_ids.end());
-        rec.elapsed_time = 0.;
-        ++rec.current_frame;
-    }
-    auto end = m_records.end();
-    m_records.erase(std::remove_if(m_records.begin(), end, should_delete), end);
-}
-
-void DiamondCollectSparkles::render_to(sf::RenderTarget & target) const {
-    for (const auto & rec : m_records) {
-        sf::Sprite brush;
-        brush.setPosition(sf::Vector2f(rec.location));
-        brush.setTexture(rec.ptr->tileset->texture());
-        brush.setTextureRect(rec.ptr->tileset->texture_rectangle(*rec.current_frame));
-        target.draw(brush);
-    }
-}
-#endif
-// ----------------------------------------------------------------------------
-
 void ItemCollisionSystem::update(const ContainerView & cont) {
     m_collectors.clear();
     m_items.clear();
@@ -297,9 +266,6 @@ void ItemCollisionSystem::update(const ContainerView & cont) {
     for (auto e : m_collectors) {
         e.get<Collector>().last_location = e.get<PhysicsComponent>().location();
     }
-#   if 0
-    m_sparkles.update(elapsed_time());
-#   endif
 }
 
 void ItemCollisionSystem::check_item_collection() {
@@ -322,83 +288,179 @@ void ItemCollisionSystem::check_item_collection(Entity collector, Entity item) {
         && line_crosses_rectangle(item_rect, old_location, cur_location))
     {
         item.request_deletion();
-#       if 0
-        m_sparkles.post_effect(center_of(item_rect), item.get<Item>().collection_animation);
-#       endif
         ++collector.get<Collector>().diamond;
     }
 }
-
+#endif
 // ----------------------------------------------------------------------------
-#if 0
-/* private */ void LauncherSystem::update(const ContainerView & cont) {
-    m_bouncy_surfaces.clear();
-    m_bouncables.clear();
-    for (auto & e : cont) {
-        if (!e.has<PhysicsComponent>()) continue;
-        auto pcomp = e.get<PhysicsComponent>();
-        if (pcomp.state_is_type<FreeBody>() || pcomp.state_is_type<LineTracker>())
-        {
-            m_bouncables.push_back(e);
+
+/* private */ void TriggerBoxSystem::update(const ContainerView & view) {
+    // this system handles an intersection of entities having a different
+    // set of component types: Subject x Box
+    // Subject Entity:
+    // (TriggerBoxSubjectHistory, PhysicsComponent, Collector, ReturnPoint)
+    // Box Entity:
+    // (TriggerBox, PhysicsComponent)
+    m_subjects.clear();
+    for (auto e : view) {
+        if (is_subject(e)) {
+            m_subjects.emplace_back(e, e.ensure<TriggerBoxSubjectHistory>());
+            continue;
         }
-        if (e.has<Launcher>() && pcomp.state_is_type<Rect>()) {
-            m_bouncy_surfaces.push_back(e);
+
+        auto * tbox = e.ptr<TriggerBox>();
+        Rect * rect = nullptr;
+        if (auto * pcomp = e.ptr<PhysicsComponent>()) {
+            rect = pcomp->state_ptr<Rect>();
+        }
+        if (!tbox || !rect) continue;
+        if (tbox->ptr<CheckPoint>()) {
+            m_checkpoints.add(e);
+        } else if (tbox->ptr<Launcher>()) {
+            m_launchers.add(e);
+        } else if (tbox->ptr<ItemCollectionSharedPtr>()) {
+            m_item_checker.add(e);
         }
     }
-    for (auto & bouncable : m_bouncables) {
-        if (!bouncable.has<LauncherSubjectHistory>()) continue;
-        for (auto & bouncy_surface : m_bouncy_surfaces) {
-            VectorD old_loc = bouncable.get<LauncherSubjectHistory>().last_location;
-            VectorD cur_loc = bouncable.get<PhysicsComponent>().location();
-            const Rect & rect = *get_rectangle(bouncy_surface);
-            if (!rect.contains(old_loc) && rect.contains(cur_loc)) {
-#               if 0
-                std::cout << "Launched occured. (old " << old_loc << " new " << cur_loc << "rect " << rect << std::endl;
-#               endif
-                do_bounce(bouncable.get<PhysicsComponent>(), bouncy_surface.get<Launcher>());
-            }
-        }
-    }
-    for (auto & bouncable : m_bouncables) {
-        bouncable.ensure<LauncherSubjectHistory>().last_location = bouncable.get<PhysicsComponent>().location();
+
+    m_checkpoints .do_checks(m_subjects);
+    m_launchers   .do_checks(m_subjects);
+    m_item_checker.do_checks(m_subjects);
+    for (auto & [e, history] : m_subjects) {
+        history.last_location = e.get<PhysicsComponent>().location();
     }
 }
 
-/* private static */ void LauncherSystem::do_bounce
-    (PhysicsComponent & pstate, const Launcher & bsurface)
+/* private */ void TriggerBoxSystem::BaseChecker::do_checks
+    (const SubjectContainer & cont)
 {
-    if (!bsurface.detaches_entity && pstate.state_is_type<LineTracker>()) {
-        auto & tracker = pstate.state_as<LineTracker>();
-        auto seg = *tracker.surface_ref();
-        auto proj = project_onto(bsurface.launch_velocity, seg.b - seg.a);
-        auto boost = magnitude(proj);
-        if (magnitude(normalize(proj) - normalize(seg.b - seg.a)) >= k_error) {
-            boost *= -1;
+    for (const auto & [e, history] : cont) {
+        for (const auto & cp_ent : m_trespassees) {
+            auto old_loc = history.last_location;
+            auto new_loc = e.get<PhysicsComponent>().location();
+            auto bounds  = get_rect(cp_ent);
+            VectorD offset;
+            adjust_collision(e, offset, bounds);
+            new_loc += offset;
+            old_loc += offset;
+            if (!is_entering_box(old_loc, new_loc, bounds)) continue;
+            handle_trespass(cp_ent, e);
         }
-        // convert to segments per second
-        tracker.speed += (boost / magnitude(seg.b - seg.a));
-        return;
     }
+    m_trespassees.clear();
+}
 
+/* private */ void TriggerBoxSystem::CheckPointChecker::handle_trespass
+    (Entity checkpoint, Entity e) const
+{
+    if (!e.has<PlayerControl>()) return;
+    auto * rt_point = e.ptr<ReturnPoint>();
+    if (!rt_point) return;
+    // "activate" checkpoint
+    rt_point->ref = checkpoint;
+}
+
+/* private */ void TriggerBoxSystem::ItemChecker::handle_trespass
+    (Entity collectable, Entity e) const
+{
+    auto & gfx = *m_graphics;
+    [&]() {
+        auto ptr = collectable.get<TriggerBox>().as<ItemCollectionSharedPtr>();
+        if (!ptr) return;
+        const auto & collect_info = *ptr;
+        auto * collector = e.ptr<Collector>();
+        if (!collector) return;
+        collector->diamond += collect_info.diamond_quantity;
+        const auto & rect = collectable.get<PhysicsComponent>().state_as<Rect>();
+        gfx.post_item_collection(VectorD(rect.left, rect.top), ptr);
+    } ();
+    collectable.request_deletion();
+}
+
+static VectorD expansion_for_collector(const Entity &);
+
+/* private */ void TriggerBoxSystem::ItemChecker::adjust_collision
+    (const Entity & collector, VectorD & offset, Rect & rect) const
+{
+    auto * col_comp = collector.ptr<Collector>();
+    if (!col_comp) return;
+    offset = col_comp->collection_offset;
+    auto examt = expansion_for_collector(collector);
+    rect.left   -= examt.x;
+    rect.width  += examt.x*2.;
+    rect.top    -= examt.y;
+    rect.height += examt.y*2.;
+}
+
+static VectorD expansion_for_collector(const Entity & e) {
+    auto * df    = e.ptr<DisplayFrame    >();
+    auto * pcomp = e.ptr<PhysicsComponent>();
+    if (!df || !pcomp) return VectorD();
+    auto * char_ani = df->as_pointer<CharacterAnimator>();
+    if (!char_ani) return VectorD();
+    if (!char_ani->sprite_sheet) return VectorD();
+    auto frame = char_ani->sprite_sheet->frame(char_ani->current_sequence, char_ani->current_frame);
+    return VectorD(frame.width / 4, frame.height / 3);
+}
+
+/* private */ void TriggerBoxSystem::LauncherChecker::handle_trespass
+    (Entity launch_e, Entity e) const
+{
+    auto & launcher = launch_e.get<TriggerBox>().as<Launcher>();
+    auto & pcomp    = e.get<PhysicsComponent>();
+    if (!launcher.detaches && pcomp.state_is_type<LineTracker>()) {
+        return do_boost(launcher, pcomp.state_as<LineTracker>());
+    } else {
+        return do_launch(launcher, pcomp);
+    }
+}
+
+/* private static */ void TriggerBoxSystem::LauncherChecker::do_boost
+    (const Launcher & launcher, LineTracker & tracker)
+{
+    auto seg = *tracker.surface_ref();
+    auto proj = project_onto(launcher.launch_velocity.expand(), seg.b - seg.a);
+    auto boost = magnitude(proj);
+    if (magnitude(normalize(proj) - normalize(seg.b - seg.a)) >= k_error) {
+        boost *= -1;
+    }
+    // convert to segments per second
+    tracker.speed += (boost / magnitude(seg.b - seg.a));
+}
+
+/* private static */ void TriggerBoxSystem::LauncherChecker::do_launch
+    (const Launcher & launcher, PhysicsComponent & pcomp)
+{
     FreeBody freebody;
     VectorD cur_velocity;
-    if (pstate.state_is_type<FreeBody>()) {
-        freebody = pstate.state_as<FreeBody>();
+    if (pcomp.state_is_type<FreeBody>()) {
+        freebody = pcomp.state_as<FreeBody>();
         cur_velocity = freebody.velocity;
-    } else if (pstate.state_is_type<LineTracker>()) {
-        const auto & tracker = pstate.state_as<LineTracker>();
+    } else if (pcomp.state_is_type<LineTracker>()) {
+        const auto & tracker = pcomp.state_as<LineTracker>();
         auto seg    = *tracker.surface_ref();
         auto normal = normal_for(tracker);
         freebody.location = location_along(tracker.position, seg) +
                             normal*k_error;
         cur_velocity = velocity_along(tracker.speed, seg);
     }
-    freebody.velocity =
-        bsurface.launch_velocity +
-        project_onto(cur_velocity, rotate_vector(bsurface.launch_velocity, k_pi*0.5));
-    pstate.reset_state<FreeBody>() = freebody;
+    auto launch_vel = launcher.launch_velocity.expand();
+    freebody.velocity = launch_vel;
+    if (cur_velocity != VectorD()) {
+        freebody.velocity += project_onto(cur_velocity, rotate_vector(launch_vel, k_pi*0.5));
+    }
+    pcomp.reset_state<FreeBody>() = freebody;
 }
-#endif
+
+/* private static */ bool TriggerBoxSystem::is_subject(const Entity & e) {
+    if (auto * pcomp = e.ptr<PhysicsComponent>()) {
+        if (pcomp->state_is_type<FreeBody>() || pcomp->state_is_type<LineTracker>()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // ----------------------------------------------------------------------------
 
 /* private */ void HoldItemSystem::update(const ContainerView & view) {

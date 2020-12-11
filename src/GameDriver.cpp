@@ -117,6 +117,7 @@ void GameDriver::render_to(sf::RenderTarget & target) {
     for (const auto & layer : m_tmap) {
         target.draw(*layer);
     }
+    m_graphics.set_view(target.getView());
     m_graphics.render_to(target);
 }
 

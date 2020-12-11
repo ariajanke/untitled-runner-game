@@ -198,6 +198,17 @@ public:
     }
 };
 
+template <typename T>
+std::enable_if_t<std::is_arithmetic_v<T>, sf::Rect<T>> expand
+    (sf::Rect<T> rv, T amount)
+{
+    rv.left   -= amount;
+    rv.top    -= amount;
+    rv.width  += amount*2;
+    rv.height += amount*2;
+    return rv;
+}
+
 template <typename T, typename KeyType, typename SpecTag = TypeTag<T>>
 class CachedLoader {
 public:

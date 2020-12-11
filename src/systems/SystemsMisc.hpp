@@ -73,7 +73,7 @@ class GravityUpdateSystem final : public System, public TimeAware {
 
     void update(Entity e);
 };
-
+#if 0
 class ItemCollisionSystem final :
     public System, public MapAware, public TimeAware
 {
@@ -88,7 +88,7 @@ private:
     std::vector<Entity> m_items;
     std::vector<Entity> m_collectors;
 };
-
+#endif
 class TriggerBoxSystem final : public System, public GraphicsAware {
     template <typename ... Types>
     using Tuple = std::tuple<Types...>;
@@ -97,68 +97,34 @@ class TriggerBoxSystem final : public System, public GraphicsAware {
     using CheckPoint       = TriggerBox::Checkpoint;
     using Launcher         = TriggerBox::Launcher;
 
-    void update(const ContainerView & view) override {
-        m_subjects.clear();
-        for (auto e : view) {
-            if (is_subject(e)) {
-                m_subjects.emplace_back(e, e.ensure<TriggerBoxSubjectHistory>());
-                continue;
-            }
+    void update(const ContainerView &) override;
 
-            auto * tbox = e.ptr<TriggerBox>();
-            Rect * rect = nullptr;
-            if (auto * pcomp = e.ptr<PhysicsComponent>()) {
-                rect = pcomp->state_ptr<Rect>();
-            }
-            if (!tbox || !rect) continue;
-            if (tbox->ptr<CheckPoint>()) {
-                m_checkpoints.add(e);
-            } else if (tbox->ptr<Launcher>()) {
-                m_launchers.add(e);
-            } else if (tbox->ptr<ItemCollectionSharedPtr>()) {
-                m_item_checker.add(e);
-            }
-        }
-
-        m_checkpoints .do_checks(m_subjects);
-        m_launchers   .do_checks(m_subjects);
-        m_item_checker.do_checks(m_subjects);
-        for (auto & [e, history] : m_subjects) {
-            history.last_location = e.get<PhysicsComponent>().location();
-        }
-    }
-
-    void on_graphics_assigned() override {
-        m_item_checker.assign_graphics(graphics());
-    }
+    void on_graphics_assigned() override
+        { m_item_checker.assign_graphics(graphics()); }
 
     class BaseChecker {
     public:
         virtual ~BaseChecker() {}
         void add(Entity e) { m_trespassees.push_back(e); }
-        void do_checks(const SubjectContainer & cont) {
-            for (const auto & [e, history] : cont) {
-                for (const auto & cp_ent : m_trespassees) {
-                    if (!is_entering_box(e, history, get_rect(cp_ent))) continue;
-                    handle_trespass(cp_ent, e);
-                }
-            }
-            m_trespassees.clear();
-        }
+        void do_checks(const SubjectContainer &);
+
     protected:
         virtual void handle_trespass(Entity trespassee, Entity trespasser) const = 0;
+        virtual void adjust_collision(const Entity & collector, VectorD & offset, Rect & bounds) const = 0;
+
     private:
+        static Rect get_rect(const Entity & e)
+            { return e.get<PhysicsComponent>().state_as<Rect>(); }
+        static bool is_entering_box(VectorD old, VectorD new_, const Rect & rect) {
+            if (old == TriggerBoxSubjectHistory::k_no_location) return false;
+            return !rect.contains(old) && line_crosses_rectangle(rect, old, new_);
+        }
         std::vector<Entity> m_trespassees;
     };
 
     class CheckPointChecker final : public BaseChecker {
-        void handle_trespass(Entity checkpoint, Entity e) const override {
-            if (!e.has<PlayerControl>()) return;
-            auto * rt_point = e.ptr<ReturnPoint>();
-            if (!rt_point) return;
-            // "activate" checkpoint
-            rt_point->ref = checkpoint;
-        }
+        void handle_trespass(Entity checkpoint, Entity e) const override;
+        void adjust_collision(const Entity &, VectorD &, Rect &) const override {}
     };
 
     class ItemChecker final : public BaseChecker {
@@ -167,89 +133,20 @@ class TriggerBoxSystem final : public System, public GraphicsAware {
             { m_graphics = &graphics; }
 
     private:
-        void handle_trespass(Entity collectable, Entity e) const override {
-            auto & gfx = *m_graphics;
-            [&]() {
-                auto ptr = collectable.get<TriggerBox>().as<ItemCollectionSharedPtr>();
-                if (!ptr) return;
-                const auto & collect_info = *ptr;
-                auto * collector = e.ptr<Collector>();
-                if (!collector) return;
-                collector->diamond += collect_info.diamond_quantity;
-                gfx.post_item_collection(center_of(collectable.get<PhysicsComponent>().state_as<Rect>()), ptr);
-            } ();
-            collectable.request_deletion();
-        }
-
+        void handle_trespass(Entity collectable, Entity e) const override;
+        void adjust_collision(const Entity & collector, VectorD & offset, Rect &) const override;
         GraphicsBase * m_graphics = nullptr;
     };
 
     class LauncherChecker final : public BaseChecker {
-        void handle_trespass(Entity launch_e, Entity e) const override {
-            auto & launcher = launch_e.get<TriggerBox>().as<Launcher>();
-            auto & pcomp    = e.get<PhysicsComponent>();
-            if (!launcher.detaches && pcomp.state_is_type<LineTracker>()) {
-                return do_boost(launcher, pcomp.state_as<LineTracker>());
-            } else {
-                return do_launch(launcher, pcomp);
-            }
-        }
+        void handle_trespass(Entity launch_e, Entity e) const override;
+        void adjust_collision(const Entity &, VectorD &, Rect &) const override {}
 
-        static void do_boost(const Launcher & launcher, LineTracker & tracker) {
-            auto seg = *tracker.surface_ref();
-            auto proj = project_onto(launcher.launch_velocity.expand(), seg.b - seg.a);
-            auto boost = magnitude(proj);
-            if (magnitude(normalize(proj) - normalize(seg.b - seg.a)) >= k_error) {
-                boost *= -1;
-            }
-            // convert to segments per second
-            tracker.speed += (boost / magnitude(seg.b - seg.a));
-        }
-
-        static void do_launch(const Launcher & launcher, PhysicsComponent & pcomp) {
-            FreeBody freebody;
-            VectorD cur_velocity;
-            if (pcomp.state_is_type<FreeBody>()) {
-                freebody = pcomp.state_as<FreeBody>();
-                cur_velocity = freebody.velocity;
-            } else if (pcomp.state_is_type<LineTracker>()) {
-                const auto & tracker = pcomp.state_as<LineTracker>();
-                auto seg    = *tracker.surface_ref();
-                auto normal = normal_for(tracker);
-                freebody.location = location_along(tracker.position, seg) +
-                                    normal*k_error;
-                cur_velocity = velocity_along(tracker.speed, seg);
-            }
-            auto launch_vel = launcher.launch_velocity.expand();
-            freebody.velocity =
-                launch_vel + project_onto(cur_velocity, rotate_vector(launch_vel, k_pi*0.5));
-            pcomp.reset_state<FreeBody>() = freebody;
-        }
+        static void do_boost(const Launcher &, LineTracker &);
+        static void do_launch(const Launcher &, PhysicsComponent &);
     };
 
-    static Rect get_rect(const Entity & e)
-        { return e.get<PhysicsComponent>().state_as<Rect>(); }
-
-    static bool is_entering_box
-        (const Entity & e, const TriggerBoxSubjectHistory & history, const Rect & rect)
-    {
-        return is_entering_box(history.last_location,
-                               e.get<PhysicsComponent>().location(), rect);
-    }
-
-    static bool is_entering_box(VectorD old, VectorD new_, const Rect & rect) {
-        if (old == TriggerBoxSubjectHistory::k_no_location) return false;
-        return !rect.contains(old) && line_crosses_rectangle(rect, old, new_);
-    }
-
-    static bool is_subject(const Entity & e) {
-        if (auto * pcomp = e.ptr<PhysicsComponent>()) {
-            if (pcomp->state_is_type<FreeBody>() || pcomp->state_is_type<LineTracker>()) {
-                return true;
-            }
-        }
-        return false;
-    }
+    static bool is_subject(const Entity & e);
 
     SubjectContainer m_subjects;
     ItemChecker m_item_checker;

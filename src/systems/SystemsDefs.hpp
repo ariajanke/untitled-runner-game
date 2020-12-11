@@ -62,6 +62,7 @@ public:
     virtual ~GraphicsBase();
 
     virtual void draw_line(VectorD, VectorD, sf::Color, double thickness) = 0;
+    virtual void draw_rectangle(VectorD, double width, double height, sf::Color) = 0;
     virtual void draw_circle(VectorD loc, double radius, sf::Color) = 0;
     virtual void draw_sprite(const sf::Sprite &) = 0;
     virtual void draw_holocrate(Rect, sf::Color) = 0;

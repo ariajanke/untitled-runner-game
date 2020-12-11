@@ -48,8 +48,9 @@ class AnimatorSystem final : public System, public TimeAware {
 };
 
 class DrawSystem final : public System, public GraphicsAware {
-    void update(const ContainerView & cont) override
-        { for (auto & e : cont) update(e); }
+    void update(const ContainerView & cont) override {
+        for (auto & e : cont) update(e);
+    }
 
     void update(const Entity &);
 
