@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.0" tiledversion="1.0.3" orientation="orthogonal" renderorder="right-down" width="800" height="60" tilewidth="16" tileheight="16" nextobjectid="292">
+<map version="1.0" tiledversion="1.0.3" orientation="orthogonal" renderorder="right-down" width="800" height="60" tilewidth="16" tileheight="16" nextobjectid="297">
  <tileset firstgid="1" source="atlastghd.tsrj.tsx"/>
  <tileset firstgid="1513" source="tileset4.tsx"/>
  <tileset firstgid="1769" source="items.tsx"/>
@@ -19,7 +19,7 @@
   </data>
  </layer>
  <objectgroup name="Object Layer 1">
-  <object id="1" type="player-start" x="5540.57" y="119.521" width="31.795" height="44.6721">
+  <object id="1" type="player-start" x="4275.31" y="600.603" width="31.795" height="44.6721">
    <properties>
     <property name="sprite-sheet" value="mc"/>
    </properties>
@@ -123,7 +123,7 @@
   </object>
   <object id="25" type="launcher" gid="1534" x="4089.2" y="883.79" width="16" height="16">
    <properties>
-    <property name="boost" value="300, 0"/>
+    <property name="boost" value="450, 0"/>
    </properties>
   </object>
   <object id="28" type="ball" gid="1770" x="4240.64" y="624.102" width="16" height="16">
@@ -309,7 +309,7 @@
   <object id="277" type="diamond" gid="1769" x="4712.46" y="359.968" width="16" height="16"/>
   <object id="278" type="transition-to-foreground" x="1655.49" y="598.613" width="80.6043" height="149.372"/>
   <object id="280" type="transition-to-background" x="1658.87" y="760.949" width="77.7859" height="52.4209"/>
-  <object id="282" type="basket" x="5641.17" y="153.317" width="55.2393" height="20.8556">
+  <object id="282" type="basket" x="5641.65" y="146.602" width="55.2393" height="20.8556">
    <properties>
     <property name="outline" value="basket-outline"/>
     <property name="sink-points" value="sink-points-1"/>
@@ -320,19 +320,23 @@
    <polyline points="0,0 4.63088,13.8926 17.1728,26.6276 31.4514,35.5034"/>
   </object>
   <object id="285" name="basket-outline" x="5642.31" y="150.508">
-   <polyline points="0,0 4.43793,10.6124 14.2785,21.0319 41.0991,20.646 49.589,10.4195 54.2199,0"/>
-  </object>
-  <object id="286" name="basket-outline-2" x="5714.39" y="148.336">
-   <polyline points="0,0 32.2785,13.0565 68.1839,-0.36268"/>
-  </object>
-  <object id="288" name="basket-outline-3" x="5708.9" y="114.413">
-   <polyline points="0,0 76.0482,5.11535"/>
+   <polyline points="0,0 4.44618,21.0319 51.1712,20.4062 54.2199,0"/>
   </object>
   <object id="289" type="platform" x="5475.62" y="170.534" width="58.7653" height="18.3104"/>
   <object id="290" name="basket-wall" x="5755.59" y="82.6059" width="3.40643" height="131.148"/>
+  <object id="292" type="ball" gid="1770" x="5486.3" y="144.563" width="16" height="16">
+   <properties>
+    <property name="ball-type" value="jump-booster"/>
+    <property name="recall-bounds" value="jumper02-bounds"/>
+    <property name="recall-time" value="8.0"/>
+   </properties>
+  </object>
+  <object id="294" name="platform" type="platform" x="4415.17" y="576.687" width="91.5522" height="18.3104"/>
+  <object id="296" gid="1771" x="3978.26" y="824.115" width="16" height="16"/>
  </objectgroup>
  <objectgroup name="Object Layer 2" visible="0">
   <object id="31" name="jumper01-bounds" type="recall-bounds" x="3869.08" y="544.913" width="603.805" height="339.115"/>
+  <object id="293" name="jumper02-bounds" type="recall-bounds" x="5478.2" y="35.8941" width="173.577" height="208.928"/>
  </objectgroup>
  <layer name="foreground" width="800" height="60">
   <data encoding="base64" compression="zlib">

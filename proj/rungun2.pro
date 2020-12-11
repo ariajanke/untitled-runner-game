@@ -18,11 +18,11 @@ DEFINES += MACRO_COMPILER_GCC
 
 SOURCES += \
     ../src/main.cpp \
-    ../src/Drawers.cpp \
     ../src/Defs.cpp \
     ../src/GameDriver.cpp \
     ../src/GraphicalEffects.cpp \
     ../src/get_8x8_char.cpp \
+    ../src/GraphicsDrawer.cpp \
     \ # maps
     ../src/maps/Maps.cpp \
     ../src/maps/MapObjectLoader.cpp \
@@ -56,7 +56,6 @@ SOURCES += \
 #    ../lib/tmap/src/ZLib.cpp
 
 HEADERS += \
-    ../src/Drawers.hpp \
     ../src/GridRange.hpp \
     ../src/Defs.hpp \
     ../src/Systems.hpp \
@@ -64,6 +63,7 @@ HEADERS += \
     ../src/GraphicalEffects.hpp \
     ../src/get_8x8_char.hpp \
     ../src/Components.hpp \
+    ../src/GraphicsDrawer.hpp \
     \ # maps
     ../src/maps/Maps.hpp \
     ../src/maps/MapObjectLoader.hpp \
