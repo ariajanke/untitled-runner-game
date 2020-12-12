@@ -46,6 +46,7 @@ void load_wall         (MapObjectLoader &, const MapObject &);
 void load_ball         (MapObjectLoader &, const MapObject &);
 void load_recall_bounds(MapObjectLoader &, const MapObject &);
 void load_basket       (MapObjectLoader &, const MapObject &);
+void load_checkpoint   (MapObjectLoader &, const MapObject &);
 
 void load_scale_pivot (MapObjectLoader &, const MapObject &);
 void load_scale_left  (MapObjectLoader &, const MapObject &);
@@ -64,7 +65,8 @@ const auto k_loader_functions = {
     std::make_pair("scale-left"    , load_scale_left    ),
     std::make_pair("scale-right"   , load_scale_right   ),
     std::make_pair("scale-pivot"   , load_scale_pivot   ),
-    std::make_pair("basket"        , load_basket        )
+    std::make_pair("basket"        , load_basket        ),
+    std::make_pair("checkpoint"    , load_checkpoint    )
 };
 
 const auto k_reserved_objects = {
@@ -511,6 +513,12 @@ void load_basket(MapObjectLoader & loader, const MapObject & obj) {
     });
 
     basket_e.add<ScriptUPtr>() = std::move(script);
+}
+
+void load_checkpoint(MapObjectLoader & loader, const MapObject & obj) {
+    auto checkpoint = loader.create_entity();
+    checkpoint.add<PhysicsComponent>().reset_state<Rect>() = Rect(obj.bounds);
+    checkpoint.add<TriggerBox>().reset<TriggerBox::Checkpoint>();
 }
 
 void load_scale_pivot(MapObjectLoader & loader, const MapObject & obj) {

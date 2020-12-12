@@ -78,12 +78,39 @@ private:
 
 // ----------------------------------------------------------------------------
 
+class FlagRaiser {
+public:
+    void post_flag_raise(ecs::EntityRef ref, VectorD bottom, VectorD top);
+
+    void render_to(sf::RenderTarget &);
+
+    void update(double et);
+
+private:
+    struct RefHasher {
+        std::size_t operator () (const ecs::EntityRef & ref) const
+            { return ref.hash(); }
+    };
+    struct Record {
+        static constexpr const double k_raise_speed = 50.;
+        static constexpr const double k_width  = 52.;
+        static constexpr const double k_height = 28.;
+        DrawRectangle draw_rect;
+        VectorD start, end;
+        double time_passed;
+    };
+    std::unordered_map<ecs::EntityRef, Record, RefHasher> m_flag_records;
+};
+
+// ----------------------------------------------------------------------------
+
 class GraphicsDrawer final : public GraphicsBase {
 public:
     void render_to(sf::RenderTarget & target);
 
     void update(double et) {
         m_item_anis.update(et);
+        m_flag_raiser.update(et);
     }
 
     void set_view(const sf::View &);
@@ -116,10 +143,15 @@ private:
                                        float(width), float(height), color);
     }
 
+    void post_flag_raise(ecs::EntityRef ref, VectorD bottom, VectorD top) override {
+        m_flag_raiser.post_flag_raise(ref, bottom, top);
+    }
+
     Rect m_view_rect;
     CircleDrawer2 m_circle_drawer;
     LineDrawer2 m_line_drawer;
     std::vector<sf::Sprite> m_sprites;
     ItemCollectAnimations m_item_anis;
     std::vector<DrawRectangle> m_draw_rectangles;
+    FlagRaiser m_flag_raiser;
 };

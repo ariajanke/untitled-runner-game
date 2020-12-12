@@ -73,22 +73,7 @@ class GravityUpdateSystem final : public System, public TimeAware {
 
     void update(Entity e);
 };
-#if 0
-class ItemCollisionSystem final :
-    public System, public MapAware, public TimeAware
-{
-public:
-    void update(const ContainerView & cont) override;
 
-    void check_item_collection();
-
-    void check_item_collection(Entity collector, Entity item);
-
-private:
-    std::vector<Entity> m_items;
-    std::vector<Entity> m_collectors;
-};
-#endif
 class TriggerBoxSystem final : public System, public GraphicsAware {
     template <typename ... Types>
     using Tuple = std::tuple<Types...>;
@@ -99,19 +84,23 @@ class TriggerBoxSystem final : public System, public GraphicsAware {
 
     void update(const ContainerView &) override;
 
-    void on_graphics_assigned() override
-        { m_item_checker.assign_graphics(graphics()); }
+    void on_graphics_assigned() override {
+        m_item_checker.assign_graphics(graphics());
+        m_checkpoints.assign_graphics(graphics());
+    }
 
     class BaseChecker {
     public:
         virtual ~BaseChecker() {}
         void add(Entity e) { m_trespassees.push_back(e); }
         void do_checks(const SubjectContainer &);
+        void assign_graphics(GraphicsBase & graphics)
+            { m_graphics = &graphics; }
 
     protected:
         virtual void handle_trespass(Entity trespassee, Entity trespasser) const = 0;
         virtual void adjust_collision(const Entity & collector, VectorD & offset, Rect & bounds) const = 0;
-
+        GraphicsBase & graphics() const { return *m_graphics; }
     private:
         static Rect get_rect(const Entity & e)
             { return e.get<PhysicsComponent>().state_as<Rect>(); }
@@ -120,6 +109,7 @@ class TriggerBoxSystem final : public System, public GraphicsAware {
             return !rect.contains(old) && line_crosses_rectangle(rect, old, new_);
         }
         std::vector<Entity> m_trespassees;
+        GraphicsBase * m_graphics = nullptr;
     };
 
     class CheckPointChecker final : public BaseChecker {
@@ -128,14 +118,8 @@ class TriggerBoxSystem final : public System, public GraphicsAware {
     };
 
     class ItemChecker final : public BaseChecker {
-    public:
-        void assign_graphics(GraphicsBase & graphics)
-            { m_graphics = &graphics; }
-
-    private:
         void handle_trespass(Entity collectable, Entity e) const override;
         void adjust_collision(const Entity & collector, VectorD & offset, Rect &) const override;
-        GraphicsBase * m_graphics = nullptr;
     };
 
     class LauncherChecker final : public BaseChecker {

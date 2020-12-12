@@ -23,6 +23,7 @@ SOURCES += \
     ../src/GraphicalEffects.cpp \
     ../src/get_8x8_char.cpp \
     ../src/GraphicsDrawer.cpp \
+    ../src/GenBuiltinTileSet.cpp \
     \ # maps
     ../src/maps/Maps.cpp \
     ../src/maps/MapObjectLoader.cpp \
@@ -64,6 +65,7 @@ HEADERS += \
     ../src/get_8x8_char.hpp \
     ../src/Components.hpp \
     ../src/GraphicsDrawer.hpp \
+    ../src/GenBuiltinTileSet.hpp \
     \ # maps
     ../src/maps/Maps.hpp \
     ../src/maps/MapObjectLoader.hpp \

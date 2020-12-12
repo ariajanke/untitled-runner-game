@@ -356,14 +356,20 @@ void ItemCollisionSystem::check_item_collection(Entity collector, Entity item) {
     if (!e.has<PlayerControl>()) return;
     auto * rt_point = e.ptr<ReturnPoint>();
     if (!rt_point) return;
+    if (rt_point->ref == checkpoint) return;
+
     // "activate" checkpoint
+    auto rect = checkpoint.get<PhysicsComponent>().state_as<Rect>();
+    VectorD top_mid(rect.left, rect.top);
+    VectorD top_bottom = top_mid + VectorD(0., rect.height);
+    graphics().post_flag_raise(e, top_bottom, top_mid);
     rt_point->ref = checkpoint;
 }
 
 /* private */ void TriggerBoxSystem::ItemChecker::handle_trespass
     (Entity collectable, Entity e) const
 {
-    auto & gfx = *m_graphics;
+    auto & gfx = graphics();
     [&]() {
         auto ptr = collectable.get<TriggerBox>().as<ItemCollectionSharedPtr>();
         if (!ptr) return;

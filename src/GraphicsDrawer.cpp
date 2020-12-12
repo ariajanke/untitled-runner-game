@@ -83,6 +83,46 @@ void CircleDrawer2::render_to(sf::RenderTarget & target) {
 
 // ----------------------------------------------------------------------------
 
+void FlagRaiser::post_flag_raise(ecs::EntityRef ref, VectorD bottom, VectorD top) {
+    auto & rec = m_flag_records[ref];
+    rec.start = bottom;
+    rec.end = top;
+    rec.time_passed = 0.;
+}
+
+void FlagRaiser::render_to(sf::RenderTarget & target) {
+    for (const auto & [ref, rec] : m_flag_records) {
+        (void)ref;
+        target.draw(rec.draw_rect);
+    }
+}
+
+void FlagRaiser::update(double et) {
+    for (auto itr = m_flag_records.begin(); itr != m_flag_records.end(); ) {
+        if (itr->first.has_expired()) {
+            itr = m_flag_records.erase(itr);
+        } else {
+            auto & rec = itr->second;
+            rec.time_passed += et;
+
+            auto mag_ = magnitude(rec.end - rec.start);
+            auto dir_ = normalize(rec.end - rec.start);
+            auto offset = dir_*rec.time_passed*Record::k_raise_speed;
+            if (magnitude(offset) > mag_) {
+                offset = normalize(offset)*mag_;
+            }
+            float height = float(magnitude(offset));
+            if (height > Record::k_height) height = Record::k_height;
+            sf::Vector2f loc(rec.start + offset);
+            rec.draw_rect = DrawRectangle(loc.x, loc.y, float(Record::k_width), height, sf::Color(50, 100, 200));
+
+            ++itr;
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
+
 void ItemCollectAnimations::post_effect(VectorD r, AnimationPtr aptr) {
     Record rec;
     rec.ptr = aptr;
@@ -117,6 +157,7 @@ void ItemCollectAnimations::render_to(sf::RenderTarget & target) const {
 void GraphicsDrawer::render_to(sf::RenderTarget & target) {
     m_line_drawer.render_to(target);
     m_circle_drawer.render_to(target);
+    m_flag_raiser.render_to(target);
     for (const auto & spt : m_sprites) {
         target.draw(spt);
     }

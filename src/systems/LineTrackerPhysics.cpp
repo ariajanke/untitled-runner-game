@@ -460,25 +460,6 @@ PlatformTransfer check_for_platform_transfer
         LineSegment inxa = *inx;
         LineSegment inxb = *inx;
 
-        // I don't think this will work
-#       if 0
-        if (   are_very_close(inx.intersection, tracker_seg.a)
-            || are_very_close(inx.intersection, tracker_seg.b))
-        {
-            auto old_seg = inxa;
-            auto p = normalize(inxa.b - inxa.a);
-            inxa.b += p;
-            inxa.a -= p;
-            inxb.b += p;
-            inxb.a -= p;
-            tracker_seg.a += p;
-            tracker_seg.b -= p;
-            assert(segment_length(old_seg) < segment_length(inxa));
-            assert(!are_very_close(inx.intersection, inxa.a));
-            assert(!are_very_close(inx.intersection, inxa.b));
-
-        }
-#       endif
         inxa.a = inx.intersection;
         inxb.b = inx.intersection;
         assert(!are_very_close(inxa.a, inxa.b));

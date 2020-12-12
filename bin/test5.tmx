@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.0" tiledversion="1.0.3" orientation="orthogonal" renderorder="right-down" width="800" height="60" tilewidth="16" tileheight="16" nextobjectid="297">
+<map version="1.0" tiledversion="1.0.3" orientation="orthogonal" renderorder="right-down" width="800" height="60" tilewidth="16" tileheight="16" nextobjectid="301">
  <tileset firstgid="1" source="atlastghd.tsrj.tsx"/>
  <tileset firstgid="1513" source="tileset4.tsx"/>
  <tileset firstgid="1769" source="items.tsx"/>
  <layer name="back" width="800" height="60">
   <data encoding="base64" compression="zlib">
-   eJzt21FOAjEYhVFYiUbjbjQuhhW5I9yMzzqJxqEMTocZ2r/2nOS+qCRCX/oF2O0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgLXeJgYAAHAL+gMAAChFfwAAAKXoDwAAoBT9AQAAlKI/AACAUvQHAABQiv4AAABK0R8AAEAp+iPf8363u/9eKz42HgAArKE/8rXUH84SAICI9Ee+Vvrj7vv/c5YAAESjP/JN9cfxa+/V/qNzh73+AAAgLv2Rb6o/hp+9BHk/ZOgO/QEAQGT6I1/k/vjpDv0BAEBk+iNf1P4Yd4f+AAAgMv2RL2J/pN2hPwAAiEx/5IvWH1PdoT8AAIhMf+QZt8d4td//+IuzBAAgGv2RR38AAMB6+iPPVHvoDwAAWEZ/5NEfAACwnv7I4/NXAACwnv5Y5nV/Ov0Rw8OKM3gMen4AAP+R/lhHf8SgPwAA2qA/zt0vuI/qjxj0BwBAG/THqZ/veVz6vsfU3+uP+vQHAEAb9Mcp/dGmoT8OV5zD8Bj9AQBQzn/oj8P+d1PPZ/z7OXP9kTbIcfNns50Wz/Ja+gMAoA0t9se4Jy41x9wuWdofkbVwlltZ0pjpY/QHAEA5UfvjmqbIWdouqbn+SD9r9VenjPd0xbZ4DXuRnuuS6Q8AgHJ664+553ur/li6Lb5TEuk8AQBgoD9O3wuJ0h/p1ryGAAAQRcT+KNke6e42aAH9AQAA02r0R82+6HEAABBFrftq7Tt5LwMAgEhq3Flr38l7GgAARFL7fmz6AwCAftS+H5v+AACgH7Xvx6Y/AADoR+37sekPAAD6Uft+bPoDAIB+fAL8M1e2
+   eJzt3UFO20AUgOFk02uAWnEbqh4mJ+JG9Bws2HVdIhHhGAeP7WHmjef7pLcBguK8zfxKrBwOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMBWTxMDAADwHfQHAABQiv4AAABK0R8AAEAp+gMAAChFfwAAAKXoDwAAoBT9AQAAlKI/AACAUvRHusfj4XD/Pq34l3kAAGAL/ZGupf6wSwAAItIf6Vrpj7v352eXAABEoz/STfXH89v8rfaMPjsd9QcAAHHpj3RT/XH+2e8g74ecu0N/AAAQmf5IF7k/Lt2hPwAAiEx/pIvaH8Pu0B8AAESmP9JF7I9xd+gPAAAi0x/povXHVHfoDwAAItMfaYbtMZza7398xS4BAIhGf6TRHwAAsJ3+SDPVHvoDAACW0R9p9AcAAGy31/54+ZH3//n8FQAAbLfX/njN3B8Xf47Xoz9i+LlhB7+C7g8AYI/0xzb6Iwb9AQDQBv3x2f2C86j+iEF/AAC0QX9cu9zncet+j6m/1x/16Q8AgDbstT/W0h9tOvfHacUezo/RHwAA5eyhP07Hj5m6nuHv58z1x7hBnrNfTT4t7nIt/QEA0IYW+2PYE7eaY25uWdofkbWwy1yWNOb4MfoDAKCcqP2xpilSZtwuY3P9Mf6s1VedMpyHFZPjNezFeK9LRn8AAJTTW3/MXe939cfSyXFPSaR9Uk/u7+IEANhCf1y/FxKlP8az5TWkb6W+CwcAIEXE/ijZHuO5y9AC+oNI9AcAEEmN/qjZFz0OfdMfAEAktc6rtc/kvQzoDwAgkhpn1tpn8p4G9AcAEEnt87HRHwAA9KP2+djoDwAA+lH7fGz0BwAA/ah9Pjb6AwCAftQ+Hxv9AQBAP/4DxYpiNQ==
   </data>
  </layer>
  <layer name="background" width="800" height="60">
@@ -332,7 +332,8 @@
    </properties>
   </object>
   <object id="294" name="platform" type="platform" x="4415.17" y="576.687" width="91.5522" height="18.3104"/>
-  <object id="296" gid="1771" x="3978.26" y="824.115" width="16" height="16"/>
+  <object id="299" type="checkpoint" x="3989.53" y="798.67" width="16.9002" height="77.9589"/>
+  <object id="300" type="checkpoint" x="869.269" y="652.838" width="16.9002" height="66.5104"/>
  </objectgroup>
  <objectgroup name="Object Layer 2" visible="0">
   <object id="31" name="jumper01-bounds" type="recall-bounds" x="3869.08" y="544.913" width="603.805" height="339.115"/>
