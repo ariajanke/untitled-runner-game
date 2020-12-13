@@ -63,9 +63,14 @@ GridRange<Type> compute_range_for_tiles
 } // end of <anonymous> namespace
 
 void LineMapLoader::load_map(const tmap::TiledMap & map) {
-    load_tile_size(map);
+    {
+    auto tsize = load_tile_size(map);
+    m_tile_width = tsize.width;
+    m_tile_height = tsize.height;
+    }
 
-    auto nfo = load_tileset_map(map);
+    assert(has_tile_size_initialized());
+    auto nfo = load_tileset_map(map, tile_width(), tile_height());
 
     auto groundgids = get_layer_gids(map, nfo.segment_map, k_ground);
     int width  = groundgids.width ();
@@ -131,7 +136,10 @@ void LineMapLoader::load_transitions_into(TransitionGrid & grid) {
     grid.swap(m_transition_tiles);
 }
 
-/* private */ void LineMapLoader::load_tile_size(const tmap::TiledMap & map) {
+/* static */ LineMapLoader::TileSize LineMapLoader::load_tile_size
+    (const tmap::TiledMap & map)
+{
+    TileSize tsize;
     for (auto layername : k_layer_list) {
         auto * layer = map.find_tile_layer(layername);
         if (!layer) {
@@ -142,26 +150,25 @@ void LineMapLoader::load_transitions_into(TransitionGrid & grid) {
             continue;
         }
         std::equal_to<double> eq_to;
-        if (   eq_to(m_tile_width , k_initial_tile_size)
-            && eq_to(m_tile_height, k_initial_tile_size))
+        if (   eq_to(tsize.width , k_initial_tile_size)
+            && eq_to(tsize.height, k_initial_tile_size))
         {
-            m_tile_width  = double(layer->tile_width ());
-            m_tile_height = double(layer->tile_height());
+            tsize.width  = double(layer->tile_width ());
+            tsize.height = double(layer->tile_height());
         }
-        if (   !eq_to(m_tile_width , double(layer->tile_width ()))
-            || !eq_to(m_tile_height, double(layer->tile_height())))
+        if (   !eq_to(tsize.width , double(layer->tile_width ()))
+            || !eq_to(tsize.height, double(layer->tile_height())))
         {
             throw RtError("LineMapLoader::load_map: all layers must have tiles "
                           "of the same size.");
         }
     }
+    return tsize;
 }
 
-/* private */ LineMapLoader::SegmentsInfo LineMapLoader::load_tileset_map
-    (const tmap::TiledMap & map) const
+/* static */ LineMapLoader::SegmentsInfo LineMapLoader::load_tileset_map
+    (const tmap::TiledMap & map, double tile_width, double tile_height)
 {
-    assert(has_tile_size_initialized());
-
     std::unordered_map<int, TileInfo> segment_map;
     int total_segments_count = 0;
     for (auto layername : k_layer_list) {
@@ -178,10 +185,10 @@ void LineMapLoader::load_transitions_into(TransitionGrid & grid) {
             // great, we get to load up info if it's not filled!
             auto tileinfo = load_tile_info(*properties);
             for (auto & line : tileinfo.segments) {
-                line.a.x *= tile_width ();
-                line.a.y *= tile_height();
-                line.b.x *= tile_width ();
-                line.b.y *= tile_height();
+                line.a.x *= tile_width ;
+                line.a.y *= tile_height;
+                line.b.x *= tile_width ;
+                line.b.y *= tile_height;
             }
 
             if (tileinfo.segments.empty()) continue;

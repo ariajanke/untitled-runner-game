@@ -94,6 +94,7 @@ void GameDriver::setup(const StartupOptions & opts, const sf::View &) {
     m_tmap.load_from_file(opts.test_map);
 
     m_lmapnn.load_map_from(m_tmap);
+    m_graphics.load_decor(m_tmap);
     DriverMapObjectLoader dmol(m_player, m_emanager);
     dmol.load_map_objects(m_tmap.map_objects());
     setup_systems(CompleteSystemList());

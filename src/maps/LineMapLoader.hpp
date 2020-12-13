@@ -68,11 +68,16 @@ public:
         int total_segments_count = 0;
     };
 
+    struct TileSize {
+        double width  = k_initial_tile_size;
+        double height = k_initial_tile_size;
+    };
+
+    static TileSize load_tile_size(const tmap::TiledMap &);
+
+    static SegmentsInfo load_tileset_map(const tmap::TiledMap &, double tile_width, double tile_height);
+
 private:
-    void load_tile_size(const tmap::TiledMap &);
-
-    SegmentsInfo load_tileset_map(const tmap::TiledMap &) const;
-
     void load_transition_tiles(const tmap::TiledMap &, TransitionGrid &) const;
 
     bool has_tile_size_initialized() const noexcept {

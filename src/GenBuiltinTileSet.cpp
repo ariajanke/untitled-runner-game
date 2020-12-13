@@ -238,11 +238,28 @@ Grid<sf::Color> gen_waterfall(int w, int h, int pal_rotation_idx, int x_);
     }
 
     {
+#   if 0
     std::default_random_engine rng { seed };
     to_image(gen_waterfall(16, 14*16, 0, 0)).saveToFile("/media/ramdisk/waterfall0.png");
     to_image(gen_waterfall(16, 14*16, 1, 0)).saveToFile("/media/ramdisk/waterfall1.png");
     to_image(gen_waterfall(16, 14*16, 2, 0)).saveToFile("/media/ramdisk/waterfall2.png");
     to_image(gen_waterfall(16, 14*16, 3, 0)).saveToFile("/media/ramdisk/waterfall3.png");
+#   endif
+    static constexpr const int k_water_fall_height = 13*16;
+    auto waterfall_list = {
+        gen_waterfall(16, k_water_fall_height, 0, 0),
+        gen_waterfall(16, k_water_fall_height, 1, 0),
+        gen_waterfall(16, k_water_fall_height, 2, 0),
+        gen_waterfall(16, k_water_fall_height, 3, 0)
+    };
+    VectorI start = VectorI(112, 368);
+    for (const auto & waterfall : waterfall_list) {
+        auto subg = make_sub_grid(rv, start, waterfall.width(), waterfall.height());
+        for (VectorI r; r != subg.end_position(); r = subg.next(r)) {
+            subg(r) = waterfall(r);
+        }
+        start += VectorI(16, 0);
+    }
     }
 #   if 0
     for (int i = 0; i != 4*8; ++i) {

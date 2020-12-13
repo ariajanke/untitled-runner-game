@@ -31,6 +31,10 @@ namespace sf {
     class View;
 }
 
+namespace tmap {
+    class TiledMap;
+}
+
 class ItemCollectAnimations {
 public:
     using AnimationPtr = std::shared_ptr<const ItemCollectionAnimation>;
@@ -104,6 +108,82 @@ private:
 
 // ----------------------------------------------------------------------------
 
+class Flower final : public sf::Drawable {
+public:
+    void setup(std::default_random_engine &);
+
+    void update(double et);
+
+    void set_location(double x, double y) { m_location = VectorD(x, y); }
+    void set_location(VectorD r) { m_location = r; }
+
+    VectorD location() const { return m_location; }
+
+    double width() const { return m_petals.width(); }
+
+    double height() const {
+        // should be good enough
+        return m_petals.height()*0.5 + m_stem.height();
+    }
+
+private:
+    using UInt8Distri = std::uniform_int_distribution<uint8_t>;
+    static constexpr const uint8_t k_max_u8 = std::numeric_limits<uint8_t>::max();
+
+    // Just a really long time, I really want finite values
+    static constexpr const double k_initial_time = 3600.;
+    void draw(sf::RenderTarget &, sf::RenderStates) const override;
+
+    double petal_thershold() const noexcept;
+
+    double resettle_thershold() const noexcept;
+
+    double pistil_pop_time() const noexcept;
+
+    void pop_pistil(double amount);
+
+    void pop_petal(double amount);
+
+    static void verify_0_1_interval(const char * caller, double amt);
+
+    static sf::Color random_petal_color(std::default_random_engine &);
+
+    static sf::Color random_pistil_color(std::default_random_engine &);
+
+    static sf::Color random_stem_color(std::default_random_engine &);
+
+    DrawRectangle m_petals;
+    DrawRectangle m_pistil;
+    DrawRectangle m_stem  ;
+
+    // animation works like this:
+    // settled -> pistil pop -> petal pop -> settled
+
+    double m_popped_position = 0.;
+
+    double m_time               = 0.;
+    double m_to_pistil_pop      = k_initial_time;
+    double m_time_at_pistil_pop = k_initial_time;
+    double m_to_petal_pop       = k_initial_time;
+    double m_time_at_petal_pop  = k_initial_time;
+
+    VectorD m_location;
+};
+
+class MapDecorDrawer {
+public:
+    void load_map(const tmap::TiledMap & tmap);
+
+    void render_to(sf::RenderTarget &) const;
+
+    void update(double et);
+
+private:
+    std::vector<Flower> m_flowers;
+};
+
+// ----------------------------------------------------------------------------
+
 class GraphicsDrawer final : public GraphicsBase {
 public:
     void render_to(sf::RenderTarget & target);
@@ -111,9 +191,13 @@ public:
     void update(double et) {
         m_item_anis.update(et);
         m_flag_raiser.update(et);
+        m_map_decor.update(et);
     }
 
     void set_view(const sf::View &);
+
+    void load_decor(const tmap::TiledMap &);
+
 private:
     void draw_line(VectorD a, VectorD b, sf::Color color, double thickness) override {
         if (!m_view_rect.contains(a) && !m_view_rect.contains(b)) return;
@@ -154,4 +238,6 @@ private:
     ItemCollectAnimations m_item_anis;
     std::vector<DrawRectangle> m_draw_rectangles;
     FlagRaiser m_flag_raiser;
+
+    MapDecorDrawer m_map_decor;
 };
