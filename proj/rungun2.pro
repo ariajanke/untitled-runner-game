@@ -1,7 +1,7 @@
 QT      -= core gui
 CONFIG  -= c++11
 
-QMAKE_CXXFLAGS += -std=c++17 -pedantic -DMACRO_ECS_USE_SPECIAL_DOWNCAST -Wall
+QMAKE_CXXFLAGS += -std=c++17 -pedantic -Wall
 QMAKE_LFLAGS   += -std=c++17
 INCLUDEPATH    += ../lib/cul/inc \
                   ../lib/tmap/inc \
@@ -24,6 +24,7 @@ SOURCES += \
     ../src/get_8x8_char.cpp \
     ../src/GraphicsDrawer.cpp \
     ../src/GenBuiltinTileSet.cpp \
+    ../src/TreeGraphics.cpp \
     \ # maps
     ../src/maps/Maps.cpp \
     ../src/maps/MapObjectLoader.cpp \
@@ -66,6 +67,8 @@ HEADERS += \
     ../src/Components.hpp \
     ../src/GraphicsDrawer.hpp \
     ../src/GenBuiltinTileSet.hpp \
+    ../src/FillIterate.hpp \
+    ../src/TreeGraphics.hpp \
     \ # maps
     ../src/maps/Maps.hpp \
     ../src/maps/MapObjectLoader.hpp \

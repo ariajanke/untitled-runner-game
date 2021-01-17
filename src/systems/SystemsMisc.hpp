@@ -130,12 +130,18 @@ class TriggerBoxSystem final : public System, public GraphicsAware {
         static void do_launch(const Launcher &, PhysicsComponent &);
     };
 
+    class ScriptChecker final : public BaseChecker {
+        void handle_trespass(Entity launch_e, Entity e) const override;
+        void adjust_collision(const Entity &, VectorD &, Rect &) const override {}
+    };
+
     static bool is_subject(const Entity & e);
 
     SubjectContainer m_subjects;
     ItemChecker m_item_checker;
     LauncherChecker m_launchers;
     CheckPointChecker m_checkpoints;
+    ScriptChecker m_scripts;
 };
 
 class WaypointPositionSystem final : public System, public TimeAware {

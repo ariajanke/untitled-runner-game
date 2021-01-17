@@ -18,6 +18,9 @@
 *****************************************************************************/
 
 #include "ComponentsComplete.hpp"
+
+#include "../maps/MapObjectLoader.hpp"
+
 #include <iostream>
 
 #include <cassert>
@@ -49,6 +52,16 @@ void add_color_circle(Entity e, sf::Color c, double radius) {
 /* vtable anchor */ void Script::process_control_event(const ControlEvent &) {
     throw std::runtime_error("Script::process_control_event: this script type does not process events.");
 }
+
+void Script::on_landing(Entity, VectorD, EntityRef) {}
+
+void Script::on_departing(Entity, EntityRef) {}
+
+void Script::on_held(Entity, Entity) {}
+
+void Script::on_release(Entity, Entity) {}
+
+void Script::on_box_hit(Entity, Entity) {}
 
 // ----------------------------------------------------------------------------
 
@@ -252,4 +265,157 @@ void ScalePivotScript::update_balance() {
     std::cout << "Weight " << m_held_weight;
     intpos.target_point(std::min(std::size_t(std::max(m_held_weight, 0)), intpos.point_count() - 1));
     std::cout << " dest waypoint " << intpos.targeted_point() << std::endl;
+}
+
+// ----------------------------------------------------------------------------
+
+BalloonScript::BalloonScript() {}
+#if 0
+void BalloonScript::set_float_up_parameters(double distance, VectorD velocity) {
+    m_float_distance = distance;
+    m_float_velocity = velocity;
+}
+
+void BalloonScript::set_launch_velocity(VectorD r) {
+    m_bounce = MiniVector(r);
+}
+#endif
+
+inline bool is_comma(char c) { return c == ','; }
+inline bool is_colon(char c) { return c == ':'; }
+
+template <typename Func>
+struct LinkedOnBoxHit final : public Script {
+    LinkedOnBoxHit(Func && f_): f(f_) {}
+    void on_box_hit(Entity e, Entity other) override { f(e, other); }
+    Func f;
+};
+
+template <typename Func>
+std::unique_ptr<LinkedOnBoxHit<Func>>
+    make_on_box_hit_script(Func && f)
+    { return std::make_unique<LinkedOnBoxHit<Func>>(std::move(f)); }
+
+/* static */ void BalloonScript::load_balloon
+    (MapObjectLoader & loader, const tmap::MapObject & obj)
+{
+    [] {
+        Rect a (5, 5, 10, 10);
+        auto ac = center_of(a);
+        Rect ae = expand(a, 5.);
+        auto aec = center_of(ae);
+        assert( are_very_close(ac, aec) );
+    } ();
+    static constexpr const double k_def_radius = 8.;
+
+    auto bounds = Rect(obj.bounds);
+    auto e = loader.create_entity();
+    {
+        auto & cc = e.add<DisplayFrame>().reset<ColorCircle>();
+        cc.radius = k_def_radius;
+        cc.color = random_color(loader.get_rng());
+    }
+    {
+        auto & pcomp = e.add<PhysicsComponent>();
+        pcomp.reset_state<FreeBody>().location = center_of(bounds);
+        pcomp.affected_by_gravity = false;
+    }
+    {
+        auto & rt = e.add<ReturnPoint>();
+        rt.recall_bounds = expand(bounds, k_def_radius);
+        rt.recall_max_time = rt.recall_time = k_inf;
+        auto rt_e = loader.create_entity();
+        rt_e.add<PhysicsComponent>().reset_state<Rect>() = rt.recall_bounds;
+        rt.ref = rt_e;
+    }
+    e.add<Item>().hold_type = Item::simple;
+    {
+        using StrIter = std::string::const_iterator;
+        auto script = std::make_unique<BalloonScript>();
+        auto do_if_found = make_do_if_found(obj.custom_properties);
+        do_if_found("float", [&script](const std::string & val) {
+            int i = 0;
+            for_split<is_colon>(val, [&script, &i](StrIter beg, StrIter end) {
+                switch (i++) {
+                case 0: script->m_float_velocity = parse_vector(beg, end); break;
+                case 1: string_to_number(beg, end, script->m_float_distance_max); break;
+                default: return fc_signal::k_break;
+                }
+                return fc_signal::k_continue;
+            });
+        });
+
+        do_if_found("launch", [&script](const std::string & val) {
+            script->m_bounce = MiniVector(parse_vector(val));
+        });
+        script->m_radius = k_def_radius;
+
+        script->m_bouncable = loader.create_entity();
+        {
+        auto * script_ptr_copy = script.get();
+        script->m_bouncable.add<ScriptUPtr>() = make_on_box_hit_script(
+            [script_ptr_copy, e] (Entity, Entity hit)
+        {
+            script_ptr_copy->on_box_hit(e, hit);
+        });
+        }
+        e.add<ScriptUPtr>() = std::move(script);
+    }
+}
+
+/* private */ void BalloonScript::on_held(Entity, Entity) {}
+
+/* private */ void BalloonScript::on_release(Entity held, Entity holder) {
+    m_prepared = true;
+    auto & pcomp = held.get<PhysicsComponent>();
+
+    pcomp.active_layer = holder.get<PhysicsComponent>().active_layer;
+    pcomp.state_as<FreeBody>().velocity = m_float_velocity;
+
+    // recall, perhaps can be down with a recalling entity, when whose bounds
+    // are crossed will call the balloon to be recalled.
+    held.get<ReturnPoint>().recall_time = k_inf;
+    held.get<Item>().hold_type = Item::not_holdable;
+    m_float_distance = m_float_distance_max;
+    m_stopped = false;
+    m_last_location = VectorD(k_inf, k_inf);
+}
+
+/* private */ void BalloonScript::on_box_hit(Entity e, Entity) {
+    if (!m_prepared || !m_stopped) return;
+    // causes the balloon to be recalled immediately
+    e.get<ReturnPoint>().recall_time = 0.;
+    e.get<Item>().hold_type = Item::simple;
+    m_prepared = m_stopped = false;
+
+    m_bouncable.remove<TriggerBox>();
+    m_bouncable.get<PhysicsComponent>().reset_state<Rect>();
+}
+
+/* private */ void BalloonScript::on_update(Entity e, double) {
+    if (e.is_requesting_deletion() || m_stopped || !m_prepared) return;
+
+    auto & pcomp = e.get<PhysicsComponent>();
+
+    if (m_bouncable.has<PhysicsComponent>()) sync_bouncable_location_to(e);
+
+    if (m_last_location == VectorD(k_inf, k_inf)) {
+        m_last_location = pcomp.location();
+        return;
+    }
+
+    m_float_distance -= magnitude(m_last_location - pcomp.location());
+    m_last_location = pcomp.location();
+    if (m_float_distance >= 0.) return;
+
+    m_stopped = true;
+    pcomp.state_as<FreeBody>().velocity = VectorD();
+
+    // set up the actual launcher (seperate entity)
+    auto & launcher = m_bouncable.add<TriggerBox>().reset<TriggerBox::Launcher>();
+    launcher.detaches = true;
+    launcher.launch_velocity = m_bounce;
+    auto & rect = m_bouncable.ensure<PhysicsComponent>().reset_state<Rect>();
+    rect.width = rect.height = m_radius;
+    sync_bouncable_location_to(e);
 }

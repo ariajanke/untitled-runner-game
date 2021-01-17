@@ -112,6 +112,8 @@ using MapObjectLoaderFunction = void(*)(MapObjectLoader &, const tmap::MapObject
 
 MapObjectLoaderFunction get_loader_function(const std::string &);
 
+// -------------------------------- utils -------------------------------------
+
 template <typename Key, typename T, typename Compare>
 class MapValueFinder {
 public:
@@ -158,3 +160,6 @@ void for_side_by_side(const std::vector<T> & vec, Func && f) {
     }
 }
 
+VectorD parse_vector(std::string::const_iterator beg, std::string::const_iterator end);
+
+VectorD parse_vector(const std::string &);

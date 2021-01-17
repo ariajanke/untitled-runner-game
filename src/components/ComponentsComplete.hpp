@@ -153,15 +153,30 @@ class Script {
 public:
     virtual ~Script() {}
     virtual void process_control_event(const ControlEvent &);
-    /**
+
+    /** Called when another entity lands on this one's platform.
      *  @param hit_velocity
      *  @param other
      *  @note further alterations to physics states will *not* trigger further
      *        event calls. Doing so may result in infinite recursion!
      */
-    virtual void on_landing(Entity, VectorD hit_velocity, EntityRef other) = 0;
-    virtual void on_departing(Entity, EntityRef other) = 0;
+    virtual void on_landing(Entity, VectorD hit_velocity, EntityRef other);
 
+    /** Called when another entity leaves this one's platform.
+     *  @param other
+     */
+    virtual void on_departing(Entity, EntityRef other);
+
+    /** Called when this holdable entity is being held by another. */
+    virtual void on_held(Entity, Entity holder);
+
+    /** Called when this holdable entity is being released. */
+    virtual void on_release(Entity, Entity holder);
+
+    /** Called when this entity's trigger box is hit by another entity. */
+    virtual void on_box_hit(Entity, Entity);
+
+    /** Called everyframe regardless of any other activity. */
     virtual void on_update(Entity, double) {}
 };
 
@@ -209,6 +224,45 @@ private:
     Entity m_basket_wall;
     int m_held_weight = 0;
     InterpolativePosition::SegPair m_seg;
+};
+
+class MapObjectLoader;
+namespace tmap { struct MapObject; }
+
+class BalloonScript final : public Script {
+public:
+    BalloonScript();
+
+    // this is a "named constructor"
+    static void load_balloon(MapObjectLoader &, const tmap::MapObject &);
+
+private:
+    void on_held(Entity, Entity holder) override;
+
+    void on_release(Entity, Entity holder) override;
+
+    void on_box_hit(Entity, Entity) override;
+
+    void on_update(Entity, double) override;
+
+    void sync_bouncable_location_to(const Entity & e) {
+        const auto & pcomp = e.get<PhysicsComponent>();
+        auto & rect = m_bouncable.get<PhysicsComponent>().state_as<Rect>();
+        std::tie(rect.left, rect.top) = as_tuple(pcomp.location() - VectorD(1., 1.)*m_radius);
+    }
+
+    bool m_prepared = false;
+    bool m_stopped = false;
+    MiniVector m_bounce;
+
+    VectorD m_float_velocity;
+    double m_float_distance = 0;
+    double m_float_distance_max = 0;
+
+    VectorD m_last_location = VectorD(k_inf, k_inf);
+
+    Entity m_bouncable;
+    double m_radius = 5.;
 };
 
 #if 0

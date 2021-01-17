@@ -206,6 +206,7 @@ int main(int argc, char ** argv) {
 
     bool frame_advance_enabled = false;
     bool do_this_frame         = true ;
+    sf::Clock clock;
     while (win.isOpen()) {
         sf::Event event;
         while (win.pollEvent(event)) {
@@ -240,7 +241,7 @@ int main(int argc, char ** argv) {
         }
         win.clear(sf::Color(100, 100, 255));
         if (do_this_frame) {
-            gdriver.update(1. / 60.);
+            gdriver.update(double(clock.restart().asSeconds()));// 1. / 60.);
         }
         if (do_this_frame && frame_advance_enabled) {
             do_this_frame = false;

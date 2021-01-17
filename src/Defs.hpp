@@ -128,6 +128,8 @@ inline VectorD location_along(double x, const LineSegment & seg)
 inline VectorD velocity_along(double spd, const LineSegment & seg)
     { return (seg.b - seg.a)*spd; }
 
+VectorD find_intersection(const Rect &, VectorD r, VectorD u);
+
 bool line_crosses_rectangle(const Rect &, VectorD, VectorD);
 
 Layer switch_layer(Layer l);
@@ -137,6 +139,16 @@ Layer switch_layer(Layer l);
 VectorD find_intersection(const LineSegment &, VectorD old, VectorD new_);
 
 VectorD find_intersection(VectorD a_first, VectorD a_second, VectorD b_first, VectorD b_second);
+
+template <typename T, typename U>
+std::enable_if_t<std::is_integral_v<T> && std::is_floating_point_v<U>, T>
+    round_to(U u)
+{ return T(std::round(u)); }
+
+template <typename T, typename U>
+std::enable_if_t<std::is_integral_v<T> && std::is_floating_point_v<U>, sf::Vector2<T>>
+    round_to(const sf::Vector2<U> & r)
+{ return sf::Vector2<T>(round_to<T>(r.x), round_to<T>(r.y)); }
 
 template <typename T>
 inline bool are_very_close(const sf::Vector2<T> & r, const sf::Vector2<T> & u) {
@@ -159,7 +171,7 @@ template <typename RngType>
 sf::Color random_color(RngType & rng);
 
 template <typename Rng, typename T>
-const T & choose_random(Rng, std::initializer_list<T>);
+const T & choose_random(Rng &, std::initializer_list<T>);
 
 uint8_t component_average(int total_steps, int step, uint8_t begin, uint8_t end);
 
@@ -197,6 +209,13 @@ public:
                "exception was thrown shows a design error.";
     }
 };
+
+template <typename T>
+std::tuple<T &, T &> as_tuple(sf::Vector2<T> & r) { return std::tie(r.x, r.y); }
+
+template <typename T>
+std::tuple<const T &, const T &> as_tuple(const sf::Vector2<T> & r)
+    { return std::tie(r.x, r.y); }
 
 template <typename T>
 std::enable_if_t<std::is_arithmetic_v<T>, sf::Rect<T>> expand
@@ -274,7 +293,7 @@ sf::Color random_color(RngType & rng) {
 }
 
 template <typename Rng, typename T>
-const T & choose_random(Rng rng, std::initializer_list<T> list) {
+const T & choose_random(Rng & rng, std::initializer_list<T> list) {
     return *(list.begin() + std::uniform_int_distribution<int>(0, list.size() - 1)(rng));
 }
 

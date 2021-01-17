@@ -89,7 +89,31 @@ VectorD find_intersection(const LineSegment & seg, VectorD old, VectorD new_) {
     return find_intersection(seg.a, seg.b, old, new_);
 }
 
+template <typename Head, typename ... Types>
+Head find_alternative_to(const Head & h, Types...) { return h; }
+
+template <typename Head, typename OtherType, typename ... Types>
+Head find_alternative_to(const Head & h, const OtherType & o, Types ... args) {
+    if (o != h) return o;
+    return find_alternative_to(h, std::forward<Types>(args)...);
+}
+
+VectorD find_intersection(const Rect & rect, VectorD r, VectorD u) {
+    VectorD tl(rect.left, rect.top);
+    VectorD tr = tl + VectorD(rect.width,           0);
+    VectorD bl = tl + VectorD(         0, rect.height);
+    VectorD br = tl + VectorD(rect.width, rect.height);
+
+    return find_alternative_to(k_no_intersection,
+            find_intersection(tl, tr, r, u),
+            find_intersection(tl, bl, r, u),
+            find_intersection(br, tr, r, u),
+            find_intersection(br, bl, r, u));
+}
+
 bool line_crosses_rectangle(const Rect & rect, VectorD r, VectorD u) {
+    return find_intersection(rect, r, u) != k_no_intersection;
+#   if 0
     VectorD tl(rect.left, rect.top);
     VectorD tr = tl + VectorD(rect.width,           0);
     VectorD bl = tl + VectorD(         0, rect.height);
@@ -98,6 +122,7 @@ bool line_crosses_rectangle(const Rect & rect, VectorD r, VectorD u) {
             find_intersection(tl, bl, r, u) != k_no_intersection ||
             find_intersection(br, tr, r, u) != k_no_intersection ||
             find_intersection(br, bl, r, u) != k_no_intersection );
+#   endif
 }
 
 uint8_t component_average(int total_steps, int step, uint8_t b, uint8_t e) {

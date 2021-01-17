@@ -225,6 +225,9 @@
 
 /* private */ void GravityUpdateSystem::update(Entity e) {
     if (!e.has<PhysicsComponent>()) return;
+    if (const auto * pcomp = e.ptr<PhysicsComponent>()) {
+        if (!pcomp->affected_by_gravity) return;
+    }
     double multiplier = 1.0;
     if (auto * col = e.ptr<Collector>()) {
         if (col->held_object()) {
@@ -321,11 +324,16 @@ void ItemCollisionSystem::check_item_collection(Entity collector, Entity item) {
         } else if (tbox->ptr<ItemCollectionSharedPtr>()) {
             m_item_checker.add(e);
         }
+        if (get_script(e)) {
+            m_scripts.add(e);
+        }
     }
 
     m_checkpoints .do_checks(m_subjects);
     m_launchers   .do_checks(m_subjects);
     m_item_checker.do_checks(m_subjects);
+    m_scripts     .do_checks(m_subjects);
+
     for (auto & [e, history] : m_subjects) {
         history.last_location = e.get<PhysicsComponent>().location();
     }
@@ -458,6 +466,12 @@ static VectorD expansion_for_collector(const Entity & e) {
     pcomp.reset_state<FreeBody>() = freebody;
 }
 
+/* private */ void TriggerBoxSystem::ScriptChecker::handle_trespass
+    (Entity being_hit, Entity whats_hitting) const
+{
+    get_script(being_hit)->on_box_hit(being_hit, whats_hitting);
+}
+
 /* private static */ bool TriggerBoxSystem::is_subject(const Entity & e) {
     if (auto * pcomp = e.ptr<PhysicsComponent>()) {
         if (pcomp->state_is_type<FreeBody>() || pcomp->state_is_type<LineTracker>()) {
@@ -534,6 +548,9 @@ static VectorD expansion_for_collector(const Entity & e) {
             fb->velocity = fb_g + fb_a;
         }
     });
+
+    if (auto * script = get_script(holdable))
+        script->on_held(holdable, holder);
 }
 
 /* private static */ void HoldItemSystem::check_release(Entity held) {
@@ -571,4 +588,7 @@ static VectorD expansion_for_collector(const Entity & e) {
     static constexpr const auto k_throw_speed = 275.;
     v = normalize(v + throwv)*k_throw_speed;
     fb.velocity = v;
+
+    if (auto * script = get_script(held))
+        script->on_release(held, holder);
 }

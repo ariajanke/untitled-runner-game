@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.0" tiledversion="1.0.3" orientation="orthogonal" renderorder="right-down" width="800" height="60" tilewidth="16" tileheight="16" nextobjectid="301">
+<map version="1.0" tiledversion="1.0.3" orientation="orthogonal" renderorder="right-down" width="800" height="60" tilewidth="16" tileheight="16" nextobjectid="302">
  <tileset firstgid="1" source="atlastghd.tsrj.tsx"/>
  <tileset firstgid="1513" source="tileset4.tsx"/>
  <tileset firstgid="1769" source="items.tsx"/>
@@ -19,7 +19,7 @@
   </data>
  </layer>
  <objectgroup name="Object Layer 1">
-  <object id="1" type="player-start" x="4275.31" y="600.603" width="31.795" height="44.6721">
+  <object id="1" type="player-start" x="4196.81" y="823.576" width="31.795" height="44.6721">
    <properties>
     <property name="sprite-sheet" value="mc"/>
    </properties>
@@ -334,6 +334,13 @@
   <object id="294" name="platform" type="platform" x="4415.17" y="576.687" width="91.5522" height="18.3104"/>
   <object id="299" type="checkpoint" x="3989.53" y="798.67" width="16.9002" height="83.4106"/>
   <object id="300" type="checkpoint" x="869.269" y="652.838" width="16.9002" height="66.5104"/>
+  <object id="301" type="balloon" x="4164.53" y="846.099" width="21.8067" height="20.1712">
+   <properties>
+    <property name="float" value="0, -33:10"/>
+    <property name="launch" value="0, -300"/>
+   </properties>
+   <ellipse/>
+  </object>
  </objectgroup>
  <objectgroup name="Object Layer 2" visible="0">
   <object id="31" name="jumper01-bounds" type="recall-bounds" x="3869.08" y="544.913" width="603.805" height="339.115"/>

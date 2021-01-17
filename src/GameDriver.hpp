@@ -118,6 +118,24 @@ private:
     std::default_random_engine m_rng;
 };
 
+class FpsCounter {
+public:
+    void update(double et) {
+        ++m_count_this_frame;
+        if ( (m_total_et += et) > 1. ) {
+            m_fps = m_count_this_frame;
+            m_count_this_frame = 0;
+            m_total_et = std::fmod(m_total_et, 1.);
+        }
+    }
+
+    int fps() const noexcept { return m_fps; }
+
+private:
+    int m_fps = 0, m_count_this_frame = 0;
+    double m_total_et = 0.;
+};
+
 class HudTimePiece final : public sf::Drawable {
 public:
     HudTimePiece() {
@@ -143,6 +161,8 @@ private:
     TextDrawer m_gems_count;
     TextDrawer m_timer_text;
     TextDrawer m_velocity;
+
+    FpsCounter m_fps_counter;
 };
 
 class GameDriver final {

@@ -66,7 +66,8 @@ const auto k_loader_functions = {
     std::make_pair("scale-right"   , load_scale_right   ),
     std::make_pair("scale-pivot"   , load_scale_pivot   ),
     std::make_pair("basket"        , load_basket        ),
-    std::make_pair("checkpoint"    , load_checkpoint    )
+    std::make_pair("checkpoint"    , load_checkpoint    ),
+    std::make_pair("balloon"       , BalloonScript::load_balloon)
 };
 
 const auto k_reserved_objects = {
@@ -75,6 +76,8 @@ const auto k_reserved_objects = {
 
 template <typename T>
 LineSegment to_floor_segment(const sf::Rect<T> &);
+
+inline bool is_comma(char c) { return c == ','; }
 
 }  // end of <anonymous> namespace
 
@@ -224,16 +227,40 @@ MapObjectLoaderFunction get_loader_function(const std::string & typekey) {
     return itr->second;
 }
 
+VectorD parse_vector(std::string::const_iterator beg, std::string::const_iterator end) {
+    using StrIter = std::string::const_iterator;
+    VectorD rv;
+    auto list = { &rv.x, &rv.y };
+    auto itr = list.begin();
+    auto v_end = list.end();
+    for_split<is_comma>(beg, end,
+        [&itr, v_end](StrIter beg, StrIter end)
+    {
+        trim<is_whitespace>(beg, end);
+        if (itr == v_end) {
+            throw std::invalid_argument("parse_vector: too many arguments for a 2D vector");
+        }
+        if (!string_to_number(beg, end, **itr++)) {
+            throw std::invalid_argument("parse_vector: non-nummeric argument");
+        }
+    });
+    if (itr != v_end) {
+        throw std::invalid_argument("parse_vector: too few arguments for a 2D vector");
+    }
+    return rv;
+}
+
+VectorD parse_vector(const std::string & str)
+    { return parse_vector(str.begin(), str.end()); }
+
 namespace {
 
-inline VectorD center_of(const tmap::MapObject & obj) {
-    return VectorD(obj.bounds.left , obj.bounds.top   ) +
-           VectorD(obj.bounds.width, obj.bounds.height)*0.5;
-}
+inline VectorD center_of(const tmap::MapObject & obj)
+    { return VectorD(::center_of(obj.bounds)); }
 
 InterpolativePosition::Behavior load_waypoints_behavior(const tmap::MapObject::PropertyMap &);
 
-VectorD parse_vector(const std::string &);
+//VectorD parse_vector(const std::string &);
 
 void load_display_frame(DisplayFrame &, const tmap::MapObject &);
 
@@ -563,8 +590,6 @@ LineSegment to_floor_segment(const sf::Rect<T> & rect) {
 
 // ----------------------------------------------------------------------------
 
-inline bool is_comma(char c) { return c == ','; }
-
 void load_display_frame(DisplayFrame & dframe, const tmap::MapObject & obj) {
     if (obj.tile_set) {
         auto & si = dframe.reset<SingleImage>();
@@ -587,28 +612,6 @@ InterpolativePosition::Behavior load_waypoints_behavior(const tmap::MapObject::P
     }
     // log invalid argument
     return k_default_behavior;
-}
-
-VectorD parse_vector(const std::string & str) {
-    VectorD rv;
-    auto list = { &rv.x, &rv.y };
-    auto itr = list.begin();
-    auto v_end = list.end();
-    for_split<is_comma>(str.c_str(), str.c_str() + str.length(),
-        [&itr, v_end](const char * beg, const char * end)
-    {
-        trim<is_whitespace>(beg, end);
-        if (itr == v_end) {
-            throw std::invalid_argument("parse_vector: too many arguments for a 2D vector");
-        }
-        if (!string_to_number(beg, end, **itr++)) {
-            throw std::invalid_argument("parse_vector: non-nummeric argument");
-        }
-    });
-    if (itr != v_end) {
-        throw std::invalid_argument("parse_vector: too few arguments for a 2D vector");
-    }
-    return rv;
 }
 
 } // end of <anonymous> namespace

@@ -68,8 +68,10 @@ void HudTimePiece::update(double et) {
     auto s = m_timer_text.take_string();
     s.clear();
     s += "Time: " + get_minutes() + ":"
-      + get_seconds() + "." + get_centiseconds();
+      + get_seconds() + "." + get_centiseconds() + " [fps "
+      + std::to_string(m_fps_counter.fps()) + "]";
     m_timer_text.set_text_top_left(VectorD(), std::move(s));
+    m_fps_counter.update(et);
 }
 
 void HudTimePiece::update_velocity(VectorD r) {
@@ -115,11 +117,30 @@ void GameDriver::update(double et) {
 }
 
 void GameDriver::render_to(sf::RenderTarget & target) {
+    m_graphics.set_view(target.getView());
+    //m_graphics.render_back(target);
+    //m_graphics.render_to(target);
+    auto itr = m_tmap.begin();
+    auto ground_itr = m_tmap.find_layer("ground");
+    for (; itr != ground_itr; ++itr) target.draw(**itr);
+
+    target.draw(**itr++);
+    m_graphics.render_back(target);
+
+    for (; itr != m_tmap.end(); ++itr) target.draw(**itr);
+    m_graphics.render_front(target);
+#   if 0
     for (const auto & layer : m_tmap) {
+
         target.draw(*layer);
     }
+#   endif
+    //m_graphics.render_front(target);
+    //m_graphics.render_to(target);
+#   if 0
     m_graphics.set_view(target.getView());
     m_graphics.render_to(target);
+#   endif
 }
 
 void GameDriver::render_hud_to(sf::RenderTarget & target) {
