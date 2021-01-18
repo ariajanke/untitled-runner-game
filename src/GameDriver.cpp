@@ -96,9 +96,15 @@ void GameDriver::setup(const StartupOptions & opts, const sf::View &) {
     m_tmap.load_from_file(opts.test_map);
 
     m_lmapnn.load_map_from(m_tmap);
+    auto decor = std::make_unique<ForestDecor>();
+
+#   if 0
     m_graphics.load_decor(m_tmap);
+#   endif
     DriverMapObjectLoader dmol(m_player, m_emanager);
+    decor->load_map(m_tmap, dmol);
     dmol.load_map_objects(m_tmap.map_objects());
+    m_graphics.take_decor<ForestDecor>(std::move(decor));
     setup_systems(CompleteSystemList());
 }
 

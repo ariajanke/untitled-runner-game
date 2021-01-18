@@ -34,6 +34,9 @@
 
 namespace {
 
+using RealDistri = std::uniform_real_distribution<double>;
+using IntDistri  = std::uniform_int_distribution<int>;
+
 template <typename Func>
 void for_each_pixel(const Spine &, Func &&);
 
@@ -46,14 +49,19 @@ Grid<sf::Color> generate_leaves(int width, int height, int radius, int count);
 
 } // end of <anonymous> namespace
 
+/* static */ const VectorD PlantTree::k_lean_max_dir = normalize(VectorD(-1, -1));
+
 void PlantTree::plant
-    (VectorD location, std::default_random_engine & rng, bool go_wide)
+    (VectorD location, std::default_random_engine & rng/*, bool go_wide*/)
 {
+    plant(location, rng, choose_random_size(rng));
+#   if 0
+#   if 0
     (void)go_wide; // not yet
+#   endif
     using Anchor = Spine::Anchor;
     using Tag = Spine::Tag;
-    using RealDistri = std::uniform_real_distribution<double>;
-
+#   if 0
     static constexpr const auto k_height_max   = 120.;
     static constexpr const auto k_height_min   =  70.;
     static constexpr const auto k_width_max    =  35.;
@@ -65,7 +73,7 @@ void PlantTree::plant
     static constexpr const auto k_leaves_width_min = 120.;
     static constexpr const auto k_leaves_radius    =   8.;
     static constexpr const auto k_leaves_density   =  0.6;
-
+#   endif
 
     {
     auto h    = RealDistri(k_height_min, k_height_max)(rng);
@@ -127,12 +135,95 @@ void PlantTree::plant
     auto w = std::round(RealDistri(k_leaves_width_min, k_leaves_width_max)(rng));
     auto h = k_leaves_area / w;
     auto gen_leaves = [] (double w, double h, sf::Texture & tx) {
-        static const auto k_leaves_count = round_to<int>((k_leaves_density*k_leaves_area) / (k_pi*k_leaves_radius*k_leaves_radius));
+        static const auto k_leaveRectSizes_count = round_to<int>((k_leaves_density*k_leaves_area) / (k_pi*k_leaves_radius*k_leaves_radius));
         auto img = to_image(generate_leaves(w, h, k_leaves_radius, k_leaves_count));
         tx.loadFromImage(img);
     };
     gen_leaves(w, h, m_fore_leaves);
     gen_leaves(w, h, m_back_leaves);
+#   endif
+}
+
+void PlantTree::plant(VectorD location, Rng & rng, const RectSize & leaves_size) {
+    using Anchor = Spine::Anchor;
+    using Tag = Spine::Tag;
+
+    {
+    auto h    = RealDistri(k_height_min, k_height_max)(rng);
+    auto w    = k_width_min + (k_width_max - k_width_min)*((h - k_height_min) / (k_height_max - k_height_min));
+    auto lean = RealDistri(-k_lean_max, k_lean_max)(rng);
+
+    Anchor anc;
+    anc.set_location(location)
+       .set_width(w).set_pinch((1. - (h - k_height_min) / (k_height_max - k_height_min))*0.25 + 0.75)
+       .set_direction(VectorD(0, -1)).set_length(h*0.2);
+    Tag tag;
+    tag.set_width_angle(k_pi*0.16667)
+       .set_location(
+            location + VectorD(0, -h*0.5) + rotate_vector(VectorD(0, -h*0.5), lean)
+       ).set_direction(normalize(
+              VectorD(0, -1)*(1. - lean / k_lean_max)
+            + k_lean_max_dir*(lean / k_lean_max)
+       ));
+    Spine spine;
+    spine.set_anchor(anc);
+    spine.set_tag(tag);
+    m_trunk_location  = spine.anchor().location();
+    m_leaves_location = spine.tag   ().location();
+
+    using IntLims = std::numeric_limits<int>;
+    VectorI low (IntLims::max(), IntLims::max());
+    VectorI high(IntLims::min(), IntLims::min());
+    for_each_pixel(spine, [&low, &high](VectorI r) {
+        low .x = std::min(low .x, r.x);
+        low .y = std::min(low .y, r.y);
+        high.x = std::max(high.x, r.x);
+        high.y = std::max(high.y, r.y);
+    });
+    m_trunk_offset = VectorD( -(m_trunk_location.x - low.x),
+                              -(m_trunk_location.y - low.y));
+    assert(low.x >= 0 && low.y >= 0);
+    static const sf::Color k_color(140, 95, 20);
+    Grid<sf::Color> grid;
+    grid.set_size(high.x - low.x + 1, high.y - low.y + 1, sf::Color(0, 0, 0, 0));
+    for_each_pixel(spine, [&grid, low](VectorI r) {
+        grid(r - low) = k_color;
+    });
+
+    plot_bresenham_line(
+        round_to<int>(std::get<0>(spine.anchor().left_points ())),
+        round_to<int>(std::get<0>(spine.anchor().right_points())),
+        [&grid, low](VectorI r)
+    {
+        grid(r - low) = k_color;
+    });
+
+    iterate_grid_group(make_sub_grid(grid),
+        round_to<int>(spine.anchor().location() + VectorD(0, -2)) - low,
+        [&grid](VectorI r) { return grid(r) == sf::Color(0, 0, 0, 0); },
+        [&grid](VectorI r, bool) { grid(r) = k_color; });
+    m_trunk.loadFromImage(to_image(grid));
+    }
+#   if 0
+    auto w = std::round(RealDistri(k_leaves_width_min, k_leaves_width_max)(rng));
+    auto h = k_leaves_area / w;
+#   endif
+    auto gen_leaves = [] (int w, int h, sf::Texture & tx) {
+        static const auto k_leaves_count = round_to<int>(
+            (k_leaves_density*k_leaves_area) / (k_pi*k_leaves_radius*k_leaves_radius));
+        auto img = to_image(generate_leaves(w, h, k_leaves_radius, k_leaves_count));
+        tx.loadFromImage(img);
+    };
+
+    gen_leaves(leaves_size.width, leaves_size.height, m_fore_leaves);
+    gen_leaves(leaves_size.width, leaves_size.height, m_back_leaves);
+}
+
+/* static */ PlantTree::RectSize PlantTree::choose_random_size
+    (std::default_random_engine & rng)
+{
+    auto w = round_to<int>(RealDistri(k_leaves_width_min, k_leaves_width_max)(rng));
+    return RectSize(w, k_leaves_area / w);
 }
 
 void PlantTree::draw(sf::RenderTarget & target, sf::RenderStates states) const {
@@ -268,7 +359,23 @@ void draw_disk(SubGrid<sf::Color>, VectorI r, int radius, sf::Color color);
 void classify_bundles(const std::vector<VectorI> & bundle_points, int radius, SubGrid<BundleClass>, VectorI body_root);
 
 std::vector<VectorI> find_convex_hull(const std::vector<VectorI> &);
-
+#if 0
+static const bool testme = [] {
+    using Vec = VectorI;
+    std::vector<VectorI> v = { Vec(4, 2), Vec(4, 5), Vec(2, 0), Vec(1, 6), Vec(0, 3) };
+    find_convex_hull(v);
+    std::default_random_engine rng { std::random_device()() };
+    for (int i = 0; i != 100000; ++i) {
+        v.clear();
+        for (int j = 0; j != 5; ++j) {
+            using IntDistri = std::uniform_int_distribution<int>;
+            v.emplace_back(IntDistri(0, 8)(rng), IntDistri(0, 8)(rng));
+        }
+        find_convex_hull(v);
+    }
+    return true;
+} ();
+#endif
 std::vector<BezierTriple> make_triples
     (const std::vector<VectorI> & hull_points, ConstSubGrid<BundleClass>, int radius);
 
@@ -332,9 +439,11 @@ Grid<sf::Color> generate_leaves(int width, int height, int radius, int count) {
     static constexpr const int k_max_height = k_max_width;
 
     static const auto k_pallete = {
-        sf::Color(0, 230, 0), sf::Color(0, 200, 0), sf::Color(20, 180, 20),
-        sf::Color(0, 230, 0), sf::Color(0, 200, 0), sf::Color(20, 180, 20),
-        sf::Color(0, 150, 0, 0)
+        sf::Color(20, 230, 20), sf::Color(10, 200, 10), sf::Color(20, 180, 20),
+        sf::Color(0, 150, 0, 0),
+        sf::Color(20, 230, 20), sf::Color(10, 200, 10), sf::Color(20, 180, 20),
+        sf::Color(0, 150, 0, 0),
+        sf::Color(20, 230, 20), sf::Color(10, 200, 10), sf::Color(20, 180, 20)
     };
 
     static const auto k_foilage_texture = [] {
@@ -342,14 +451,15 @@ Grid<sf::Color> generate_leaves(int width, int height, int radius, int count) {
         static constexpr const int k_radius = 4;
         Grid<sf::Color> rv;
         rv.set_size(k_max_width, k_max_height);
-        static constexpr const int k_min_delta = k_radius*2 - 3;
+        static constexpr const int k_min_delta = k_radius*2 - 2;
         static constexpr const int k_max_delta = k_radius*2 - 1;
         static_assert(k_min_delta > 0, "");
 
         auto delta_distri = std::uniform_int_distribution<int>(k_min_delta, k_max_delta);
+        int i = 0;
         for (int y = k_max_height - k_radius; y > k_radius; y -= delta_distri(rng) / 2) {
             for (int x = k_radius; x < k_max_width - k_radius; x += delta_distri(rng)) {
-                auto c = *(k_pallete.begin() + (x + y*k_max_width) % k_pallete.size()); //choose_random(rng, k_pallete);
+                auto c = *(k_pallete.begin() + (++i) % 8); //choose_random(rng, k_pallete);
                 draw_disk(rv, VectorI(x, y), k_radius, c);
             }
         }
@@ -358,12 +468,6 @@ Grid<sf::Color> generate_leaves(int width, int height, int radius, int count) {
     std::default_random_engine rng { std::random_device()() };
     std::vector<VectorI> bundle_points;
     bundle_points.reserve(count);
-#   if 0
-    make_bundle_locations(
-        std::uniform_int_distribution<unsigned>()(rng),
-        count, radius, width, height,
-        [&bundle_points](VectorI r) { bundle_points.push_back(r); });
-#   endif
     for_ellip_distri(
         Rect(radius, radius, width - radius*2, height - radius*2),
         count, rng, [&bundle_points](VectorD r)
@@ -415,6 +519,8 @@ using BezierTripleIter = std::vector<BezierTriple>::const_iterator;
 
 class GwPoints {
 public:
+    static constexpr const std::size_t k_make_copy_thershold = 1024;
+
     class Interface {
     public:
         using ConstVecPtr = const VectorI *;
@@ -748,7 +854,8 @@ void GwPoints::WritablePts::mark_done_with(ConstVecPtr & p) {
 }
 
 /* static */ PtsVari GwPoints::make_pt_handler(const std::vector<VectorI> & vec) {
-    return (vec.size() > 1000) ? PtsVari { WritablePts(vec) } : PtsVari { ReadOnlyPts(vec) };
+    if (vec.size() >= k_make_copy_thershold) return PtsVari { WritablePts(vec) };
+    return PtsVari { ReadOnlyPts(vec) };
 }
 
 /* static */ GwPoints::Interface * GwPoints::get_interface(PtsVari & var) {
@@ -770,7 +877,7 @@ void GwPoints::WritablePts::mark_done_with(ConstVecPtr & p) {
     VectorI lowx(Lims::max(), 0), highx(Lims::min(), 0);
     VectorI lowy(0, Lims::max()), highy(0, Lims::min());
     for (const auto & r : vec) {
-        if (lowx.x  > r.x) lowx  = r;
+        if (lowx.x  > r.x || (lowx.x == r.x && lowx.y > r.y)) lowx = r;
         if (lowy.y  > r.y) lowy  = r;
         if (highx.x < r.x) highx = r;
         if (highy.y < r.y) highy = r;
@@ -832,7 +939,8 @@ std::vector<VectorI> find_convex_hull(GwPoints::Interface & pts_intf) {
         // cand_v needs to not be v
         assert(cand_v);
         rv.push_back(v = *cand_v);
-        assert(rv.size() <= pts_intf.points().size());
+        // every point maybe in the hull
+        assert(rv.size() <= pts_intf.points().size() + 1);
         pts_intf.mark_done_with(cand_v);
         vn = cand_n;
     } while (rv.front() != v);

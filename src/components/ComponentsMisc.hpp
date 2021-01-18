@@ -49,6 +49,8 @@ struct Item {
     HoldType hold_type = not_holdable;
 };
 
+struct DecoItem {};
+
 struct Collector {
     friend class ItemPickerPriv;
     static const VectorD k_no_location;

@@ -419,3 +419,36 @@ std::unique_ptr<LinkedOnBoxHit<Func>>
     rect.width = rect.height = m_radius;
     sync_bouncable_location_to(e);
 }
+
+// ----------------------------------------------------------------------------
+
+/* static */ bool LeavesDecorScript::comp_entities(Entity rhs, Entity lhs) {
+    return rhs.hash() < lhs.hash();
+}
+
+void LeavesDecorScript::on_box_hit(Entity, Entity other) {
+    if (other.has<DecoItem>()) return;
+    auto itr = std::lower_bound(m_falling_leaves.begin(), m_falling_leaves.end(), other, comp_entities);
+    bool is_leaf = itr == m_falling_leaves.end() ? false : *itr == other;
+    if (is_leaf) return;
+    make_leaf_fall(other, other.get<PhysicsComponent>().location());
+}
+
+void LeavesDecorScript::make_leaf_fall(Entity other, VectorD r) {
+    Entity leaf_ent = other.create_new_entity();
+    leaf_ent.add<Lifetime>().value = 5.;
+    auto & fb = leaf_ent.add<PhysicsComponent>().reset_state<FreeBody>();
+    fb.location = r;
+    fb.velocity = other.get<PhysicsComponent>().velocity()*0.2;
+    auto & cc = leaf_ent.add<DisplayFrame>().reset<ColorCircle>();
+    cc.color = sf::Color::Green;
+    cc.radius = 4;
+    auto itr = std::upper_bound(m_falling_leaves.begin(), m_falling_leaves.end(), leaf_ent, comp_entities);
+    m_falling_leaves.insert(itr, leaf_ent);
+    leaf_ent.add<DecoItem>();
+    check_invarients();
+}
+
+void LeavesDecorScript::check_invarients() const {
+    assert(std::is_sorted(m_falling_leaves.begin(), m_falling_leaves.end(), comp_entities));
+}

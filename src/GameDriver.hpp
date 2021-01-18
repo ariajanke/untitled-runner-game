@@ -111,6 +111,8 @@ public:
         m_name_obj_map.clear();
     }
 
+    void load_tile_objects(const tmap::TilePropertiesInterface &);
+
 private:
     std::map<std::string, const tmap::MapObject *> m_name_obj_map;
     Entity & m_player;
@@ -145,6 +147,7 @@ public:
     void update_gems_count(int);
     void update(double et);
     void update_velocity(VectorD);
+
 private:
     void draw(sf::RenderTarget &, sf::RenderStates) const override;
 
@@ -197,9 +200,7 @@ private:
     std::vector<std::unique_ptr<System>> m_systems;
     std::vector<TimeAware *> m_time_aware_systems;
     std::vector<MapAware *> m_map_aware_systems;
-#   if 0
-    std::vector<RenderTargetAware *> m_render_target_systems;
-#   endif
+
     Entity m_player;
 
     std::default_random_engine m_rng;

@@ -200,152 +200,52 @@ std::enable_if_t<std::is_floating_point_v<T>, T>
         return angle;
     return k_pi*2. - angle;
 }
-#if 0
-class Spine {
-public:
-    using BezierTuple = std::tuple<VectorD, VectorD, VectorD, VectorD>;
 
-    class Tag {
-    public:
-        std::tuple<VectorD, VectorD> left_points() const;
-        std::tuple<VectorD, VectorD> right_points() const;
-        Tag & set_location(VectorD);
-        Tag & set_direction(VectorD);
-        Tag & set_width_angle(double);
-        VectorD location() const;
-        VectorD direction() const;
+class MapObjectLoader;
 
-    private:
-        std::tuple<VectorD, VectorD> points(double from_center) const;
-
-        VectorD m_location;
-        // [0 k_pi*2)
-        double m_direction = 0.;
-        // [0 k_pi*2)
-        double m_width = 0.;
-    };
-
-    class Anchor {
-    public:
-        Anchor & set_location(VectorD);
-        Anchor & set_berth(double);
-        Anchor & set_width(double);
-        // sets the amount which width decreases at the end of the anchor
-        // trapazoids
-        Anchor & set_pinch(double);
-        Anchor & set_length(double);
-        Anchor & set_direction(VectorD);
-        void sway_toward(const Tag &);
-        std::tuple<VectorD, VectorD> left_points() const
-            { return get_points(-m_width*0.5); }
-        std::tuple<VectorD, VectorD> right_points() const
-            { return get_points( m_width*0.5); }
-        VectorD location() const;
-        VectorD direction() const;
-
-    private:
-        std::tuple<VectorD, VectorD> get_points(double offset) const;
-        // [0 k_pi*2)
-        double m_berth = 0.;
-        // [0 m_berth)
-        double m_angle = 0.;
-        double m_length = 0.;
-        double m_width = 0.;
-        // [0 1)
-        double m_pinch = 1.;
-        double m_direction = 0.;
-        VectorD m_location;
-    };
-
-    struct Renderer {
-        virtual void render(const BezierTuple & left, const BezierTuple & right) const = 0;
-    };
-
-    void render_to(const Renderer & renderer) const {
-        renderer.render(left_points(), right_points());
-    }
-
-    BezierTuple left_points() const {
-        return std::tuple_cat( m_anchor.left_points (), m_tag.left_points () );
-    }
-
-    BezierTuple right_points() const {
-        return std::tuple_cat( m_anchor.right_points (), m_tag.right_points () );
-    }
-
-    void set_anchor(const Anchor & anchor) { m_anchor = anchor; }
-
-    void set_tag(const Tag & tag) { m_tag = tag; }
-
-    void set_anchor_location(const VectorD & r)
-        { (void)m_anchor.set_location(r); }
-
-    void set_anchor_direction(const VectorD & r)
-        { (void)m_anchor.set_direction(r); }
-
-    void set_tag_location(const VectorD & r)
-        { (void)m_tag.set_location(r); }
-
-    void set_tag_direction(const VectorD & r)
-        { (void)m_tag.set_direction(r); }
-
-    const Anchor & anchor() const noexcept { return m_anchor; }
-
-    const Tag & tag() const noexcept { return m_tag; }
-
-private:
-    Anchor m_anchor;
-    Tag m_tag;
-};
-
-class PlantTree final : public sf::Drawable {
-public:
-    void plant
-        (VectorD location, std::default_random_engine & rng, bool go_wide = true);
-
-    void render_fronts(sf::RenderTarget &, sf::RenderStates) const;
-    void render_backs(sf::RenderTarget &, sf::RenderStates) const;
-
-    void save_to_file(const std::string &) const;
-
-    Rect bounding_box() const noexcept;
-
-private:
-    void draw(sf::RenderTarget &, sf::RenderStates) const override;
-
-    sf::Vector2f fore_leaves_location() const noexcept;
-    sf::Vector2f trunk_adjusted_location() const noexcept;
-    sf::Vector2f back_leaves_offset() const noexcept;
-
-    sf::Texture m_trunk;
-    sf::Texture m_fore_leaves;
-    sf::Texture m_back_leaves;
-
-    VectorD m_trunk_location;
-    VectorD m_trunk_offset;
-    VectorD m_leaves_location;
-};
-#endif
 class MapDecorDrawer {
 public:
+    virtual ~MapDecorDrawer() {}
+    virtual void update(double et) = 0;
+
+    virtual void render_front(sf::RenderTarget &) const = 0;
+
+    virtual void render_back(sf::RenderTarget &) const = 0;
+
+    virtual void load_map(const tmap::TiledMap & tmap, MapObjectLoader &) = 0;
+
+protected:
+    MapDecorDrawer() {}
+};
+
+class ForestDecor final : public MapDecorDrawer {
+public:
+    struct TreeParameters {
+        TreeParameters() {}
+        TreeParameters(VectorD location_, std::default_random_engine & rng_):
+            rng(rng_),
+            location(location_),
+            leaves_size(PlantTree::choose_random_size(rng_))
+        {}
+        std::default_random_engine rng;
+        VectorD location;
+        PlantTree::RectSize leaves_size;
+    };
+
     struct FutureTree {
-#       if 0
-        virtual void plant(VectorD location, std::default_random_engine) = 0;
-#       endif
         virtual bool is_ready() const = 0;
         virtual bool is_done() const = 0;
         virtual PlantTree get_tree() = 0;
     };
 
     struct FutureTreeMaker {
+        using TreeParameters = ::ForestDecor::TreeParameters;
         virtual ~FutureTreeMaker() {}
-        virtual std::unique_ptr<FutureTree> make_tree
-            (VectorD location, std::default_random_engine &) = 0;
+
+        virtual std::unique_ptr<FutureTree> make_tree(const TreeParameters &) = 0;
     };
 
-    void load_map(const tmap::TiledMap & tmap);
-
-    [[deprecated]] void render_to(sf::RenderTarget &) const;
+    void load_map(const tmap::TiledMap & tmap, MapObjectLoader &);
 
     void render_front(sf::RenderTarget &) const;
 
@@ -354,11 +254,9 @@ public:
     void update(double et);
 
 private:
-    void plant_new_flower(std::default_random_engine &, VectorD);
+    void plant_new_flower(std::default_random_engine &, VectorD, MapObjectLoader &);
 
-    void plant_new_tree(std::default_random_engine &, VectorD);
-
-    void plant_new_future_tree(std::default_random_engine &, VectorD);
+    void plant_new_future_tree(std::default_random_engine &, VectorD, MapObjectLoader &);
 
     std::vector<Flower> m_flowers;
     std::vector<PlantTree> m_trees;
@@ -367,24 +265,10 @@ private:
     std::unique_ptr<FutureTreeMaker> m_tree_maker;
 };
 
-#if 0
-template <typename Func>
-auto make_spine_renderer(Func && f) {
-    using BezierTuple = Spine::BezierTuple;
-    struct Rt final : public Spine::Renderer {
-        Rt(Func && f): m_f(std::move(f)) {}
-        void render(const BezierTuple & a, const BezierTuple & b) const override
-            { m_f(a, b); }
-        Func m_f;
-    };
-    return Rt(std::move(f));
-}
-#endif
 // ----------------------------------------------------------------------------
 
 class GraphicsDrawer final : public GraphicsBase {
 public:
-    [[deprecated]] void render_to(sf::RenderTarget & target);
 
     void render_front(sf::RenderTarget & target);
 
@@ -393,13 +277,15 @@ public:
     void update(double et) {
         m_item_anis.update(et);
         m_flag_raiser.update(et);
-        m_map_decor.update(et);
+        m_map_decor->update(et);
     }
 
     void set_view(const sf::View &);
 
-    void load_decor(const tmap::TiledMap &);
-
+    template <typename T>
+    void take_decor(std::enable_if_t<std::is_base_of_v<MapDecorDrawer, T>, std::unique_ptr<T>> && uptr) {
+        m_map_decor = std::move(uptr);
+    }
 private:
     void draw_line(VectorD a, VectorD b, sf::Color color, double thickness) override {
         if (!m_view_rect.contains(a) && !m_view_rect.contains(b)) return;
@@ -441,5 +327,5 @@ private:
     std::vector<DrawRectangle> m_draw_rectangles;
     FlagRaiser m_flag_raiser;
 
-    MapDecorDrawer m_map_decor;
+    std::unique_ptr<MapDecorDrawer> m_map_decor;
 };

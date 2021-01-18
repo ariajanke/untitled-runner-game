@@ -83,7 +83,7 @@
  </tile>
  <tile id="244">
   <properties>
-   <property name="decor-class" value="wall,ground"/>
+   <property name="decor-class" value="ground,wall"/>
    <property name="lines" value="0, 1:0,0;0, 0:1,0"/>
   </properties>
  </tile>

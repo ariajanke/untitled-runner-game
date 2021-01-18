@@ -26,8 +26,18 @@
 
 class PlantTree final : public sf::Drawable {
 public:
+    using Rng = std::default_random_engine;
+
+    struct RectSize {
+        RectSize() {}
+        RectSize(int w_, int h_): width(w_), height(h_) {}
+        int width = 0, height = 0;
+    };
+
     void plant
-        (VectorD location, std::default_random_engine & rng, bool go_wide = true);
+        (VectorD location, Rng &/*, bool go_wide = true*/);
+
+    void plant(VectorD location, Rng &, const RectSize & leaves_size);
 
     void render_fronts(sf::RenderTarget &, sf::RenderStates) const;
     void render_backs(sf::RenderTarget &, sf::RenderStates) const;
@@ -36,7 +46,21 @@ public:
 
     Rect bounding_box() const noexcept;
 
+    static RectSize choose_random_size(std::default_random_engine &);
+
 private:
+    static constexpr const auto k_height_max   = 120.;
+    static constexpr const auto k_height_min   =  70.;
+    static constexpr const auto k_width_max    =  35.;
+    static constexpr const auto k_width_min    =  18.;
+    static constexpr const auto k_lean_max     = k_pi*0.16667;
+    static const VectorD        k_lean_max_dir ;
+    static constexpr const auto k_leaves_area  = 125.*125.;
+    static constexpr const auto k_leaves_width_max = 160.;
+    static constexpr const auto k_leaves_width_min = 120.;
+    static constexpr const auto k_leaves_radius    =   8.;
+    static constexpr const auto k_leaves_density   =  0.6;
+
     void draw(sf::RenderTarget &, sf::RenderStates) const override;
 
     sf::Vector2f fore_leaves_location() const noexcept;

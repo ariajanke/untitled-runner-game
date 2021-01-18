@@ -32,13 +32,12 @@ using Entity = ecs::Entity<
     PhysicsComponent, // essentially refers to other components
                       // (which I hate, because this means coupling AND
                       //  complex behaviors in a component)
-    Lifetime, Snake, PlayerControl, DisplayFrame, Item,
-    /*Launcher, LauncherSubjectHistory,*/
+    Lifetime, Snake, PlayerControl, DisplayFrame, Item, DecoItem,
     TriggerBox, TriggerBoxSubjectHistory,
     Collector, HeadOffset, Platform,
     InterpolativePosition, Waypoints,
     PhysicsDebugDummy,
-    /*Checkpoint,*/ ReturnPoint
+    ReturnPoint
 >;
 
 using EntityManager = Entity::ManagerType;
@@ -263,6 +262,18 @@ private:
 
     Entity m_bouncable;
     double m_radius = 5.;
+};
+
+class LeavesDecorScript final : public Script {
+    static bool comp_entities(Entity, Entity);
+
+    void on_box_hit(Entity, Entity) override;
+
+    void make_leaf_fall(Entity leaf_ent, VectorD);
+
+    void check_invarients() const;
+
+    std::vector<Entity> m_falling_leaves;
 };
 
 #if 0
