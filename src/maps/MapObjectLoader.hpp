@@ -114,6 +114,24 @@ MapObjectLoaderFunction get_loader_function(const std::string &);
 
 // -------------------------------- utils -------------------------------------
 
+template <typename IntType, typename Func>
+class OptionalRequiresNumeric {
+public:
+    using IntegerType = IntType;
+    explicit OptionalRequiresNumeric(Func && f_): f(std::move(f_)) {}
+    std::runtime_error operator ()
+        (const std::string & key, const std::string & val) const noexcept
+    { return f(key, val); }
+
+private:
+    Func f;
+};
+
+template <typename IntType, typename Func>
+auto make_optional_requires_numeric(Func && f) {
+    return OptionalRequiresNumeric<IntType, Func>(std::move(f));
+}
+
 template <typename Key, typename T, typename Compare>
 class MapValueFinder {
 public:
@@ -127,6 +145,25 @@ public:
         if (itr == map.end()) return;
         const auto & obj = itr->second;
         (void)f(obj);
+    }
+
+    template <typename Key2, typename Func1, typename IntType, typename Func2>
+    void operator () (const Key2 & key,
+                      const OptionalRequiresNumeric<IntType, Func1> & throw_f,
+                      Func2 && do_f) const
+    {
+        auto itr = map.find(key);
+        if (itr == map.end()) return;
+
+        auto vbeg = itr->second.begin();
+        auto vend = itr->second.end  ();
+        trim<is_whitespace>(vbeg, vend);
+
+        IntType datum = 0;
+        if (!string_to_number_multibase(vbeg, vend, datum)) {
+            throw throw_f(itr->first, itr->second);
+        }
+        do_f(datum);
     }
 private:
     const MapType & map;

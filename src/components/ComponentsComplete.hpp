@@ -175,6 +175,12 @@ public:
     /** Called when this entity's trigger box is hit by another entity. */
     virtual void on_box_hit(Entity, Entity);
 
+    /** Called when this entity's trigger box is occupied by another entity.
+     *  That is every frame when the other entity's location is inside this
+     *  entity's trigger box.
+     */
+    virtual void on_box_occupancy(Entity, Entity, double et);
+
     /** Called everyframe regardless of any other activity. */
     virtual void on_update(Entity, double) {}
 };
@@ -265,15 +271,29 @@ private:
 };
 
 class LeavesDecorScript final : public Script {
-    static bool comp_entities(Entity, Entity);
+public:
+    void inform_of_front_leaves(const Grid<bool> & leaf_grid)
+        { m_leaf_bitmap = leaf_grid; }
 
+private:
+    static bool comp_entities(Entity, Entity);
+#   if 0
     void on_box_hit(Entity, Entity) override;
+#   endif
+    void on_box_occupancy(Entity, Entity, double) override;
 
     void make_leaf_fall(Entity leaf_ent, VectorD);
 
     void check_invarients() const;
 
+    // includes intersecting point
+    static std::pair<VectorD, VectorD> get_displacement_within(VectorD old, VectorD new_, const Rect &);
+
     std::vector<Entity> m_falling_leaves;
+    Grid<bool> m_leaf_bitmap;
+
+    static constexpr const int k_shake_px_max = 20;
+    int m_px_counter = 0;
 };
 
 #if 0

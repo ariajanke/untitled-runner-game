@@ -24,6 +24,8 @@
 
 #include "TreeGraphics.hpp"
 
+#include <set>
+
 #include <common/DrawRectangle.hpp>
 
 #include <SFML/Graphics/Vertex.hpp>
@@ -205,31 +207,50 @@ class MapObjectLoader;
 
 class MapDecorDrawer {
 public:
+    struct TempRes { virtual ~TempRes() {} };
+
     virtual ~MapDecorDrawer() {}
     virtual void update(double et) = 0;
 
     virtual void render_front(sf::RenderTarget &) const = 0;
 
     virtual void render_back(sf::RenderTarget &) const = 0;
-
+#   if 0
     virtual void load_map(const tmap::TiledMap & tmap, MapObjectLoader &) = 0;
+#   endif
+    void prepare_with_map(tmap::TiledMap & map, MapObjectLoader & objloader) {
+        auto gv = prepare_map_objects(map, objloader);
+        prepare_map(map, std::move(gv));
+    }
 
 protected:
+    virtual std::unique_ptr<TempRes> prepare_map_objects(const tmap::TiledMap & tmap, MapObjectLoader &) = 0;
+
+    virtual void prepare_map(tmap::TiledMap &, std::unique_ptr<TempRes>) {}
+
     MapDecorDrawer() {}
+};
+#if 0
+struct WaterFallSequences {
+
+    std::vector<std::vector<sf::IntRect>> sequences;
+};
+#endif
+struct WaterFallLine {
+    //std::shared_ptr<WaterFallSequences> frames;
+    std::vector<sf::IntRect> frames;
+    int x_offset;
 };
 
 class ForestDecor final : public MapDecorDrawer {
 public:
-    struct TreeParameters {
+    struct TreeParameters : public PlantTree::CreationParams {
         TreeParameters() {}
         TreeParameters(VectorD location_, std::default_random_engine & rng_):
-            rng(rng_),
-            location(location_),
-            leaves_size(PlantTree::choose_random_size(rng_))
+            CreationParams(PlantTree::generate_params(rng_)),
+            location(location_)
         {}
-        std::default_random_engine rng;
         VectorD location;
-        PlantTree::RectSize leaves_size;
     };
 
     struct FutureTree {
@@ -245,22 +266,38 @@ public:
         virtual std::unique_ptr<FutureTree> make_tree(const TreeParameters &) = 0;
     };
 
-    void load_map(const tmap::TiledMap & tmap, MapObjectLoader &);
+    struct Updatable {
+        virtual ~Updatable() {}
+        virtual void update(double) = 0;
+    };
 
-    void render_front(sf::RenderTarget &) const;
+    ~ForestDecor() override;
+#   if 0
+    void load_map(const tmap::TiledMap & tmap, MapObjectLoader &) override;
+#   endif
+    void render_front(sf::RenderTarget &) const override;
 
-    void render_back(sf::RenderTarget &) const;
+    void render_back(sf::RenderTarget &) const override;
 
-    void update(double et);
+    void update(double et) override;
 
 private:
+    std::unique_ptr<TempRes> prepare_map_objects(const tmap::TiledMap & tmap, MapObjectLoader &) override;
+
+    void prepare_map(tmap::TiledMap &, std::unique_ptr<TempRes>) override;
+
+    void load_map_vegetation(const tmap::TiledMap &, MapObjectLoader &);
+    std::unique_ptr<TempRes> load_map_waterfalls(const tmap::TiledMap &);
+
     void plant_new_flower(std::default_random_engine &, VectorD, MapObjectLoader &);
 
     void plant_new_future_tree(std::default_random_engine &, VectorD, MapObjectLoader &);
 
     std::vector<Flower> m_flowers;
     std::vector<PlantTree> m_trees;
-    std::vector<std::unique_ptr<FutureTree>> m_future_trees;
+    std::vector<std::pair<std::unique_ptr<FutureTree>, Entity>> m_future_trees;
+
+    std::set<std::shared_ptr<Updatable>> m_updatables;
 
     std::unique_ptr<FutureTreeMaker> m_tree_maker;
 };

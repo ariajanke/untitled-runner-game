@@ -318,7 +318,11 @@ using GroundsClassMap = std::unordered_map<int, std::vector<bool>>;
 static GroundsClassMap load_grounds_map
     (const tmap::TilePropertiesInterface & layer, const LineMapLoader::SegmentMap & segments_map);
 
+// multithreaded version
 static std::unique_ptr<ForestDecor::FutureTreeMaker> make_future_tree_maker();
+
+// single thread version
+static std::unique_ptr<ForestDecor::FutureTreeMaker> make_syncro_tree_maker();
 
 std::string to_padded_string(int x) {
     if (x == 0) return "000";
@@ -326,8 +330,345 @@ std::string to_padded_string(int x) {
     return std::string(std::size_t(2 - std::floor(std::log10(double(x)))), '0') + rv;
 }
 
+ForestDecor::~ForestDecor() {
+    int i = 0;
+    for (const auto & tree : m_trees) {
+        tree.save_to_file("/media/ramdisk/tree-" + std::to_string(i++) + ".png");
+    }
+}
+#if 0
 void ForestDecor::load_map(const tmap::TiledMap & tmap, MapObjectLoader & objloader) {
+    load_map_vegetation(tmap, objloader);
+    load_map_waterfalls(tmap);
+#   if 0
+    for (std::size_t i = 0; i != m_trees.size(); ++i) {
+        auto fn = "/media/ramdisk/generated-tree-" + to_padded_string(i) + ".png";
+        m_trees[i].save_to_file(fn);
+    }
+#   endif
+}
+#endif
+void ForestDecor::render_front(sf::RenderTarget & target) const {
+    Rect draw_bounds(VectorD(target.getView().getCenter() - target.getView().getSize()*0.5f),
+                     VectorD(target.getView().getSize()));
+#   if 0
+    for (const auto & tree : m_trees) {
+        if (!draw_bounds.intersects(tree.bounding_box())) continue;
+        tree.render_fronts(target, sf::RenderStates::Default);
+    }
+#   endif
+}
 
+void ForestDecor::render_back(sf::RenderTarget & target) const {
+    Rect draw_bounds(VectorD(target.getView().getCenter() - target.getView().getSize()*0.5f),
+                     VectorD(target.getView().getSize()));
+    for (const auto & flower : m_flowers) {
+        Rect flower_bounds(flower.location(), VectorD(flower.width(), flower.height()));
+        if (!draw_bounds.intersects(flower_bounds)) continue;
+        target.draw(flower);
+    }
+#   if 0
+    for (const auto & tree : m_trees) {
+        // note: no culling
+        if (!draw_bounds.intersects(tree.bounding_box())) continue;
+        tree.render_backs(target, sf::RenderStates::Default);
+    }
+#   endif
+}
+
+void ForestDecor::update(double et) {
+    for (auto & flower : m_flowers) {
+        flower.update(et);
+    }
+    for (auto & [fut_tree_ptr, e] : m_future_trees) {
+        if (fut_tree_ptr->is_ready()) {
+            auto & new_tree = m_trees.emplace_back(fut_tree_ptr->get_tree());
+            // "asserted" to work
+            auto * script = dynamic_cast<LeavesDecorScript *>(get_script(e));
+            if (script)
+                script->inform_of_front_leaves(new_tree.front_leaves_bitmap());
+        }
+    }
+    {
+    auto end = m_future_trees.end();
+    static auto tree_is_done = [](const std::pair<std::unique_ptr<FutureTree>, Entity> & pair)
+        { return pair.first->is_done(); };
+    m_future_trees.erase(
+        std::remove_if(m_future_trees.begin(), end, tree_is_done),
+        end);
+    }
+
+    for (auto & sptr : m_updatables) {
+        sptr->update(et);
+    }
+}
+
+struct WfStripInfo {
+    static constexpr const int k_uninit = -1;
+    int step = k_uninit;
+    int reset_id = k_uninit;
+    int min = k_uninit;
+    int max = k_uninit;
+};
+
+class WfFramesInfo final : public ForestDecor::Updatable {
+public:
+    using ConstTileSetPtr = tmap::TiledMap::ConstTileSetPtr;
+    using TileEffect = tmap::TileEffect;
+
+    WfFramesInfo() {}
+
+    void setup(const std::vector<WfStripInfo> & strips, ConstTileSetPtr tsptr) {
+        // need to enforce that strips are all the same size and form a grid
+        // (perhaps using a Grid would be more apporpiate?)
+        std::vector<int> frame_ids;
+        frame_ids.reserve(strips.size());
+        for (const auto & strip : strips) {
+            frame_ids.push_back(strip.min);
+        }
+
+        if (frame_ids.empty()) return; // got nothing anyway
+        static auto count_steps = [](const WfStripInfo & strip)
+            { return ((strip.max - strip.min) / strip.step) + 1; };
+        {
+        static constexpr auto k_uninit = WfStripInfo::k_uninit;
+        int steps = k_uninit;
+        for (const auto & strip : strips) {
+            if (steps == k_uninit) {
+                steps = count_steps(strip);
+            } else if (steps != count_steps(strip)) {
+                throw std::runtime_error("uneven strips, each strip must have the same number of steps.");
+            }
+        }
+        }
+        // all stop on first reset!
+        for (bool more_remain = true; more_remain; ) {
+            WfEffect new_effect;
+            new_effect.assign_time(m_time);
+            new_effect.setup_frames(frame_ids, tsptr);
+            m_effect_tids.push_back(frame_ids.front());
+            m_effects.emplace_back(std::move(new_effect));
+
+            // step here:
+            for (auto & id : frame_ids) {
+                const auto & strip = strips[ &id - &frame_ids.front() ];
+                if (id < strip.reset_id && id + strip.step >= strip.reset_id) {
+                    assert(m_reset_y == 0 || m_reset_y == m_effects.size());
+                    m_reset_y = m_effects.size();
+                }
+                id += strip.step;
+                if (id > strip.max) {
+                    more_remain = false;
+                    break;
+                }
+            }
+        }
+        check_invarients();
+    }
+
+    int get_new_tid(int num_of_same_above) const {
+        assert(num_of_same_above > -1);
+        auto seqnum = std::size_t(num_of_same_above);
+        if (seqnum >= m_effects.size()) {
+            seqnum = (seqnum % (m_effects.size() - m_reset_y)) + m_reset_y;
+            assert(seqnum < m_effects.size());
+        }
+        return m_effect_tids.at(seqnum);
+    }
+
+    template <typename Func>
+    void for_each_tid_and_tile_effect(Func && f) {
+        for (auto & wfte : m_effects) {
+            TileEffect & te = wfte;
+            int gid = m_effect_tids[&wfte - &m_effects.front()];
+            f(gid, te);
+        }
+    }
+
+    void update(double et) override {
+        m_time = std::fmod(m_time + et, 1.);
+        check_invarients();
+    }
+
+private:
+    class WfEffect final : public TileEffect {
+    public:
+        void assign_time(const double & time) { m_time_ptr = &time; }
+
+        void setup_frames(const std::vector<int> & local_ids, ConstTileSetPtr tsptr) {
+            m_frames.reserve(local_ids.size());
+            for (int id : local_ids) {
+                m_frames.push_back( tsptr->texture_rectangle(id) );
+            }
+        }
+
+    private:
+        using DrawOnlyTarget = tmap::DrawOnlyTarget;
+
+        void operator () (sf::Sprite & spt, DrawOnlyTarget & target) override {
+            assert(m_time_ptr);
+            assert( *m_time_ptr >= 0. && *m_time_ptr <= 1. );
+            auto idx = std::size_t( std::floor(double( m_frames.size() )*(*m_time_ptr)) );
+            spt.setTextureRect( m_frames[idx] );
+            target.draw(spt);
+        }
+
+        std::vector<sf::IntRect> m_frames;
+        const double * m_time_ptr = nullptr;
+    };
+
+    void check_invarients() const {
+        assert(m_reset_y <= m_effects.size());
+        assert(m_time >= 0. && m_time <= 1.);
+        assert(m_effects.size() == m_effect_tids.size());
+    }
+
+    double m_time = 0.;
+    std::size_t m_reset_y = 0;
+    std::vector<WfEffect> m_effects;
+    std::vector<int> m_effect_tids;
+};
+
+using StrCItr = std::string::const_iterator;
+static bool is_comma(char c) { return c == ','; }
+
+struct ForestLoadTemp final : public MapDecorDrawer::TempRes {
+    // THIS is fine actually
+    std::map<int, std::shared_ptr<WfFramesInfo>> gid_to_strips;
+};
+
+std::shared_ptr<WfFramesInfo> load_new_strip
+    (const tmap::TiledMap & tmap, int gid, const std::string & value_string)
+{
+    std::vector<WfStripInfo> strips;
+
+    auto tileset = tmap.get_tile_set_for_gid(gid);
+    auto verify_valid_local_id = [&tileset](int id) {
+        if (tileset->convert_to_local_id(id) != tmap::TileSetInterface::k_no_tile) {
+            return;
+        }
+        throw std::runtime_error("id " + std::to_string(id) + " not owned by this tileset.");
+    };
+    for_split<is_comma>(value_string.begin(), value_string.end(), [&verify_valid_local_id, &strips, gid](StrCItr beg, StrCItr end) {
+        int id = 0;
+        trim<is_whitespace>(beg, end);
+        if (!string_to_number_multibase(beg, end, id)) {
+            throw std::runtime_error("gid " + std::to_string(gid) + " starting strip frame is non-numeric.");
+        }
+        WfStripInfo new_strip;
+        // all should be local ids!
+        new_strip.min = id;
+        new_strip.max = new_strip.min;
+        new_strip.step = 1;
+        new_strip.reset_id = new_strip.min;
+        verify_valid_local_id(id);
+
+        strips.push_back(new_strip);
+    });
+
+    for (auto & strip : strips) {
+        const auto * props = tileset->properties_on(strip.min);
+        if (!props) continue;
+        auto do_if_found = make_do_if_found(*props);
+        auto require_int = make_optional_requires_numeric<int>([](const std::string & key, const std::string &) {
+            return std::runtime_error("key \"" + key + "\" must be numeric");
+        });
+
+        do_if_found("fall-max-id", require_int, [&strip, &verify_valid_local_id](int val) {
+            verify_valid_local_id(val);
+            if (val < strip.min) throw std::runtime_error("smaller than min not supported");
+            strip.max = val;
+        });
+        do_if_found("fall-step", require_int, [&strip](int val) {
+            if (val < 1) throw std::runtime_error("min step of one");
+            strip.step = val;
+        });
+        do_if_found("fall-reset", require_int, [&strip, &verify_valid_local_id](int val) {
+            verify_valid_local_id(val);
+            if (val < strip.min || val > strip.max) {
+                throw std::runtime_error("reset id must be in [min max]");
+            }
+            strip.reset_id = val;
+        });
+
+    }
+
+    auto rv = std::make_shared<WfFramesInfo>();
+    rv->setup(strips, tileset);
+    return rv;
+}
+
+/* private */ std::unique_ptr<ForestDecor::TempRes> ForestDecor::prepare_map_objects
+    (const tmap::TiledMap & tmap, MapObjectLoader & objloader)
+{
+    load_map_vegetation(tmap, objloader);
+    // there needs to be a better way to handle temporaries!
+    // can I alleviate this to some degree with double dispatch? or something else?
+    return load_map_waterfalls(tmap);
+}
+
+/* private */ void ForestDecor::prepare_map
+    (tmap::TiledMap & tmap, std::unique_ptr<ForestDecor::TempRes> resptr)
+{
+    auto & gid_to_strips = dynamic_cast<ForestLoadTemp &>(*resptr).gid_to_strips;
+
+    auto get_wf_ptr = [&gid_to_strips](int gid) -> std::shared_ptr<WfFramesInfo> {
+        auto itr = gid_to_strips.find(gid);
+        return itr == gid_to_strips.end() ? nullptr : itr->second;
+    };
+
+    for (const auto * layer : tmap) {
+        if (!tmap.convert_to_writable_tile_layer(layer)) continue;
+        auto & map_tiles = *tmap.convert_to_writable_tile_layer(layer);
+        std::shared_ptr<const WfFramesInfo> ptr = nullptr;
+        // order of dimensions important here
+        for (int x = 0; x != map_tiles.width (); ++x) {
+            // must reset per column
+            int count = 0;
+            for (int y = 0; y != map_tiles.height(); ++y) {
+                int gid = map_tiles.tile_gid(x, y);
+                if (ptr != get_wf_ptr(gid)) {
+                    count = 0;
+                    ptr = get_wf_ptr(gid);
+                }
+
+                if (ptr) {
+                    // if it's a magic tile, there must be a tileset associated with it
+                    auto tsptr = tmap.get_tile_set_for_gid(gid);
+                    assert(tsptr);
+                    int new_tid = ptr->get_new_tid( count++ );
+                    map_tiles.set_tile_gid(x, y, tsptr->convert_to_gid( new_tid ));
+                }
+            }
+        }
+    }
+
+    for (auto & pair : gid_to_strips) {
+        using TileEffect = tmap::TileEffect;
+        auto tsptr = tmap.get_tile_set_for_gid(pair.first);
+        pair.second->for_each_tid_and_tile_effect([tsptr](int tid, TileEffect & te) {
+            tsptr->set_effect(tid, &te);
+        });
+        // proper transfer ownership to instance
+        m_updatables.emplace(pair.second);
+    }
+
+    // ensure all magic tiles are replaced
+#   ifdef MACRO_DEBUG
+    for (const auto * layer : tmap) {
+        if (!tmap.convert_to_writable_tile_layer(layer)) continue;
+        auto & map_tiles = *tmap.convert_to_writable_tile_layer(layer);
+
+        // order of dimensions important here
+        for (int x = 0; x != map_tiles.width (); ++x) {
+        for (int y = 0; y != map_tiles.height(); ++y) {
+            assert(gid_to_strips.find(map_tiles.tile_gid(x, y)) == gid_to_strips.end());
+        }}
+    }
+#   endif
+}
+
+/* private */ void ForestDecor::load_map_vegetation(const tmap::TiledMap & tmap, MapObjectLoader & objloader) {
     m_tree_maker = make_future_tree_maker();
 
     auto * ground = tmap.find_tile_layer("ground");
@@ -363,63 +704,46 @@ void ForestDecor::load_map(const tmap::TiledMap & tmap, MapObjectLoader & objloa
         auto plant_location = (target_seg.a + target_seg.b)*0.5;
 
         auto plflower = &ForestDecor::plant_new_flower;
-        auto pltree   = &ForestDecor::plant_new_future_tree;// new_tree;
+        auto pltree   = &ForestDecor::plant_new_future_tree;
         auto fp = choose_random(rng, { plflower, plflower, plflower, plflower, plflower, plflower, pltree });
 
         std::invoke(fp, *this, rng, plant_location, objloader);
     }}
-#   if 1
-    for (std::size_t i = 0; i != m_trees.size(); ++i) {
-        auto fn = "/media/ramdisk/generated-tree-" + to_padded_string(i) + ".png";
-        m_trees[i].save_to_file(fn);
-    }
-#   endif
 }
 
-void ForestDecor::render_front(sf::RenderTarget & target) const {
-    Rect draw_bounds(VectorD(target.getView().getCenter() - target.getView().getSize()*0.5f),
-                     VectorD(target.getView().getSize()));
-    for (const auto & tree : m_trees) {
-        if (!draw_bounds.intersects(tree.bounding_box())) continue;
-        tree.render_fronts(target, sf::RenderStates::Default);
+/* private */ std::unique_ptr<ForestDecor::TempRes> ForestDecor::load_map_waterfalls(const tmap::TiledMap & tmap) {
+    // I need to seperate loading information on "magic" link tiles
+    // and then modifying the actual map tiles
+    // so... maybe this function can "just load" information on this linked tiles
+    // and then another chain of calls which will modify the map following a load
+
+    auto rv = std::make_unique<ForestLoadTemp>();
+    std::map<int, std::shared_ptr<WfFramesInfo>> & gid_to_strips = rv->gid_to_strips;
+    for (const sf::Drawable * layer : tmap) {
+        const auto * tile_layer = dynamic_cast<const tmap::TilePropertiesInterface *>(layer);
+        if (!tile_layer) continue;
+        for (int x = 0; x != tile_layer->width (); ++x) {
+        for (int y = 0; y != tile_layer->height(); ++y) {
+            auto wf_itr_ptr = (*tile_layer)(x, y);
+
+            if (!wf_itr_ptr) continue;
+            auto gid = tile_layer->tile_gid(x, y);
+            make_do_if_found(*wf_itr_ptr)("animation-falls", [gid, &gid_to_strips, &tmap]
+                        (const std::string & val)
+            {
+                auto itr = gid_to_strips.find(gid);
+                // if already initialized... skip
+                if (itr == gid_to_strips.end()) {
+                    gid_to_strips[gid] = load_new_strip(tmap, gid, val);
+                }
+            });
+        }}
     }
+
+    return rv;
 }
 
-void ForestDecor::render_back(sf::RenderTarget & target) const {
-    Rect draw_bounds(VectorD(target.getView().getCenter() - target.getView().getSize()*0.5f),
-                     VectorD(target.getView().getSize()));
-    for (const auto & flower : m_flowers) {
-        Rect flower_bounds(flower.location(), VectorD(flower.width(), flower.height()));
-        if (!draw_bounds.intersects(flower_bounds)) continue;
-        target.draw(flower);
-    }
-    for (const auto & tree : m_trees) {
-        // note: no culling
-        if (!draw_bounds.intersects(tree.bounding_box())) continue;
-        tree.render_backs(target, sf::RenderStates::Default);
-    }
-}
-
-void ForestDecor::update(double et) {
-    for (auto & flower : m_flowers) {
-        flower.update(et);
-    }
-    for (auto & fut_tree_ptr : m_future_trees) {
-        if (fut_tree_ptr->is_ready()) {
-            m_trees.emplace_back(fut_tree_ptr->get_tree());
-        }
-    }
-    {
-    auto end = m_future_trees.end();
-    static auto tree_is_done = [](const std::unique_ptr<FutureTree> & ftree)
-        { return ftree->is_done(); };
-    m_future_trees.erase(
-        std::remove_if(m_future_trees.begin(), end, tree_is_done),
-        end);
-    }
-}
-
-void ForestDecor::plant_new_flower(std::default_random_engine & rng, VectorD plant_location, MapObjectLoader &) {
+/* private */ void ForestDecor::plant_new_flower(std::default_random_engine & rng, VectorD plant_location, MapObjectLoader &) {
     Flower flower;
     flower.setup(rng);
     flower.set_location(plant_location - VectorD(flower.width()*0.5, flower.height()));
@@ -430,17 +754,18 @@ void ForestDecor::plant_new_flower(std::default_random_engine & rng, VectorD pla
     (std::default_random_engine & rng, VectorD location, MapObjectLoader & objloader)
 {
     TreeParameters params(location, rng);
-    m_future_trees.emplace_back(m_tree_maker->make_tree(params));
 
     auto e = objloader.create_entity();
+#   if 0
     auto script = std::make_unique<LeavesDecorScript>();
     auto & rect = e.add<PhysicsComponent>().reset_state<Rect>();
-    rect.left = location.x - params.leaves_size.width / 2;
-    rect.top  = location.y - params.leaves_size.height;
-    rect.width = params.leaves_size.width;
+    std::tie(rect.left, rect.top) = as_tuple(PlantTree::leaves_location_from_params(params, location));
+    rect.width  = params.leaves_size.width;
     rect.height = params.leaves_size.height;
     e.add<TriggerBox>();
     e.add<ScriptUPtr>() = std::move(script);
+#   endif
+    m_future_trees.emplace_back(std::make_pair(m_tree_maker->make_tree(params), e));
 }
 
 static std::unique_ptr<ForestDecor::FutureTreeMaker> make_future_tree_maker() {
@@ -511,7 +836,7 @@ static std::unique_ptr<ForestDecor::FutureTreeMaker> make_future_tree_maker() {
                 }
                 for (auto & [prom, params] : task_list) {
                     PlantTree tree;
-                    tree.plant(params.location, params.rng, params.leaves_size);
+                    tree.plant(params.location, static_cast<PlantTree::CreationParams>(params));
                     prom.set_value(std::move(tree));
                 }
                 task_list.clear();
@@ -528,6 +853,41 @@ static std::unique_ptr<ForestDecor::FutureTreeMaker> make_future_tree_maker() {
         std::mutex m_mutex;
         std::atomic_bool m_worker_done { false };
         TaskList ms_tasks;
+    };
+    return std::make_unique<CompleteTreeMaker>();
+}
+
+static std::unique_ptr<ForestDecor::FutureTreeMaker> make_syncro_tree_maker() {
+    using FutureTreeMaker = ForestDecor::FutureTreeMaker;
+    using FutureTree      = ForestDecor::FutureTree;
+    class CompleteFutureTree final : public FutureTree {
+    public:
+        CompleteFutureTree() {}
+        void plant(VectorD location, const PlantTree::CreationParams & params)
+            { m_tree.plant(location, params); }
+
+    private:
+        bool is_ready() const override { return true; }
+
+        bool is_done() const override { return m_done; }
+
+        PlantTree get_tree() override {
+            m_done = true;
+            return m_tree;
+        }
+
+        PlantTree m_tree;
+        bool m_done = false;
+    };
+
+    struct CompleteTreeMaker final : public FutureTreeMaker {
+        std::unique_ptr<FutureTree> make_tree
+            (const TreeParameters & params) override
+        {
+            auto rv = std::make_unique<CompleteFutureTree>();
+            rv->plant(params.location, static_cast<PlantTree::CreationParams>(params));
+            return rv;
+        }
     };
     return std::make_unique<CompleteTreeMaker>();
 }
@@ -672,8 +1032,9 @@ void make_bundle_locations
         count, rng, [&f](VectorD r)
     { f(round_to<int>(r)); });
 }
-
+#if 0
 static bool is_comma(char c) { return c == ','; }
+#endif
 static GroundsClassMap load_grounds_map
     (const tmap::TilePropertiesInterface & layer,
      const LineMapLoader::SegmentMap & segments_map)

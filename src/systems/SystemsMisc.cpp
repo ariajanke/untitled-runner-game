@@ -335,7 +335,8 @@ void ItemCollisionSystem::check_item_collection(Entity collector, Entity item) {
     m_scripts     .do_checks(m_subjects);
 
     for (auto & [e, history] : m_subjects) {
-        history.last_location = e.get<PhysicsComponent>().location();
+        // post this, they're equal u.u
+        TriggerBoxSubjectHistoryAtt::set_location(history, e.get<PhysicsComponent>().location());
     }
 }
 
@@ -344,7 +345,7 @@ void ItemCollisionSystem::check_item_collection(Entity collector, Entity item) {
 {
     for (const auto & [e, history] : cont) {
         for (const auto & cp_ent : m_trespassees) {
-            auto old_loc = history.last_location;
+            auto old_loc = history.last_location();
             auto new_loc = e.get<PhysicsComponent>().location();
             auto bounds  = get_rect(cp_ent);
             VectorD offset;
@@ -472,7 +473,7 @@ static VectorD expansion_for_collector(const Entity & e) {
     get_script(being_hit)->on_box_hit(being_hit, whats_hitting);
 }
 
-/* private static */ bool TriggerBoxSystem::is_subject(const Entity & e) {
+/* static */ bool TriggerBoxSystem::is_subject(const Entity & e) {
     if (auto * pcomp = e.ptr<PhysicsComponent>()) {
         if (pcomp->state_is_type<FreeBody>() || pcomp->state_is_type<LineTracker>()) {
             return true;

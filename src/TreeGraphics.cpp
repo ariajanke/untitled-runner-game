@@ -19,6 +19,7 @@
 
 #include "TreeGraphics.hpp"
 
+#include "BresenhamView.hpp"
 #include "FillIterate.hpp"
 #include "GraphicsDrawer.hpp"
 
@@ -45,6 +46,8 @@ void plot_bresenham_line(VectorI, VectorI, Func &&);
 
 sf::Image to_image(const ConstSubGrid<sf::Color> &);
 
+const sf::Color k_transparent(0, 0, 0, 0);
+
 Grid<sf::Color> generate_leaves(int width, int height, int radius, int count);
 
 } // end of <anonymous> namespace
@@ -54,100 +57,15 @@ Grid<sf::Color> generate_leaves(int width, int height, int radius, int count);
 void PlantTree::plant
     (VectorD location, std::default_random_engine & rng/*, bool go_wide*/)
 {
-    plant(location, rng, choose_random_size(rng));
-#   if 0
-#   if 0
-    (void)go_wide; // not yet
-#   endif
-    using Anchor = Spine::Anchor;
-    using Tag = Spine::Tag;
-#   if 0
-    static constexpr const auto k_height_max   = 120.;
-    static constexpr const auto k_height_min   =  70.;
-    static constexpr const auto k_width_max    =  35.;
-    static constexpr const auto k_width_min    =  18.;
-    static constexpr const auto k_lean_max     = k_pi*0.16667;
-    static const VectorD        k_lean_max_dir = normalize(VectorD(-1, -1));
-    static constexpr const auto k_leaves_area  = 125.*125.;
-    static constexpr const auto k_leaves_width_max = 160.;
-    static constexpr const auto k_leaves_width_min = 120.;
-    static constexpr const auto k_leaves_radius    =   8.;
-    static constexpr const auto k_leaves_density   =  0.6;
-#   endif
-
-    {
-    auto h    = RealDistri(k_height_min, k_height_max)(rng);
-    auto w    = k_width_min + (k_width_max - k_width_min)*((h - k_height_min) / (k_height_max - k_height_min));
-    auto lean = RealDistri(-k_lean_max, k_lean_max)(rng);
-
-    Anchor anc;
-    anc.set_location(location)
-       .set_width(w).set_pinch((1. - (h - k_height_min) / (k_height_max - k_height_min))*0.25 + 0.75)
-       .set_direction(VectorD(0, -1)).set_length(h*0.2);
-    Tag tag;
-    tag.set_width_angle(k_pi*0.16667)
-       .set_location(
-            location + VectorD(0, -h*0.5) + rotate_vector(VectorD(0, -h*0.5), lean)
-       ).set_direction(normalize(
-              VectorD(0, -1)*(1. - lean / k_lean_max)
-            + k_lean_max_dir*(lean / k_lean_max)
-       ));
-    Spine spine;
-    spine.set_anchor(anc);
-    spine.set_tag(tag);
-    m_trunk_location  = spine.anchor().location();
-    m_leaves_location = spine.tag   ().location();
-
-    using IntLims = std::numeric_limits<int>;
-    VectorI low (IntLims::max(), IntLims::max());
-    VectorI high(IntLims::min(), IntLims::min());
-    for_each_pixel(spine, [&low, &high](VectorI r) {
-        low .x = std::min(low .x, r.x);
-        low .y = std::min(low .y, r.y);
-        high.x = std::max(high.x, r.x);
-        high.y = std::max(high.y, r.y);
-    });
-    m_trunk_offset = VectorD( -(m_trunk_location.x - low.x),
-                              -(m_trunk_location.y - low.y));
-    assert(low.x >= 0 && low.y >= 0);
-    static const sf::Color k_color(140, 95, 20);
-    Grid<sf::Color> grid;
-    grid.set_size(high.x - low.x + 1, high.y - low.y + 1, sf::Color(0, 0, 0, 0));
-    for_each_pixel(spine, [&grid, low](VectorI r) {
-        grid(r - low) = k_color;
-    });
-
-    plot_bresenham_line(
-        round_to<int>(std::get<0>(spine.anchor().left_points ())),
-        round_to<int>(std::get<0>(spine.anchor().right_points())),
-        [&grid, low](VectorI r)
-    {
-        grid(r - low) = k_color;
-    });
-
-    iterate_grid_group(make_sub_grid(grid),
-        round_to<int>(spine.anchor().location() + VectorD(0, -2)) - low,
-        [&grid](VectorI r) { return grid(r) == sf::Color(0, 0, 0, 0); },
-        [&grid](VectorI r, bool) { grid(r) = k_color; });
-    m_trunk.loadFromImage(to_image(grid));
-    }
-
-    auto w = std::round(RealDistri(k_leaves_width_min, k_leaves_width_max)(rng));
-    auto h = k_leaves_area / w;
-    auto gen_leaves = [] (double w, double h, sf::Texture & tx) {
-        static const auto k_leaveRectSizes_count = round_to<int>((k_leaves_density*k_leaves_area) / (k_pi*k_leaves_radius*k_leaves_radius));
-        auto img = to_image(generate_leaves(w, h, k_leaves_radius, k_leaves_count));
-        tx.loadFromImage(img);
-    };
-    gen_leaves(w, h, m_fore_leaves);
-    gen_leaves(w, h, m_back_leaves);
-#   endif
+    plant(location, rng, choose_random_leaves_size(rng));
 }
 
 void PlantTree::plant(VectorD location, Rng & rng, const RectSize & leaves_size) {
     using Anchor = Spine::Anchor;
     using Tag = Spine::Tag;
-
+#   if 0
+    m_seed_value = std::uniform_int_distribution<unsigned>()(rng);
+#   endif
     {
     auto h    = RealDistri(k_height_min, k_height_max)(rng);
     auto w    = k_width_min + (k_width_max - k_width_min)*((h - k_height_min) / (k_height_max - k_height_min));
@@ -167,7 +85,7 @@ void PlantTree::plant(VectorD location, Rng & rng, const RectSize & leaves_size)
        ));
     Spine spine;
     spine.set_anchor(anc);
-    spine.set_tag(tag);
+    spine.set_tag   (tag);
     m_trunk_location  = spine.anchor().location();
     m_leaves_location = spine.tag   ().location();
 
@@ -186,6 +104,22 @@ void PlantTree::plant(VectorD location, Rng & rng, const RectSize & leaves_size)
     static const sf::Color k_color(140, 95, 20);
     Grid<sf::Color> grid;
     grid.set_size(high.x - low.x + 1, high.y - low.y + 1, sf::Color(0, 0, 0, 0));
+#   if 0
+    const auto & [left, right] = std::make_pair(spine.left_points(), spine.right_points());
+    static constexpr const double k_bez_step = 1. / 5.;
+    static auto count_bz_itrs = [](const Spine::BezierTuple & tuple) {
+        int c = 0;
+        for_bezier_lines(tuple, k_bez_step, [&c](VectorD a, VectorD b) {
+            for ([[maybe_unused]] auto v : BresenhamView(round_to<int>(a), round_to<int>(b))) ++c;
+        });
+        return c;
+    };
+    auto left_count  = count_bz_itrs(left );
+    auto right_count = count_bz_itrs(right);
+    auto left_pts = make_bezier_array<5>(left);
+    auto right_pts = make_bezier_array<5>(left);
+#   endif
+#   if 1
     for_each_pixel(spine, [&grid, low](VectorI r) {
         grid(r - low) = k_color;
     });
@@ -202,15 +136,17 @@ void PlantTree::plant(VectorD location, Rng & rng, const RectSize & leaves_size)
         round_to<int>(spine.anchor().location() + VectorD(0, -2)) - low,
         [&grid](VectorI r) { return grid(r) == sf::Color(0, 0, 0, 0); },
         [&grid](VectorI r, bool) { grid(r) = k_color; });
+#   endif
     m_trunk.loadFromImage(to_image(grid));
     }
 #   if 0
     auto w = std::round(RealDistri(k_leaves_width_min, k_leaves_width_max)(rng));
     auto h = k_leaves_area / w;
 #   endif
+    static const auto k_leaves_count = round_to<int>(
+        (k_leaves_density*k_leaves_area) / (k_pi*k_leaves_radius*k_leaves_radius));
     auto gen_leaves = [] (int w, int h, sf::Texture & tx) {
-        static const auto k_leaves_count = round_to<int>(
-            (k_leaves_density*k_leaves_area) / (k_pi*k_leaves_radius*k_leaves_radius));
+
         auto img = to_image(generate_leaves(w, h, k_leaves_radius, k_leaves_count));
         tx.loadFromImage(img);
     };
@@ -219,11 +155,128 @@ void PlantTree::plant(VectorD location, Rng & rng, const RectSize & leaves_size)
     gen_leaves(leaves_size.width, leaves_size.height, m_back_leaves);
 }
 
-/* static */ PlantTree::RectSize PlantTree::choose_random_size
+static VectorD trunk_tag_location(VectorD location, const PlantTree::CreationParams & params) {
+    auto h    = double(params.trunk_size.height);
+    auto lean = double(params.trunk_lean);
+    return location + VectorD(0, -h*0.5) + rotate_vector(VectorD(0, -h*0.5), lean);
+}
+
+void PlantTree::plant(VectorD location, const CreationParams & params) {
+    {
+    auto h    = double(params.trunk_size.height);
+    auto lean = double(params.trunk_lean);
+    Spine::Anchor anc;
+    anc.set_location(location)
+       .set_width(double(params.trunk_size.width))
+       .set_pinch((1. - (h - k_height_min) / (k_height_max - k_height_min))*0.25 + 0.75)
+       .set_direction(VectorD(0, -1)).set_length(h*0.2);
+    Spine::Tag tag;
+    tag.set_width_angle(k_pi*0.16667)
+       .set_location(
+            //location + VectorD(0, -h*0.5) + rotate_vector(VectorD(0, -h*0.5), lean)
+            trunk_tag_location(location, params)
+       ).set_direction(normalize(
+              VectorD(0, -1)*(1. - lean / k_lean_max)
+            + k_lean_max_dir*(lean / k_lean_max)
+       ));
+    Spine spine;
+    spine.set_anchor(anc);
+    spine.set_tag   (tag);
+    m_trunk_location  = spine.anchor().location();
+    m_leaves_location = spine.tag   ().location();
+
+    using IntLims = std::numeric_limits<int>;
+    VectorI low (IntLims::max(), IntLims::max());
+    VectorI high(IntLims::min(), IntLims::min());
+    for_each_pixel(spine, [&low, &high](VectorI r) {
+        low .x = std::min(low .x, r.x);
+        low .y = std::min(low .y, r.y);
+        high.x = std::max(high.x, r.x);
+        high.y = std::max(high.y, r.y);
+    });
+    m_trunk_offset = VectorD( -(m_trunk_location.x - low.x),
+                              -(m_trunk_location.y - low.y));
+    assert(low.x >= 0 && low.y >= 0);
+    static const sf::Color k_color(140, 95, 20);
+    Grid<sf::Color> grid;
+    grid.set_size(high.x - low.x + 1, high.y - low.y + 1, sf::Color(0, 0, 0, 0));
+#   if 0
+    const auto & [left, right] = std::make_pair(spine.left_points(), spine.right_points());
+    static constexpr const double k_bez_step = 1. / 5.;
+    static auto count_bz_itrs = [](const Spine::BezierTuple & tuple) {
+        int c = 0;
+        for_bezier_lines(tuple, k_bez_step, [&c](VectorD a, VectorD b) {
+            for ([[maybe_unused]] auto v : BresenhamView(round_to<int>(a), round_to<int>(b))) ++c;
+        });
+        return c;
+    };
+    auto left_count  = count_bz_itrs(left );
+    auto right_count = count_bz_itrs(right);
+    auto left_pts = make_bezier_array<5>(left);
+    auto right_pts = make_bezier_array<5>(left);
+#   else
+    for_each_pixel(spine, [&grid, low](VectorI r) {
+        grid(r - low) = k_color;
+    });
+
+    plot_bresenham_line(
+        round_to<int>(std::get<0>(spine.anchor().left_points ())),
+        round_to<int>(std::get<0>(spine.anchor().right_points())),
+        [&grid, low](VectorI r)
+    {
+        grid(r - low) = k_color;
+    });
+
+    iterate_grid_group(make_sub_grid(grid),
+        round_to<int>(spine.anchor().location() + VectorD(0, -2)) - low,
+        [&grid](VectorI r) { return grid(r) == sf::Color(0, 0, 0, 0); },
+        [&grid](VectorI r, bool) { grid(r) = k_color; });
+#   endif
+    m_trunk.loadFromImage(to_image(grid));
+    }
+
+    auto gen_leaves = [&params] (sf::Texture & tx, Grid<bool> * bitmap) {
+        const auto & leaves_size = params.leaves_size;
+        static const auto k_leaves_count = round_to<int>(
+            (k_leaves_density*k_leaves_area) / (k_pi*k_leaves_radius*k_leaves_radius));
+        auto leaves = generate_leaves
+            (leaves_size.width, leaves_size.height, k_leaves_radius, k_leaves_count);
+        tx.loadFromImage(to_image(leaves));
+        if (!bitmap) return;
+        bitmap->set_size(leaves.width(), leaves.height(), false);
+        for (VectorI r; r != leaves.end_position(); r = leaves.next(r)) {
+            (*bitmap)(r) = ( leaves(r) != k_transparent );
+        }
+    };
+
+    gen_leaves(m_fore_leaves, &m_front_leaves_bitmap);
+    gen_leaves(m_back_leaves, nullptr);
+}
+
+/* static */ PlantTree::CreationParams PlantTree::generate_params(Rng & rng) {
+    auto h = RealDistri(k_height_min, k_height_max)(rng);
+
+    CreationParams rv;
+    rv.leaves_size = choose_random_leaves_size(rng);
+    rv.trunk_size  = RectSize(round_to<int>(
+        k_width_min + (k_width_max - k_width_min)*((h - k_height_min) / (k_height_max - k_height_min))),
+        round_to<int>(h));
+    rv.trunk_lean  = RealDistri(-k_lean_max, k_lean_max)(rng);
+    return rv;
+}
+
+/* static */ PlantTree::RectSize PlantTree::choose_random_leaves_size
     (std::default_random_engine & rng)
 {
     auto w = round_to<int>(RealDistri(k_leaves_width_min, k_leaves_width_max)(rng));
     return RectSize(w, k_leaves_area / w);
+}
+
+/* static */ VectorD PlantTree::leaves_location_from_params
+    (const CreationParams & params, VectorD plant_location)
+{
+    VectorD sz_vec( params.leaves_size.width, params.leaves_size.height );
+    return trunk_tag_location(plant_location, params) - sz_vec*0.5;
 }
 
 void PlantTree::draw(sf::RenderTarget & target, sf::RenderStates states) const {
@@ -351,31 +404,56 @@ private:
 
 using BezierTriple = std::tuple<VectorD, VectorD, VectorD>;
 
+const std::array k_foilage_web_pallete = {
+    sf::Color(20, 230, 20), sf::Color(10, 200, 10), sf::Color(20, 180, 20),
+    sf::Color(0, 150, 0, 0),
+    sf::Color(20, 230, 20), sf::Color(10, 200, 10), sf::Color(20, 180, 20),
+    sf::Color(0, 150, 0, 0),
+    sf::Color(10, 200, 10),
+};
+
+const std::array k_leaf_bundle_pallete = {
+    sf::Color(20, 230, 20), sf::Color(10, 200, 10), sf::Color(20, 180, 20),
+};
+
+constexpr const int k_wood_texture_width  = 100;
+constexpr const int k_wood_texture_height = k_wood_texture_width;
+
+Grid<sf::Color> make_wood_texture();
+const Grid<sf::Color> k_wood_texture = make_wood_texture();
+#if 0
+[] {
+    constexpr const int k_partitions = 5;
+
+    std::default_random_engine rng { std::random_device()() };
+    Grid<sf::Color> rv;
+    rv.set_size(k_wood_texture_width, k_wood_texture_height);
+
+    return Grid<sf::Color>();
+} ();
+#endif
+
+template <typename T, std::size_t k_count>
+std::pair<const T *, const T *> make_view_pair(const std::array<T, k_count> & array)
+    { return std::make_pair(&array.front(), &array.front() + array.size()); }
+
+//constexpr const int k_max_width  = 512;
+//constexpr const int k_max_height = k_max_width;
+
 template <typename Urng, typename Func>
 void for_ellip_distri(const Rect & bounds, int times_done, Urng &, Func &&);
+
+bool is_within_circle(VectorI center, int radius, VectorI r);
+
+template <typename Func>
+void for_each_point_in_circle(VectorI center, int radius, Func &&);
 
 void draw_disk(SubGrid<sf::Color>, VectorI r, int radius, sf::Color color);
 
 void classify_bundles(const std::vector<VectorI> & bundle_points, int radius, SubGrid<BundleClass>, VectorI body_root);
 
 std::vector<VectorI> find_convex_hull(const std::vector<VectorI> &);
-#if 0
-static const bool testme = [] {
-    using Vec = VectorI;
-    std::vector<VectorI> v = { Vec(4, 2), Vec(4, 5), Vec(2, 0), Vec(1, 6), Vec(0, 3) };
-    find_convex_hull(v);
-    std::default_random_engine rng { std::random_device()() };
-    for (int i = 0; i != 100000; ++i) {
-        v.clear();
-        for (int j = 0; j != 5; ++j) {
-            using IntDistri = std::uniform_int_distribution<int>;
-            v.emplace_back(IntDistri(0, 8)(rng), IntDistri(0, 8)(rng));
-        }
-        find_convex_hull(v);
-    }
-    return true;
-} ();
-#endif
+
 std::vector<BezierTriple> make_triples
     (const std::vector<VectorI> & hull_points, ConstSubGrid<BundleClass>, int radius);
 
@@ -386,6 +464,8 @@ std::vector<BezierTriple> make_front_curves
     (const std::vector<BezierTriple> &, VectorD adjusted_hull_center, VectorD root_pos);
 
 Grid<bool> make_foilage_web_mask(int width, int height, const std::vector<BezierTriple> &);
+
+Grid<sf::Color> make_builtin_leaf_texture(std::pair<const sf::Color *, const sf::Color *>);
 
 template <typename Func>
 void for_each_pixel(const Spine & spine, Func && f) {
@@ -399,9 +479,92 @@ void for_each_pixel(const Spine & spine, Func && f) {
         }); }
     }));
 }
+#if 0
+// More information about this algorithm can be found here:
+// https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
+class BresenhamIterator {
+public:
+    enum { k_jump_to_end };
 
+    BresenhamIterator() {}
+
+    BresenhamIterator(VectorI beg, VectorI last):
+        m_pos   (beg),
+        m_delta ( magnitude(last.x - beg.x), -magnitude(last.y - beg.y) ),
+        m_step  ( norm(last.x - beg.x), norm(last.y - beg.y) ),
+        m_error ( m_delta.x + m_delta.y )
+        //m_step_y( norm(last.y - beg.y) )
+    {}
+
+    BresenhamIterator(VectorI beg, VectorI last, decltype(k_jump_to_end)):
+        BresenhamIterator(beg, last)
+    {
+        m_pos = last;
+        advance();
+    }
+
+    BresenhamIterator & operator ++ () {
+        advance();
+        return *this;
+    }
+
+    BresenhamIterator operator ++ (int) {
+        auto t = *this;
+        advance();
+        return t;
+    }
+
+    VectorI operator * () const noexcept { return m_pos; }
+
+    bool operator == (const BresenhamIterator & rhs) const noexcept
+        { return is_same(rhs); }
+
+    bool operator != (const BresenhamIterator & rhs) const noexcept
+        { return !is_same(rhs); }
+
+private:
+    void advance() {
+        int e2 = m_error*2;
+        if (e2 >= m_delta.y) {
+            m_error += m_delta.y;
+            m_pos.x += step().x;
+        }
+        if (e2 <= m_delta.x) {
+            m_error += m_delta.x;
+            m_pos.y += step().y;
+        }
+    }
+
+    bool is_same(const BresenhamIterator & rhs) const noexcept
+        { return m_pos == rhs.m_pos; }
+
+    VectorI step() const noexcept
+        { return m_step; }// VectorI(norm(m_delta.x), m_step_y); }
+
+    static int norm(int x) { return x <= 0 ? -1 : 1; }
+
+    VectorI m_pos, m_delta, m_step;
+    int m_error = 0;//, m_step_y = 0;
+};
+
+class BresenhamView {
+public:
+    BresenhamView(VectorI beg, VectorI last): m_beg(beg), m_last(last) {}
+
+    BresenhamIterator begin() const
+        { return BresenhamIterator(m_beg, m_last); }
+
+    BresenhamIterator end  () const
+        { return BresenhamIterator(m_beg, m_last, BresenhamIterator::k_jump_to_end); }
+
+private:
+    VectorI m_beg, m_last;
+};
+#endif
 template <typename Func>
 void plot_bresenham_line(VectorI a, VectorI b, Func && f) {
+    for (auto v : BresenhamView(a, b)) f(v);
+#   if 0
     // More information about this algorithm can be found here:
     // https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
     static auto norm = [](int x) { return x <= 0 ? -1 : 1; };
@@ -423,6 +586,7 @@ void plot_bresenham_line(VectorI a, VectorI b, Func && f) {
             a.y += sy;
         }
     }
+#   endif
 }
 
 sf::Image to_image(const ConstSubGrid<sf::Color> & cgrid) {
@@ -435,36 +599,15 @@ sf::Image to_image(const ConstSubGrid<sf::Color> & cgrid) {
 }
 
 Grid<sf::Color> generate_leaves(int width, int height, int radius, int count) {
-    static constexpr const int k_max_width  = 512;
-    static constexpr const int k_max_height = k_max_width;
+    static const auto k_foilage_texture = make_builtin_leaf_texture(make_view_pair(k_foilage_web_pallete));
+    static const auto k_bundle_texture  = make_builtin_leaf_texture(make_view_pair(k_leaf_bundle_pallete));
 
-    static const auto k_pallete = {
-        sf::Color(20, 230, 20), sf::Color(10, 200, 10), sf::Color(20, 180, 20),
-        sf::Color(0, 150, 0, 0),
-        sf::Color(20, 230, 20), sf::Color(10, 200, 10), sf::Color(20, 180, 20),
-        sf::Color(0, 150, 0, 0),
-        sf::Color(20, 230, 20), sf::Color(10, 200, 10), sf::Color(20, 180, 20)
-    };
-
-    static const auto k_foilage_texture = [] {
-        std::default_random_engine rng { std::random_device()() };
-        static constexpr const int k_radius = 4;
-        Grid<sf::Color> rv;
-        rv.set_size(k_max_width, k_max_height);
-        static constexpr const int k_min_delta = k_radius*2 - 2;
-        static constexpr const int k_max_delta = k_radius*2 - 1;
-        static_assert(k_min_delta > 0, "");
-
-        auto delta_distri = std::uniform_int_distribution<int>(k_min_delta, k_max_delta);
-        int i = 0;
-        for (int y = k_max_height - k_radius; y > k_radius; y -= delta_distri(rng) / 2) {
-            for (int x = k_radius; x < k_max_width - k_radius; x += delta_distri(rng)) {
-                auto c = *(k_pallete.begin() + (++i) % 8); //choose_random(rng, k_pallete);
-                draw_disk(rv, VectorI(x, y), k_radius, c);
-            }
-        }
-        return rv;
+    static const bool k_init_me = [] {
+        to_image(k_foilage_texture).saveToFile("/media/ramdisk/foilage-texture.png");
+        to_image(k_bundle_texture).saveToFile("/media/ramdisk/bundle-texture.png");
+        return true;
     } ();
+
     std::default_random_engine rng { std::random_device()() };
     std::vector<VectorI> bundle_points;
     bundle_points.reserve(count);
@@ -479,27 +622,29 @@ Grid<sf::Color> generate_leaves(int width, int height, int radius, int count) {
     class_grid.set_size(width, height);
     classify_bundles(bundle_points, radius, class_grid, VectorI(width / 2, height / 2));
     auto hull_points = find_convex_hull(bundle_points);
-    for (const auto & v : hull_points)
+    for (const auto & v : hull_points) {
         class_grid(v).mark_as_hull();
+    }
     auto bezier_triples = make_triples(hull_points, class_grid, radius);
     auto adjusted_hull_center = find_hull_center_without_sunken(bezier_triples, hull_points);
     auto front_curves = make_front_curves(bezier_triples, adjusted_hull_center, VectorD(width / 2, height / 2));
     auto mask = make_foilage_web_mask(width, height, front_curves);
     Grid<sf::Color> samp;
-    samp.set_size(width, height, sf::Color(0, 0, 0, 0));
+    samp.set_size(width, height, k_transparent);
 
     for (VectorI r; r != samp.end_position(); r = samp.next(r)) {
         if (mask(r)) samp(r) = k_foilage_texture(r);
     }
-    for (const auto & v : bundle_points) {
-        if (class_grid(v).get_class() == tree_bundle_classes::k_body) continue;
-        draw_disk(samp, v, radius, choose_random(rng, k_pallete));
+    for (const auto & v : hull_points) {
+        //if (class_grid(v).get_class() == tree_bundle_classes::k_body) continue;
+        for_each_point_in_circle(v, radius, [&samp](VectorI r) {
+            samp(r) = k_bundle_texture(r);
+        });
     }
     for (const auto & v : bundle_points) {
         if (class_grid(v).get_class() != tree_bundle_classes::k_island) continue;
         plot_bresenham_line(v, VectorI(width /2, height /2), [&samp](VectorI r) { samp(r) = sf::Color(180, 140, 10); });
     }
-    //to_image(samp).saveToFile("/media/ramdisk/test-foilagemask.png");
     return samp;
 }
 
@@ -610,16 +755,70 @@ void for_ellip_distri(const Rect & bounds, int times_done, Urng & rng, Func && f
     }
 }
 
+Grid<sf::Color> make_wood_texture() {
+    //constexpr const int k_partitions = 5;
+
+    static const sf::Color k_base(0x40, 0x37, 0x0F);
+    static const sf::Color k_bump(0x61, 0x45, 0x11);
+
+    // I need furrow colors
+    std::default_random_engine rng { std::random_device()() };
+    Grid<sf::Color> rv;
+    rv.set_size(k_wood_texture_width, k_wood_texture_height, k_base);
+
+    VectorI line(5, 7);
+    for (int y = line.y; y + line.y < k_wood_texture_height; y += line.y) {
+    for (int x = 0; x < y; x += 3) {
+        VectorI r(x, y);
+        for (auto v : BresenhamView(r, r + line)) {
+            rv(v) = k_bump;
+        }
+    }}
+    to_image(rv).saveToFile("/media/ramdisk/trunk-texture.png");
+    return rv;
+}
+
+bool is_within_circle(VectorI center, int radius, VectorI r) {
+    auto diff = r - center;
+    return diff.x*diff.x + diff.y*diff.y <= radius*radius;
+}
+
+template <typename Func>
+void for_each_point_in_circle(VectorI center, int radius, Func && f) {
+    VectorI v = center - VectorI(radius, radius);
+    auto x_start = v.x;
+    auto x_end = v.x + radius*2;
+    auto y_end = v.y + radius*2;
+    while (v.y != y_end) {
+        if (is_within_circle(center, radius, v)) {
+            auto gv = adapt_to_flow_control_signal(f, v);
+            if (gv == fc_signal::k_break) return;
+        }
+        if (++v.x == x_end) {
+            v.x = x_start;
+            ++v.y;
+        }
+    }
+}
+
 void draw_disk(SubGrid<sf::Color> target, VectorI r, int radius, sf::Color color) {
+#   if 0
     const VectorI k_center(radius, radius);
+#   endif
+    for_each_point_in_circle(r, radius, [&target, color](VectorI r) {
+        auto c2 = color;
+        if (color.a != 255) c2.a = ((r.x + r.y / 4) % 2) ? 255 : color.a;
+        target(r) = c2;
+    });
+#   if 0
     auto subg = make_sub_grid(target, r - VectorI(1, 1)*radius, radius*2, radius*2);
     for (VectorI v; v != subg.end_position(); v = subg.next(v)) {
-        auto diff = v - k_center;
-        if (diff.x*diff.x + diff.y*diff.y >= radius*radius) continue;
+        if (!is_within_circle( k_center, radius, v )) continue;
         auto c2 = color;
         if (color.a != 255) c2.a = ((v.x + v.y / 4) % 2) ? 255 : color.a;
         subg(v) = c2;
     }
+#   endif
 }
 
 void classify_bundles
@@ -817,6 +1016,28 @@ Grid<bool> make_foilage_web_mask
         [&mold](VectorI r) { return !mold(r); },
         [&mask](VectorI r, bool) { mask(r) = true; });
     return mask;
+}
+
+Grid<sf::Color> make_builtin_leaf_texture(std::pair<const sf::Color *, const sf::Color *> view_pair) {
+    static constexpr const int k_max_width  = 512;
+    static constexpr const int k_max_height = k_max_width;
+    std::default_random_engine rng { std::random_device()() };
+    static constexpr const int k_radius = 4;
+    Grid<sf::Color> rv;
+    rv.set_size(k_max_width, k_max_height);
+    static constexpr const int k_min_delta = k_radius*2 - 2;
+    static constexpr const int k_max_delta = k_radius*2 - 1;
+    static_assert(k_min_delta > 0, "");
+
+    auto delta_distri = std::uniform_int_distribution<int>(k_min_delta, k_max_delta);
+    int i = 0;
+    for (int y = k_max_height - k_radius; y > k_radius; y -= delta_distri(rng) / 2) {
+        for (int x = k_radius; x < k_max_width - k_radius; x += delta_distri(rng)) {
+            auto c = *(view_pair.first + ((++i) % (view_pair.second - view_pair.first)));
+            draw_disk(rv, VectorI(x, y), k_radius, c);
+        }
+    }
+    return rv;
 }
 
 // ----------------------------------------------------------------------------

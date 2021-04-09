@@ -28,9 +28,9 @@
 #include <memory>
 
 struct ItemCollectionAnimation {
-    using TileSetPtr = tmap::MapObject::TileSetPtr;
+    using ConstTileSetPtr = tmap::MapObject::ConstTileSetPtr;
     std::vector<int> tile_ids;
-    TileSetPtr tileset = nullptr;
+    ConstTileSetPtr tileset = nullptr;
     double time_per_frame = 0.;
 };
 
@@ -113,8 +113,20 @@ struct TriggerBox {
 };
 
 struct TriggerBoxSubjectHistory {
+public:
+    friend class TriggerBoxSubjectHistoryAtt;
     static const VectorD k_no_location;
-    VectorD last_location = k_no_location;
+    VectorD last_location() const noexcept { return m_last_location; }
+
+private:
+    VectorD m_last_location = k_no_location;
+};
+
+class TriggerBoxSystem;
+class TriggerBoxSubjectHistoryAtt {
+    friend class TriggerBoxSystem;
+    static void set_location(TriggerBoxSubjectHistory & history, VectorD r)
+        { history.m_last_location = r; }
 };
 
 struct Snake {

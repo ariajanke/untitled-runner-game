@@ -34,10 +34,20 @@ public:
         int width = 0, height = 0;
     };
 
-    void plant
+    struct CreationParams {
+        RectSize leaves_size;
+        RectSize trunk_size;
+        double   trunk_lean;
+    };
+
+    [[deprecated]] void plant
         (VectorD location, Rng &/*, bool go_wide = true*/);
 
-    void plant(VectorD location, Rng &, const RectSize & leaves_size);
+    [[deprecated]] void plant(VectorD location, Rng &, const RectSize & leaves_size);
+
+    void plant(VectorD location, const CreationParams &);
+
+    static CreationParams generate_params(Rng &);
 
     void render_fronts(sf::RenderTarget &, sf::RenderStates) const;
     void render_backs(sf::RenderTarget &, sf::RenderStates) const;
@@ -46,7 +56,16 @@ public:
 
     Rect bounding_box() const noexcept;
 
-    static RectSize choose_random_size(std::default_random_engine &);
+    static RectSize choose_random_leaves_size(std::default_random_engine &);
+
+    static VectorD leaves_location_from_params(const CreationParams &, VectorD plant_location);
+#   if 0
+    unsigned seed_value() const noexcept { return m_seed_value; }
+#   endif
+    // entity logic needs *deeper* knowledge still an entity when rustling leaves
+
+    const Grid<bool> & front_leaves_bitmap() const
+        { return m_front_leaves_bitmap; }
 
 private:
     static constexpr const auto k_height_max   = 120.;
@@ -67,9 +86,16 @@ private:
     sf::Vector2f trunk_adjusted_location() const noexcept;
     sf::Vector2f back_leaves_offset() const noexcept;
 
+    // I need to find a better way of figuring out seeding...
+#   if 0
+    unsigned m_seed_value = 0;
+#   endif
+
     sf::Texture m_trunk;
     sf::Texture m_fore_leaves;
     sf::Texture m_back_leaves;
+
+    Grid<bool> m_front_leaves_bitmap;
 
     VectorD m_trunk_location;
     VectorD m_trunk_offset;
@@ -200,6 +226,8 @@ template <typename T, typename ... Types>
 sf::Vector2<T> compute_bezier_point
     (T t, const std::tuple<sf::Vector2<T>, Types...> &);
 
+// ----------------------------------------------------------------------------
+
 template <typename T>
 class BezierCurveDetails {
 
@@ -216,6 +244,7 @@ class BezierCurveDetails {
         (U t, const std::tuple<sf::Vector2<U>, Types...> &);
 
     using VecT = sf::Vector2<T>;
+
     template <typename ... Types>
     using Tuple = std::tuple<Types...>;
 
@@ -310,3 +339,18 @@ template <typename T, typename ... Types>
 sf::Vector2<T> compute_bezier_point
     (T t, const std::tuple<sf::Vector2<T>, Types...> & tuple)
 { return BezierCurveDetails<T>::compute_point_tuple(t, tuple); }
+
+// computes n points on a bezier curve according to a given tuple
+template <std::size_t k_count, typename T, typename ... Types>
+std::array<sf::Vector2<T>, k_count> make_bezier_array
+    (const std::tuple<sf::Vector2<T>, Types...> & tuple)
+{
+    static constexpr const T k_step = T(1) / T(k_count);
+    std::array<sf::Vector2<T>, k_count> arr;
+    T t = T(0);
+    for (auto & v : arr) {
+        v = compute_bezier_point(std::min(T(1), t), tuple);
+        t += k_step;
+    }
+    return arr;
+}

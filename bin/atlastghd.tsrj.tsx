@@ -618,6 +618,39 @@
    <property name="lines" value="0.71, 1:1,0"/>
   </properties>
  </tile>
+ <tile id="973">
+  <properties>
+   <property name="fall-max-id" value="1477"/>
+   <property name="fall-reset" value="1309"/>
+   <property name="fall-step" value="42"/>
+  </properties>
+ </tile>
+ <tile id="974">
+  <properties>
+   <property name="fall-max-id" value="1478"/>
+   <property name="fall-reset" value="1310"/>
+   <property name="fall-step" value="42"/>
+  </properties>
+ </tile>
+ <tile id="975">
+  <properties>
+   <property name="fall-max-id" value="1479"/>
+   <property name="fall-reset" value="1311"/>
+   <property name="fall-step" value="42"/>
+  </properties>
+ </tile>
+ <tile id="976">
+  <properties>
+   <property name="fall-max-id" value="1480"/>
+   <property name="fall-reset" value="1312"/>
+   <property name="fall-step" value="42"/>
+  </properties>
+ </tile>
+ <tile id="977">
+  <properties>
+   <property name="animation-falls" value="973,974,975,976"/>
+  </properties>
+ </tile>
  <tile id="987">
   <properties>
    <property name="lines" value="0, 0:0.452,0.613;0.452, 0.613:0.935,1"/>

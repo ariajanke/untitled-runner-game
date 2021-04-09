@@ -1,7 +1,7 @@
 QT      -= core gui
 CONFIG  -= c++11
 
-QMAKE_CXXFLAGS += -std=c++17 -pedantic -Wall
+QMAKE_CXXFLAGS += -std=c++17 -pedantic -Wall -DMACRO_DEBUG
 QMAKE_LFLAGS   += -std=c++17
 INCLUDEPATH    += ../lib/cul/inc \
                   ../lib/tmap/inc \
@@ -69,6 +69,7 @@ HEADERS += \
     ../src/GenBuiltinTileSet.hpp \
     ../src/FillIterate.hpp \
     ../src/TreeGraphics.hpp \
+    ../src/BresenhamView.hpp \
     \ # maps
     ../src/maps/Maps.hpp \
     ../src/maps/MapObjectLoader.hpp \

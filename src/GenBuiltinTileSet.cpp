@@ -27,6 +27,7 @@
 #include <thread>
 #include <iostream>
 
+#include <cstring>
 #include <cassert>
 
 namespace {
@@ -259,6 +260,39 @@ Grid<sf::Color> gen_waterfall(int w, int h, int pal_rotation_idx, int x_);
             subg(r) = waterfall(r);
         }
         start += VectorI(16, 0);
+    }
+
+    static constexpr const auto k_magic_tile_gfx = ""\
+        // 0123456789ABCDEF
+        """XXXXXXXXXXXXXXXX" // 0
+        """X              X" // 1
+        """X              X" // 2
+        """X W    W    W  X" // 3
+        """X W    W    W  X" // 4
+        """X W    W    W  X" // 5
+        """X W    W    W  X" // 6
+        """X  W   W   W   X" // 7
+        """X  W   W   W   X" // 8
+        """X   W W W W    X" // 9
+        """X   W W W W    X" // A
+        """X   W W W W    X" // B
+        """X    W   W     X" // C
+        """X              X" // D
+        """X              X" // E
+        """XXXXXXXXXXXXXXXX" // F
+            ;
+    auto magic_tile_subg = make_sub_grid(rv, start, 16, 16);
+    for (VectorI r; r != magic_tile_subg.end_position(); r = magic_tile_subg.next(r)) {
+        magic_tile_subg(r) = [r] {
+            auto idx = r.x + r.y*16;
+            assert(idx < int(strlen(k_magic_tile_gfx)));
+            switch (k_magic_tile_gfx[idx]) {
+            case ' ': return sf::Color(0, 0, 0);
+            case 'W': return sf::Color(180, 180, 255);
+            case 'X': return sf::Color(255, 100, 100);
+            default: throw std::runtime_error("");
+            }
+        } ();
     }
     }
 #   if 0

@@ -102,7 +102,10 @@ void GameDriver::setup(const StartupOptions & opts, const sf::View &) {
     m_graphics.load_decor(m_tmap);
 #   endif
     DriverMapObjectLoader dmol(m_player, m_emanager);
+#   if 0
     decor->load_map(m_tmap, dmol);
+#   endif
+    decor->prepare_with_map(m_tmap, dmol);
     dmol.load_map_objects(m_tmap.map_objects());
     m_graphics.take_decor<ForestDecor>(std::move(decor));
     setup_systems(CompleteSystemList());
@@ -176,7 +179,7 @@ void GameDriver::process_event(const sf::Event & event) {
         case Item::platform_breaker: return "platform breaker";
         case Item::run_booster     : return "run booster";
         case Item::crate           : return "crate";
-        default: return static_cast<const char *>(nullptr);
+        default: return "<unknown>";
         }}();
         if (msg) {
             std::cout << msg << std::endl;

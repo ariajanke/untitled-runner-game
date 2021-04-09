@@ -18,6 +18,7 @@
 *****************************************************************************/
 
 #include "ComponentsComplete.hpp"
+#include "../BresenhamView.hpp"
 
 #include "../maps/MapObjectLoader.hpp"
 
@@ -62,6 +63,8 @@ void Script::on_held(Entity, Entity) {}
 void Script::on_release(Entity, Entity) {}
 
 void Script::on_box_hit(Entity, Entity) {}
+
+void Script::on_box_occupancy(Entity, Entity, double) {}
 
 // ----------------------------------------------------------------------------
 
@@ -425,13 +428,41 @@ std::unique_ptr<LinkedOnBoxHit<Func>>
 /* static */ bool LeavesDecorScript::comp_entities(Entity rhs, Entity lhs) {
     return rhs.hash() < lhs.hash();
 }
-
-void LeavesDecorScript::on_box_hit(Entity, Entity other) {
-    if (other.has<DecoItem>()) return;
+#if 0
+void LeavesDecorScript::on_box_hit(Entity this_ent, Entity other) {
+    if (other.has<DecoItem>() || m_leaf_bitmap.is_empty()) return;
     auto itr = std::lower_bound(m_falling_leaves.begin(), m_falling_leaves.end(), other, comp_entities);
     bool is_leaf = itr == m_falling_leaves.end() ? false : *itr == other;
     if (is_leaf) return;
-    make_leaf_fall(other, other.get<PhysicsComponent>().location());
+    auto other_loc = other.get<PhysicsComponent>().location();
+    const auto & rect = this_ent.get<PhysicsComponent>().state_as<Rect>();
+
+    make_leaf_fall(other, other_loc);
+}
+#endif
+void LeavesDecorScript::on_box_occupancy(Entity this_ent, Entity other, double) {
+    if (other.has<DecoItem>() || m_leaf_bitmap.is_empty()) return;
+    if (!other.has<TriggerBoxSubjectHistory>()) return;
+
+    const auto & rect = this_ent.get<PhysicsComponent>().state_as<Rect>();
+    auto [beg, end] = [this_ent, other, &rect] {
+
+        auto dis_pair_d = get_displacement_within(other.get<TriggerBoxSubjectHistory>().last_location(), other.get<PhysicsComponent>().location(), rect);
+        dis_pair_d.first  -= VectorD(rect.left, rect.top);
+        dis_pair_d.second -= VectorD(rect.left, rect.top);
+        return std::make_pair(round_to<int>(dis_pair_d.first ), round_to<int>(dis_pair_d.second));
+    } ();
+
+    beg.x = std::max(beg.x, 0);
+    beg.y = std::max(beg.y, 0);
+    for (auto r : BresenhamView(beg, end)) {
+        if (!m_leaf_bitmap.has_position(r)) break;
+        if (!m_leaf_bitmap(r)) continue;
+        if (++m_px_counter == k_shake_px_max) {
+            m_px_counter = 0;
+            make_leaf_fall(other, VectorD(r) + VectorD(rect.left, rect.top));
+        }
+    }
 }
 
 void LeavesDecorScript::make_leaf_fall(Entity other, VectorD r) {
@@ -443,12 +474,33 @@ void LeavesDecorScript::make_leaf_fall(Entity other, VectorD r) {
     auto & cc = leaf_ent.add<DisplayFrame>().reset<ColorCircle>();
     cc.color = sf::Color::Green;
     cc.radius = 4;
+#   if 0
     auto itr = std::upper_bound(m_falling_leaves.begin(), m_falling_leaves.end(), leaf_ent, comp_entities);
     m_falling_leaves.insert(itr, leaf_ent);
+#   endif
     leaf_ent.add<DecoItem>();
+    std::cout << "made leaf" << std::endl;
     check_invarients();
 }
 
 void LeavesDecorScript::check_invarients() const {
     assert(std::is_sorted(m_falling_leaves.begin(), m_falling_leaves.end(), comp_entities));
+}
+
+/* private static */ std::pair<VectorD, VectorD> LeavesDecorScript::get_displacement_within
+    (VectorD old, VectorD new_, const Rect & rect)
+{
+    if (!rect.contains(old) && !rect.contains(new_)) {
+        throw std::invalid_argument("get_displacement_within: neither vector is contain in the rectangle.");
+    }
+    auto inx = find_intersection(rect, old, new_);
+    if (inx == k_no_intersection) {
+        return std::make_pair(old, new_);
+    }
+    if (rect.contains(old)) {
+        return std::make_pair(old, inx);
+    } else if (rect.contains(new_)) {
+        return std::make_pair(inx, new_);
+    }
+    throw BadBranchException();
 }

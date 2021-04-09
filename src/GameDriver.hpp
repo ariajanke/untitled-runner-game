@@ -44,10 +44,8 @@ using CompleteSystemList = TypeList<
     PlayerControlSystem,
     AnimatorSystem,
     DrawSystem,
-#   if 0
-    ItemCollisionSystem,
-#   endif
     TriggerBoxSystem,
+    TriggerBoxOccupancySystem,
     GravityUpdateSystem,
     ExtremePositionsControlSystem,
     PlatformDrawer,

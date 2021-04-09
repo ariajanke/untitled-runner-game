@@ -75,6 +75,10 @@ class GravityUpdateSystem final : public System, public TimeAware {
 };
 
 class TriggerBoxSystem final : public System, public GraphicsAware {
+public:
+    static bool is_subject(const Entity & e);
+
+private:
     template <typename ... Types>
     using Tuple = std::tuple<Types...>;
 
@@ -108,6 +112,7 @@ class TriggerBoxSystem final : public System, public GraphicsAware {
             if (old == TriggerBoxSubjectHistory::k_no_location) return false;
             return !rect.contains(old) && line_crosses_rectangle(rect, old, new_);
         }
+        // cleared every frame
         std::vector<Entity> m_trespassees;
         GraphicsBase * m_graphics = nullptr;
     };
@@ -135,13 +140,60 @@ class TriggerBoxSystem final : public System, public GraphicsAware {
         void adjust_collision(const Entity &, VectorD &, Rect &) const override {}
     };
 
-    static bool is_subject(const Entity & e);
-
     SubjectContainer m_subjects;
     ItemChecker m_item_checker;
     LauncherChecker m_launchers;
     CheckPointChecker m_checkpoints;
     ScriptChecker m_scripts;
+};
+
+class TriggerBoxOccupancySystem final : public System, public TimeAware {
+    void update(const ContainerView & view) override {
+        m_subjects.clear();
+        m_targets .clear();
+        for (auto & e : view) {
+            std::vector<Entity> * vec = nullptr;
+            if (TriggerBoxSystem::is_subject(e)) {
+                vec = &m_subjects;
+            } else if (e.has<TriggerBox>() && e.has<PhysicsComponent>() && get_script(e)) {
+                if (e.get<PhysicsComponent>().state_is_type<Rect>())
+                    vec = &m_targets;
+            }
+            if (!vec) continue;
+            vec->push_back(e);
+        }
+
+        for (auto subject : m_subjects) {
+        for (auto target  : m_targets ) {
+            if (subject == target) continue;
+            do_check(target, subject, elapsed_time());
+        }}
+    }
+
+    static void do_check(Entity target, Entity subject, double et) {
+        auto & target_script = *get_script(target);
+        auto target_rect = target.get<PhysicsComponent>().state_as<Rect>();
+
+        if (target_rect.contains(subject.get<PhysicsComponent>().location())) {
+            target_script.on_box_occupancy(target, subject, et);
+            return;
+        }
+
+        static const auto k_no_location = TriggerBoxSubjectHistory::k_no_location;
+        auto last_loc = get_last_location(subject);
+        if (last_loc == k_no_location) return;
+        if (target_rect.contains(last_loc)) {
+            target_script.on_box_occupancy(target, subject, et);
+        }
+    }
+
+    static VectorD get_last_location(const Entity & e) {
+        using History = TriggerBoxSubjectHistory;
+        return e.has<History>() ? e.get<History>().last_location() : History::k_no_location;
+    }
+
+    std::vector<Entity> m_subjects;
+    std::vector<Entity> m_targets ;
 };
 
 class WaypointPositionSystem final : public System, public TimeAware {
