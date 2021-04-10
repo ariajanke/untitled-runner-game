@@ -37,6 +37,8 @@ namespace {
 
 using RealDistri = std::uniform_real_distribution<double>;
 using IntDistri  = std::uniform_int_distribution<int>;
+using Tag        = Spine::Tag;
+using Anchor     = Spine::Anchor;
 
 template <typename Func>
 void for_each_pixel(const Spine &, Func &&);
@@ -351,6 +353,106 @@ Rect PlantTree::bounding_box() const noexcept {
 
 /* private */ sf::Vector2f PlantTree::back_leaves_offset() const noexcept {
     return sf::Vector2f(15, 15);
+}
+
+std::tuple<VectorD, VectorD> Tag::left_points() const {
+    return points(-m_width*0.5);
+}
+
+std::tuple<VectorD, VectorD> Tag::right_points() const {
+    return points(m_width*0.5);
+}
+
+Tag & Tag::set_location(VectorD r) {
+    assert(is_real(r.x) && is_real(r.y));
+    m_location = r;
+    return *this;
+}
+
+Tag & Tag::set_direction(VectorD r) {
+    assert(is_real(r.x) && is_real(r.y));
+    assert(!are_very_close(r, VectorD()));
+    assert(are_very_close(magnitude(r), 1.));
+    m_direction = to_direction(r);
+    return *this;
+}
+
+Tag & Tag::set_width_angle(double x) {
+    assert(is_real(x));
+    assert(x >= 0.);
+    m_width = x;
+    return *this;
+}
+
+VectorD Tag::location() const {
+    return m_location;
+}
+
+VectorD Tag::direction() const {
+    return to_unit_circle_vector(m_direction);
+}
+
+/* private */ std::tuple<VectorD, VectorD> Tag::points(double from_center) const {
+    return std::make_tuple(
+        m_location + 20.*to_unit_circle_vector(m_direction - from_center),
+        m_location);
+}
+
+Anchor & Anchor::set_location(VectorD r) {
+    assert(is_real(r.x) && is_real(r.y));
+    m_location = r;
+    return *this;
+}
+
+Anchor & Anchor::set_berth(double) {
+    return *this;
+}
+
+Anchor & Anchor::set_width(double w) {
+    assert(is_real(w));
+    m_width = w;
+    return *this;
+}
+
+Anchor & Anchor::set_pinch(double x) {
+    assert(is_real(x));
+    assert(x >= 0. && x <= 1.);
+    m_pinch = x;
+    return *this;
+}
+
+Anchor & Anchor::set_length(double l) {
+    assert(is_real(l));
+    m_length = l;
+    return *this;
+}
+
+Anchor & Anchor::set_direction(VectorD r) {
+    assert(is_real(r.x) && is_real(r.y));
+    assert(!are_very_close(r, VectorD()));
+    assert(are_very_close(magnitude(r), 1.));
+    m_direction = to_direction(r);
+    return *this;
+}
+
+void Anchor::sway_toward(const Tag &) {
+
+}
+
+VectorD Anchor::location() const {
+    return m_location;
+}
+
+VectorD Anchor::direction() const {
+    return to_unit_circle_vector(m_direction);
+}
+
+/* private */ std::tuple<VectorD, VectorD> Anchor::get_points(double offset) const {
+    auto offsetv = to_unit_circle_vector(m_direction - k_pi*0.5)*offset;
+    auto to_b = rotate_vector(to_unit_circle_vector(m_direction)*m_length,
+                              normalize(offset)*k_pi*(1. / 6.));
+    return std::make_tuple(m_location + offsetv,
+                           m_location + offsetv*m_pinch + to_b);
 }
 
 namespace {

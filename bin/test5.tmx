@@ -19,7 +19,7 @@
   </data>
  </layer>
  <objectgroup name="Object Layer 1">
-  <object id="1" type="player-start" x="4196.81" y="823.576" width="31.795" height="44.6721">
+  <object id="1" type="player-start" x="5277.03" y="456.042" width="31.795" height="44.6721">
    <properties>
     <property name="sprite-sheet" value="mc"/>
    </properties>

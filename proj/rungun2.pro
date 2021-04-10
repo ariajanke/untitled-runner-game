@@ -25,6 +25,8 @@ SOURCES += \
     ../src/GraphicsDrawer.cpp \
     ../src/GenBuiltinTileSet.cpp \
     ../src/TreeGraphics.cpp \
+    ../src/ForestDecor.cpp \
+    ../src/Flower.cpp \
     \ # maps
     ../src/maps/Maps.cpp \
     ../src/maps/MapObjectLoader.cpp \
@@ -70,6 +72,8 @@ HEADERS += \
     ../src/FillIterate.hpp \
     ../src/TreeGraphics.hpp \
     ../src/BresenhamView.hpp \
+    ../src/ForestDecor.hpp \
+    ../src/Flower.hpp \
     \ # maps
     ../src/maps/Maps.hpp \
     ../src/maps/MapObjectLoader.hpp \

@@ -18,6 +18,7 @@
 *****************************************************************************/
 
 #include "GameDriver.hpp"
+#include "ForestDecor.hpp"
 
 #include <SFML/Graphics/RenderTarget.hpp>
 

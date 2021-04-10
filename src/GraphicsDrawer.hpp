@@ -22,10 +22,6 @@
 #include "Defs.hpp"
 #include "systems/SystemsDefs.hpp"
 
-#include "TreeGraphics.hpp"
-
-#include <set>
-
 #include <common/DrawRectangle.hpp>
 
 #include <SFML/Graphics/Vertex.hpp>
@@ -112,68 +108,6 @@ private:
 
 // ----------------------------------------------------------------------------
 
-class Flower final : public sf::Drawable {
-public:
-    void setup(std::default_random_engine &);
-
-    void update(double et);
-
-    void set_location(double x, double y) { m_location = VectorD(x, y); }
-    void set_location(VectorD r) { m_location = r; }
-
-    VectorD location() const { return m_location; }
-
-    double width() const { return m_petals.width(); }
-
-    double height() const {
-        // should be good enough
-        return m_petals.height()*0.5 + m_stem.height();
-    }
-
-private:
-    using UInt8Distri = std::uniform_int_distribution<uint8_t>;
-    static constexpr const uint8_t k_max_u8 = std::numeric_limits<uint8_t>::max();
-
-    // Just a really long time, I really want finite values
-    static constexpr const double k_initial_time = 3600.;
-    void draw(sf::RenderTarget &, sf::RenderStates) const override;
-
-    double petal_thershold() const noexcept;
-
-    double resettle_thershold() const noexcept;
-
-    double pistil_pop_time() const noexcept;
-
-    void pop_pistil(double amount);
-
-    void pop_petal(double amount);
-
-    static void verify_0_1_interval(const char * caller, double amt);
-
-    static sf::Color random_petal_color(std::default_random_engine &);
-
-    static sf::Color random_pistil_color(std::default_random_engine &);
-
-    static sf::Color random_stem_color(std::default_random_engine &);
-
-    DrawRectangle m_petals;
-    DrawRectangle m_pistil;
-    DrawRectangle m_stem  ;
-
-    // animation works like this:
-    // settled -> pistil pop -> petal pop -> settled
-
-    double m_popped_position = 0.;
-
-    double m_time               = 0.;
-    double m_to_pistil_pop      = k_initial_time;
-    double m_time_at_pistil_pop = k_initial_time;
-    double m_to_petal_pop       = k_initial_time;
-    double m_time_at_petal_pop  = k_initial_time;
-
-    VectorD m_location;
-};
-
 class BackgroundDrawer {
 public:
     void setup();
@@ -215,9 +149,7 @@ public:
     virtual void render_front(sf::RenderTarget &) const = 0;
 
     virtual void render_back(sf::RenderTarget &) const = 0;
-#   if 0
-    virtual void load_map(const tmap::TiledMap & tmap, MapObjectLoader &) = 0;
-#   endif
+
     void prepare_with_map(tmap::TiledMap & map, MapObjectLoader & objloader) {
         auto gv = prepare_map_objects(map, objloader);
         prepare_map(map, std::move(gv));
@@ -229,77 +161,6 @@ protected:
     virtual void prepare_map(tmap::TiledMap &, std::unique_ptr<TempRes>) {}
 
     MapDecorDrawer() {}
-};
-#if 0
-struct WaterFallSequences {
-
-    std::vector<std::vector<sf::IntRect>> sequences;
-};
-#endif
-struct WaterFallLine {
-    //std::shared_ptr<WaterFallSequences> frames;
-    std::vector<sf::IntRect> frames;
-    int x_offset;
-};
-
-class ForestDecor final : public MapDecorDrawer {
-public:
-    struct TreeParameters : public PlantTree::CreationParams {
-        TreeParameters() {}
-        TreeParameters(VectorD location_, std::default_random_engine & rng_):
-            CreationParams(PlantTree::generate_params(rng_)),
-            location(location_)
-        {}
-        VectorD location;
-    };
-
-    struct FutureTree {
-        virtual bool is_ready() const = 0;
-        virtual bool is_done() const = 0;
-        virtual PlantTree get_tree() = 0;
-    };
-
-    struct FutureTreeMaker {
-        using TreeParameters = ::ForestDecor::TreeParameters;
-        virtual ~FutureTreeMaker() {}
-
-        virtual std::unique_ptr<FutureTree> make_tree(const TreeParameters &) = 0;
-    };
-
-    struct Updatable {
-        virtual ~Updatable() {}
-        virtual void update(double) = 0;
-    };
-
-    ~ForestDecor() override;
-#   if 0
-    void load_map(const tmap::TiledMap & tmap, MapObjectLoader &) override;
-#   endif
-    void render_front(sf::RenderTarget &) const override;
-
-    void render_back(sf::RenderTarget &) const override;
-
-    void update(double et) override;
-
-private:
-    std::unique_ptr<TempRes> prepare_map_objects(const tmap::TiledMap & tmap, MapObjectLoader &) override;
-
-    void prepare_map(tmap::TiledMap &, std::unique_ptr<TempRes>) override;
-
-    void load_map_vegetation(const tmap::TiledMap &, MapObjectLoader &);
-    std::unique_ptr<TempRes> load_map_waterfalls(const tmap::TiledMap &);
-
-    void plant_new_flower(std::default_random_engine &, VectorD, MapObjectLoader &);
-
-    void plant_new_future_tree(std::default_random_engine &, VectorD, MapObjectLoader &);
-
-    std::vector<Flower> m_flowers;
-    std::vector<PlantTree> m_trees;
-    std::vector<std::pair<std::unique_ptr<FutureTree>, Entity>> m_future_trees;
-
-    std::set<std::shared_ptr<Updatable>> m_updatables;
-
-    std::unique_ptr<FutureTreeMaker> m_tree_maker;
 };
 
 // ----------------------------------------------------------------------------
