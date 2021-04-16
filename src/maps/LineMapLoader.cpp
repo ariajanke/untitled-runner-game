@@ -21,6 +21,8 @@
 #include "../GridRange.hpp"
 
 #include <tmap/TiledMap.hpp>
+#include <tmap/TileLayer.hpp>
+#include <tmap/TileSet.hpp>
 
 #include <cassert>
 
@@ -30,7 +32,7 @@ using RtError           = std::runtime_error;
 using InvArg            = std::invalid_argument;
 using SegmentsPtr       = LineMapLoader::SegmentsPtr;
 using LineViewMap       = LineMapLoader::LineViewMap;
-using TilePropertyMap   = tmap::TilePropertiesInterface::PropertyMap;
+using TilePropertyMap   = tmap::TileLayer::PropertyMap;
 using TileInfo          = LineMapLoader::TileInfo;
 using SegmentMap        = LineMapLoader::SegmentMap;
 using SurfaceDetailsPtr = LineMapLoader::SurfaceDetailsPtr;
@@ -59,6 +61,9 @@ TileInfo load_tile_info(const TilePropertyMap &);
 template <typename Type>
 GridRange<Type> compute_range_for_tiles
     (Grid<Type> &, VectorD a, VectorD b, double tile_width, double tile_height);
+
+// seeks in O(n) time, maybe better in the future if needed...
+const tmap::TileLayer * find_tile_layer(const tmap::TiledMap &, const char * name);
 
 } // end of <anonymous> namespace
 
@@ -139,9 +144,41 @@ void LineMapLoader::load_transitions_into(TransitionGrid & grid) {
 /* static */ LineMapLoader::TileSize LineMapLoader::load_tile_size
     (const tmap::TiledMap & map)
 {
+    // just use global tile size, as TilEd maps have them c:
+
+    TileSize rv;
+    rv.width  = double(map.tile_width ());
+    rv.height = double(map.tile_height());
+    return rv;
+#   if 0
+    // gonna have to do something *really* dirty
+    // I'm gonna look for the first tile set I can find in the map
+    // and I'm going to use that...
+    // yuck!
+
+    for (const auto * layer : map) {
+        const auto * tile_layer = dynamic_cast<const tmap::TileLayer *>(layer);
+        if (!tile_layer) continue;
+        for (int y = 0; y != tile_layer->height(); ++y) {
+        for (int x = 0; x != tile_layer->width (); ++x) {
+            auto tsptr = tile_layer->tileset_of(x, y);
+            if (!tsptr) continue;
+            TileSize rv;
+            rv.width  = double(tsptr->tile_width());
+            rv.height = double(tsptr->tile_height());
+            return rv;
+        }}
+    }
+    throw RtError("LineMapLoader::load_map: cannot find a tileset in the "
+                  "entire map, cannot figure out tile size.");
+#   endif
+#   if 0
     TileSize tsize;
     for (auto layername : k_layer_list) {
-        auto * layer = map.find_tile_layer(layername);
+        auto * layer = find_tile_layer(map, layername);
+#       if 0
+                map.find_tile_layer(layername);
+#       endif
         if (!layer) {
             if (layername == std::string(k_ground)) {
                 throw RtError("LineMapLoader::load_map: missing required "
@@ -164,6 +201,8 @@ void LineMapLoader::load_transitions_into(TransitionGrid & grid) {
         }
     }
     return tsize;
+#   endif
+
 }
 
 /* static */ LineMapLoader::SegmentsInfo LineMapLoader::load_tileset_map
@@ -172,13 +211,16 @@ void LineMapLoader::load_transitions_into(TransitionGrid & grid) {
     std::unordered_map<int, TileInfo> segment_map;
     int total_segments_count = 0;
     for (auto layername : k_layer_list) {
-        auto * layer = map.find_tile_layer(layername);
+        auto * layer = find_tile_layer(map, layername);
+#       if 0
+                map.find_tile_layer(layername);
+#       endif
         // we've established that there is definitely a ground layer
         if (!layer) { continue; }
         // better: be able to iterate tilesets themselves for this information
         for (int y = 0; y != layer->height(); ++y) {
         for (int x = 0; x != layer->width (); ++x) {
-            auto * properties = (*layer)(x, y);
+            auto * properties = layer->properties_of(x, y);
             if (!properties) continue;
             auto itr = segment_map.find(layer->tile_gid(x, y));
             if (itr != segment_map.end()) continue;
@@ -278,7 +320,10 @@ Grid<int> get_layer_gids
     (const tmap::TiledMap & map, const SegmentMap & surfacemap,
      const char * layer_name)
 {
-    auto layer = map.find_tile_layer(layer_name);
+    auto layer = find_tile_layer(map, layer_name);
+#   if 0
+            map.find_tile_layer(layer_name);
+#   endif
     if (!layer) {
         throw RtError("Could not find required layer \"" + std::string(layer_name) + "\"");
     }
@@ -290,7 +335,10 @@ Grid<int> get_layer_gids(const tmap::TiledMap & map, int width, int height,
 {
     Grid<int> rv;
     rv.set_size(width, height, k_empty_tile_gid);
+#   if 0
     auto layer = map.find_tile_layer(layer_name);
+#   endif
+    auto layer = find_tile_layer(map, layer_name);
     if (!layer) return rv;
     for (VectorI r; r != rv.end_position(); r = rv.next(r)) {
         auto gid = layer->tile_gid(r.x, r.y);
@@ -394,6 +442,16 @@ GridRange<Type> compute_range_for_tiles
     maxvi = limit_vector_to(grid, maxvi) + VectorI(1, 1);
 
     return GridRange<Type>(grid, minvi.x, minvi.y, maxvi.x, maxvi.y);
+}
+
+const tmap::TileLayer * find_tile_layer
+    (const tmap::TiledMap & map, const char * name)
+{
+    auto itr = std::find_if(map.begin(), map.end(), [name](const tmap::MapLayer * layer) {
+        return layer->name() == name;
+    });
+    if (itr == map.end()) return nullptr;
+    return dynamic_cast<const tmap::TileLayer *>(*itr);
 }
 
 // ----------------------------------------------------------------------------

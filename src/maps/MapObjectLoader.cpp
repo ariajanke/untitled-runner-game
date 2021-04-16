@@ -21,6 +21,7 @@
 #include "Maps.hpp"
 
 #include <tmap/TiledMap.hpp>
+#include <tmap/TileSet.hpp>
 
 #include <common/StringUtil.hpp>
 
@@ -141,10 +142,10 @@ void CachedItemAnimations::load_animation
 }
 
 std::shared_ptr<const ItemCollectionInfo> CachedItemAnimations::load(const tmap::MapObject & obj) {
-    auto & ptr = m_map[obj.tile_set->convert_to_gid(obj.local_tile_id)];
+    auto & ptr = m_map[obj.global_tile_id];
     if (!ptr.expired()) return ptr.lock();
 
-    const auto * props = obj.tile_set->properties_on(obj.local_tile_id);
+    const auto * props = obj.tile_set->properties_of(obj.local_tile_id);
     if (!props) return nullptr;
     auto do_if_found = make_do_if_found(*props);
     ItemCollectionInfo ica;

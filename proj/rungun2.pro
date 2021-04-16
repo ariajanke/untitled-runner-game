@@ -11,7 +11,7 @@ LIBS           += "-L$$PWD/../lib/cul" \
                   "-L$$PWD/../lib/tmap" \
                   "-L$$PWD/../lib/ecs"
 LIBS           += -lsfml-graphics -lsfml-window -lsfml-system \
-                  -ltmap \
+                  -ltmap -lstdc++fs \
                   -lz -ltinyxml2 -lcommon -lpthread
 
 DEFINES += MACRO_COMPILER_GCC

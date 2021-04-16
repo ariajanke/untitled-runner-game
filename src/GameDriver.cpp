@@ -20,6 +20,8 @@
 #include "GameDriver.hpp"
 #include "ForestDecor.hpp"
 
+#include <tmap/MapLayer.hpp>
+
 #include <SFML/Graphics/RenderTarget.hpp>
 
 #include <iostream>
@@ -106,6 +108,7 @@ void GameDriver::setup(const StartupOptions & opts, const sf::View &) {
 #   if 0
     decor->load_map(m_tmap, dmol);
 #   endif
+    decor->set_view_size(k_view_width, k_view_height);
     decor->prepare_with_map(m_tmap, dmol);
     dmol.load_map_objects(m_tmap.map_objects());
     m_graphics.take_decor<ForestDecor>(std::move(decor));
@@ -128,14 +131,18 @@ void GameDriver::update(double et) {
 
 void GameDriver::render_to(sf::RenderTarget & target) {
     m_graphics.set_view(target.getView());
-    //m_graphics.render_back(target);
-    //m_graphics.render_to(target);
+
     auto itr = m_tmap.begin();
-    auto ground_itr = m_tmap.find_layer("ground");
-    for (; itr != ground_itr; ++itr) target.draw(**itr);
+    m_graphics.render_backdrop(target);
+
+    //auto ground_itr = m_tmap.find_layer("ground");
+    for (; itr != m_tmap.end(); ++itr) {
+        if ((**itr).name() == "ground") break;
+        target.draw(**itr);
+    }
 
     target.draw(**itr++);
-    m_graphics.render_back(target);
+    m_graphics.render_background(target);
 
     for (; itr != m_tmap.end(); ++itr) target.draw(**itr);
     m_graphics.render_front(target);

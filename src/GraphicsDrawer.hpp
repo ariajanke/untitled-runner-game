@@ -80,6 +80,8 @@ private:
     std::vector<sf::Vertex> m_vertices;
 };
 
+View<const sf::Vertex *> get_unit_circle_verticies_for_radius(double radius);
+
 // ----------------------------------------------------------------------------
 
 class FlagRaiser {
@@ -148,12 +150,16 @@ public:
 
     virtual void render_front(sf::RenderTarget &) const = 0;
 
-    virtual void render_back(sf::RenderTarget &) const = 0;
+    virtual void render_background(sf::RenderTarget &) const = 0;
+
+    virtual void render_backdrop(sf::RenderTarget &) const = 0;
 
     void prepare_with_map(tmap::TiledMap & map, MapObjectLoader & objloader) {
         auto gv = prepare_map_objects(map, objloader);
         prepare_map(map, std::move(gv));
     }
+
+    virtual void set_view_size(int width, int height) = 0;
 
 protected:
     virtual std::unique_ptr<TempRes> prepare_map_objects(const tmap::TiledMap & tmap, MapObjectLoader &) = 0;
@@ -167,10 +173,11 @@ protected:
 
 class GraphicsDrawer final : public GraphicsBase {
 public:
-
     void render_front(sf::RenderTarget & target);
 
-    void render_back(sf::RenderTarget & target);
+    void render_background(sf::RenderTarget & target);
+
+    void render_backdrop(sf::RenderTarget &);
 
     void update(double et) {
         m_item_anis.update(et);
@@ -184,6 +191,7 @@ public:
     void take_decor(std::enable_if_t<std::is_base_of_v<MapDecorDrawer, T>, std::unique_ptr<T>> && uptr) {
         m_map_decor = std::move(uptr);
     }
+
 private:
     void draw_line(VectorD a, VectorD b, sf::Color color, double thickness) override {
         if (!m_view_rect.contains(a) && !m_view_rect.contains(b)) return;

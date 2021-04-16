@@ -37,6 +37,12 @@ static const constexpr int k_view_width  = 426;
 static const constexpr int k_view_height = 240;
 static const constexpr bool k_map_object_loader_rng_is_deterministic = false;
 
+namespace tmap {
+
+class TileLayer;
+
+}
+
 using CompleteSystemList = TypeList<
     EnvironmentCollisionSystem,
     LifetimeSystem,
@@ -109,7 +115,7 @@ public:
         m_name_obj_map.clear();
     }
 
-    void load_tile_objects(const tmap::TilePropertiesInterface &);
+    void load_tile_objects(const tmap::TileLayer &);
 
 private:
     std::map<std::string, const tmap::MapObject *> m_name_obj_map;
