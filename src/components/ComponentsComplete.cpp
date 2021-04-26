@@ -284,9 +284,6 @@ void BalloonScript::set_launch_velocity(VectorD r) {
 }
 #endif
 
-inline bool is_comma(char c) { return c == ','; }
-inline bool is_colon(char c) { return c == ':'; }
-
 template <typename Func>
 struct LinkedOnBoxHit final : public Script {
     LinkedOnBoxHit(Func && f_): f(f_) {}

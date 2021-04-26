@@ -86,10 +86,24 @@ void HudTimePiece::update_velocity(VectorD r) {
     m_velocity.set_text_top_left(VectorD(0, 16), std::move(t));
 }
 
+void HudTimePiece::set_debug_line(int line, const std::string & s) {
+    if ((line + 1) > int(m_debug_lines.size())) {
+        auto old_size = m_debug_lines.size();
+        m_debug_lines.resize(line + 1);
+        for (auto idx = old_size; idx != m_debug_lines.size(); ++idx) {
+            m_debug_lines[idx].load_internal_font(m_gems_count);
+        }
+    }
+    m_debug_lines[std::size_t(line)].set_text_top_left(VectorD(0, 8*(line + 3)), s);
+}
+
 void HudTimePiece::draw(sf::RenderTarget & target, sf::RenderStates states) const {
     target.draw(m_timer_text, states);
-    target.draw(m_velocity, states);
+    target.draw(m_velocity  , states);
     target.draw(m_gems_count, states);
+    for (const auto & line : m_debug_lines) {
+        target.draw(line, states);
+    }
 }
 
 // ----------------------------------------------------------------------------
@@ -127,6 +141,8 @@ void GameDriver::update(double et) {
 
     m_timer.update_velocity(m_player.get<PhysicsComponent>().velocity());
     m_timer.update_gems_count(m_player.get<Collector>().diamond);
+
+    m_timer.set_debug_line(0, std::string("Layer: ") + to_string(m_player.get<PhysicsComponent>().active_layer));
 }
 
 void GameDriver::render_to(sf::RenderTarget & target) {

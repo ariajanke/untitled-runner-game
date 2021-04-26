@@ -49,6 +49,7 @@ void cut_diamond(SubGrid<sf::Color>, bool as_hole);
 Grid<sf::Color> push_down(ConstSubGrid<sf::Color>, int x_line, int y_amount);
 
 void add_grass(SubGrid<sf::Color>, std::default_random_engine &);
+void add_grass(SubGrid<sf::Color> dest, ConstSubGrid<sf::Color> source, std::default_random_engine &);
 
 Grid<sf::Color> gen_flats(std::default_random_engine &);
 
@@ -598,6 +599,16 @@ Grid<sf::Color> push_down(ConstSubGrid<sf::Color> grid, int x_line, int y_amount
 }
 
 void add_grass(SubGrid<sf::Color> grid, std::default_random_engine & rng) {
+    add_grass(grid, grid, rng);
+}
+
+void add_grass
+    (SubGrid<sf::Color> dest, ConstSubGrid<sf::Color> source,
+     std::default_random_engine & rng)
+{
+    // dest and source, maybe the same! (and that's ok!)
+    // but they must be the same size
+    assert(dest.width() == source.width() && dest.height() == source.height());
     using IntDistri = std::uniform_int_distribution<int>;
     static const auto k_greens = {
         mk_color(0x008000),
@@ -605,11 +616,11 @@ void add_grass(SubGrid<sf::Color> grid, std::default_random_engine & rng) {
         mk_color(0x00C000),
         mk_color(0x20D820),
     };
-    for (VectorI r; r != grid.end_position(); r = grid.next(r)) {
+    for (VectorI r; r != dest.end_position(); r = dest.next(r)) {
         VectorI upper = r + VectorI(0, -1);
-        if (!grid.has_position(upper)) continue;
-        if (grid(upper) == sf::Color(0, 0, 0, 0) &&
-            grid(upper) != grid(r))
+        if (!dest.has_position(upper)) continue;
+        if (source(upper) == sf::Color(0, 0, 0, 0) &&
+            source(upper) != source(r))
         {
             // at least three green, two below, one  above
             // at most  six   green, ''       , four above
@@ -622,8 +633,8 @@ void add_grass(SubGrid<sf::Color> grid, std::default_random_engine & rng) {
             // starts at the shadow
             int yd = (over_amount > 3 ? -4 : -3) + grass_start;
             for (; yd != over_amount; ++yd) {
-                if (!grid.has_position(r - VectorI(0, yd))) continue;
-                auto & c = grid(r - VectorI(0, yd));
+                if (!dest.has_position(r - VectorI(0, yd))) continue;
+                auto & c = dest(r - VectorI(0, yd));
                 if (yd < grass_start) {
                     darken_color(c, 2);
                 } else if (yd <= 0) {
@@ -791,9 +802,12 @@ Grid<sf::Color> gen_waterfall
     };
     Grid<sf::Color> image;
     image.set_size(w, h);
-    for (VectorI r; r != image.end_position(); r = image.next(r)) {
+    for (VectorI r; r != image.end_position(); r = image.next(r)) {        
         image(r) = get(k_palette, (preimage(r) + pal_rotation_idx) % k_max_colors);
-        //image(r).a = 100;
+        // "eye razor" problem: I'll need to sync the lines with the frame
+        // changes, and translations
+        int intv = pal_rotation_idx % 2;
+        if (r.x % 2 == intv) image(r).a = 100;
     }
     return image;
 }

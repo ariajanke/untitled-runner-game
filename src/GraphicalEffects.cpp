@@ -62,6 +62,17 @@ inline decltype (k_inner_pix) classify_char(char id, sf::Vector2i r) {
 } // end of <anonymous> namespace
 
 void TextDrawer::load_internal_font() {
+    load_internal_font(nullptr);
+}
+
+void TextDrawer::load_internal_font(const TextDrawer & sharing_font) {
+    load_internal_font(&sharing_font);
+}
+
+/* private */ void TextDrawer::load_internal_font(const TextDrawer * sharing_font_ptr) {
+    if (!m_font && sharing_font_ptr) {
+        m_font = sharing_font_ptr->m_font;
+    }
     if (m_font) return;
     m_font = std::make_shared<FontInfo>();
     static constexpr const char * const k_printables =
@@ -146,7 +157,8 @@ void TextDrawer::set_text_top_left(VectorD r, std::string && text) {
     if (!m_font) {
         load_internal_font();
     }
-    m_string = std::move(text);
+    if (&m_string != &text)
+        m_string = std::move(text);
     m_start_brush.setTexture(m_font->char_pool);
     m_start_brush.setPosition(sf::Vector2f(r));
 }

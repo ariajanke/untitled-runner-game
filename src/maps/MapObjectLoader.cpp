@@ -78,8 +78,6 @@ const auto k_reserved_objects = {
 template <typename T>
 LineSegment to_floor_segment(const sf::Rect<T> &);
 
-inline bool is_comma(char c) { return c == ','; }
-
 }  // end of <anonymous> namespace
 
 void ScaleLoader::register_scale_left_part (const std::string & name, Entity e) {

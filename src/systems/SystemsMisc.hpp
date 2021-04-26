@@ -41,6 +41,8 @@ class PlayerControlSystem final : public System, public TimeAware {
     static void handle_tracker_jumping(PhysicsComponent &, const LineTracker &, PlayerControl &);
 };
 
+//class LifetimeSystem final : public DefineTupleSystemFor<Lifetime>::Singles
+
 class LifetimeSystem final : public System, public TimeAware {
     void update(const ContainerView & view) {
         for (auto & e : view) {

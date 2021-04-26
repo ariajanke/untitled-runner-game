@@ -42,6 +42,9 @@ using Entity = ecs::Entity<
 
 using EntityManager = Entity::ManagerType;
 
+//template <typename ... Types>
+//using DefineTupleSinglesSystemFor = DefineTupleSystemFor<
+
 // ------------ Helpers that need Entity to be a complete type ----------------
 
 void land_tracker(LineTracker &, Entity, const SurfaceRef &, VectorD);

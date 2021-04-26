@@ -49,6 +49,7 @@ extern const VectorD k_gravity        ;
 
 struct StartupOptions {
     std::string test_map = "test-map.tmx";
+    bool quit_before_game = false;
 };
 
 template <typename IterType>
@@ -107,6 +108,7 @@ struct Surface final : public LineSegment, public SurfaceDetails {
 class LineMap;
 class LineMapLayer;
 enum class Layer : uint8_t { foreground, background, neither };
+const char * to_string(Layer);
 
 /// like it's member function varient EXCEPT it handles infinities
 /// @param r both components must be real numbers
@@ -201,6 +203,10 @@ bool are_same_size(const Grid<Type1> & lhs, const Grid<Type2> & rhs)
 inline bool is_whitespace(char c)
     { return c == ' ' || c == '\t' || c == '\n' || c == '\r'; }
 
+inline bool is_comma    (char c) { return c == ','; }
+inline bool is_colon    (char c) { return c == ':'; }
+inline bool is_semicolon(char c) { return c == ';'; }
+
 class BadBranchException final : public std::exception {
 public:
     const char * what() const noexcept override {
@@ -209,6 +215,9 @@ public:
                "exception was thrown shows a design error.";
     }
 };
+
+template <typename ... Types>
+using Tuple = std::tuple<Types...>;
 
 template <typename T>
 std::tuple<T &, T &> as_tuple(sf::Vector2<T> & r) { return std::tie(r.x, r.y); }

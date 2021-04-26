@@ -84,15 +84,50 @@ private:
     uint8_t m_dir = 0;
     BaseType m_mag = 0;
 };
+#if 0
+template <typename ... CompleteComponents>
+struct DefineTupleSystemFor {
+    using ContainerView = typename ecs::System<CompleteComponents ...>::ContainerView;
+    using EntityType    = typename ecs::Entity<CompleteComponents ...>;
+    template <typename ... Types>
+    using Tuple = std::tuple<Types...>;
 
+    template <typename ... Types>
+    static auto make_component_tuple(EntityType &) {
+        return std::make_tuple(/* empty tuple */);
+    }
+
+    template <typename T, typename ... Types>
+    static auto make_component_tuple(EntityType & e) {
+        return std::tuple_cat( std::make_tuple(e.template get<T>()),
+                               make_component_tuple<Types...>(e));
+    }
+
+    template <typename T, typename ... Types>
+    class Singles : public ecs::System<CompleteComponents...> {
+    public:
+        using TupleType = std::tuple<Types...>;
+
+        virtual void update(TupleType &) = 0;
+
+        void update(const ContainerView & view) final {
+            for (auto & e : view) {
+                update( make_component_tuple<T, Types...>(e) );
+            }
+        }
+    };
+
+};
+#endif
 struct TriggerBox {
     struct Checkpoint {};
+    struct HarmfulObject {};
     struct Launcher {
         MiniVector launch_velocity = MiniVector(VectorD(0, -467));
         bool detaches = true;
     };
 
-    using StateType = MultiType<Checkpoint, Launcher, ItemCollectionSharedPtr>;
+    using StateType = MultiType<HarmfulObject, Checkpoint, Launcher, ItemCollectionSharedPtr>;
 
     template <typename T>
     T * ptr() { return state.as_pointer<T>(); }

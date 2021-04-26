@@ -40,6 +40,7 @@
 #include <thread>
 #include <tuple>
 
+#include <cstring>
 #include <cassert>
 
 // bouncey items
@@ -155,8 +156,325 @@ sf::Vector2f compute_view_for_window
     return view_size;
 }
 
+class ImageBackdrop final : public sf::Drawable {
+public:
+    struct RectSize {
+        RectSize() {}
+        RectSize(double w, double h): width(w), height(h) {}
+        double width = 0., height = 0.;
+    };
+    enum AnchorPosition { k_top, k_left, k_right, k_bottom, k_uninit };
+
+    void load_from_file(const std::string &);
+
+    void point_in(VectorD);
+
+    VectorD adopt_window_position_to_outer_rectangle
+        (VectorD, int window_width, int window_height) const;
+
+    static void do_test_window_for(const ImageBackdrop &, int window_width, int window_height);
+
+private:
+    using Error  = std::runtime_error;
+    using InvArg = std::invalid_argument;
+
+    static bool is_newline(char c) { return c == '\n'; }
+
+    void load_from_string(const char * beg, const char * end);
+
+    static std::tuple<Rect, RectSize> parse_rectangles
+        (const char * beg, const char * end);
+
+    static RectSize parse_rectangle_size(const char * beg, const char * end);
+
+    static Rect to_rect(const RectSize &);
+
+    static VectorD verify_real(VectorD, const char * caller);
+
+    static VectorD restrain_to(VectorD, const RectSize &);
+
+    static void verify_rectangles(const Rect & inner, const RectSize & outer, const char * caller);
+
+    static AnchorPosition parse_anchor_position(const char * beg, const char * end);
+
+    void draw(sf::RenderTarget &, sf::RenderStates) const override;
+
+    Rect m_inner;
+    RectSize m_outer;
+    sf::Texture m_texture;
+    AnchorPosition m_anchor = k_uninit;
+    // add scrolling later...
+};
+
+using RectSize = ImageBackdrop::RectSize;
+using AnchorPosition = ImageBackdrop::AnchorPosition;
+
+void ImageBackdrop::load_from_file(const std::string & filename) {
+    auto contents = SpriteSheet::load_string_from_file(filename.c_str());
+    const auto * beg = contents.data();
+    const auto * end = beg + contents.size();
+    load_from_string(beg, end);
+}
+
+void ImageBackdrop::point_in(VectorD r) {
+    verify_real(r, "point_in");
+    r = restrain_to(r, m_outer);
+    r.x = m_outer.width - r.x;
+    r.y = m_outer.width - r.y;
+    m_inner.left = r.x - m_inner.width  / 2.;
+    m_inner.top  = r.y - m_inner.height / 2.;
+    auto right_extreme  = m_outer.width  - m_inner.width ;
+    auto bottom_extreme = m_outer.height - m_inner.height;
+    m_inner.left = std::max( std::min(m_inner.left, right_extreme ), 0. );
+    m_inner.top  = std::max( std::min(m_inner.top , bottom_extreme), 0. );
+    //std::cout << m_inner.left << " " << m_inner.top << std::endl;
+}
+
+VectorD ImageBackdrop::adopt_window_position_to_outer_rectangle
+    (VectorD r, int window_width, int window_height) const
+{
+    verify_real(r, "adopt_window_position_to_outer_rectangle");
+    r = restrain_to(r, RectSize(double(window_width), double(window_height)));
+    return VectorD(
+        (r.x / double(window_width )) * m_outer.width ,
+        (r.y / double(window_height)) * m_outer.height);
+}
+
+
+class WinEventIter {
+public:
+    enum { k_end };
+    explicit WinEventIter(sf::Window & win): m_win(&win) { poll(); }
+    explicit WinEventIter(decltype(k_end) ) { m_event.type = sf::Event::Count; }
+
+    // prefix
+    WinEventIter & operator ++ () {
+        assert(!is_end());
+        poll();
+        return *this;
+    }
+
+    const sf::Event & operator * () {
+        assert(!is_end());
+        return m_event;
+    }
+
+    bool operator == (const WinEventIter & rhs) const { return is_same_as(rhs); }
+
+    bool operator != (const WinEventIter & rhs) const { return !is_same_as(rhs); }
+
+private:
+    void poll() {
+        // assumption skipped here, for constructor's sake
+        if (!m_win->pollEvent(m_event)) {
+            m_event.type = WinEventIter(k_end).m_event.type;
+        }
+    }
+
+    bool is_same_as(const WinEventIter & rhs) const
+        { return m_event.type == rhs.m_event.type; }
+
+    bool is_end() const { return m_event.type == WinEventIter(k_end).m_event.type; }
+
+    sf::Window * m_win = nullptr;
+    sf::Event m_event;
+};
+
+class WinEventView {
+public:
+    explicit WinEventView(sf::Window & win): m_win(win) {}
+
+    WinEventIter begin() const { return WinEventIter(m_win); }
+
+    WinEventIter end  () const { return WinEventIter(WinEventIter::k_end); }
+
+private:
+    sf::Window & m_win;
+};
+
+/* static */ void ImageBackdrop::do_test_window_for
+    (const ImageBackdrop & backdrop, int window_width, int window_height)
+{
+    auto backdrop_cpy = backdrop;
+    sf::RenderWindow win(sf::VideoMode(window_width, window_height), "Backdrop Test Window");
+    win.setFramerateLimit(60u);
+    while (win.isOpen()) {
+        for (sf::Event event : WinEventView(win)) {
+            switch (event.type) {
+            case sf::Event::Closed: win.close(); break;
+            case sf::Event::KeyReleased:
+                if (event.key.code == sf::Keyboard::Escape) {
+                    win.close();
+                }
+                break;
+            case sf::Event::MouseMoved:
+                backdrop_cpy.point_in(
+                    backdrop_cpy.adopt_window_position_to_outer_rectangle(
+                        VectorD(event.mouseMove.x, event.mouseMove.y),
+                        window_width, window_height
+                    ));
+                break;
+            default: break;
+            }
+        }
+        win.clear();
+        win.draw(backdrop_cpy);
+        win.display();
+    }
+}
+
+/* private */ void ImageBackdrop::load_from_string(const char * beg, const char * end) {
+    enum { texture_file, bounds, anchor };
+    auto phase = texture_file;
+    for_split<is_newline>(beg, end, [this, &phase](const char * beg, const char * end) {
+        using namespace fc_signal;
+        switch (phase) {
+        case texture_file:
+            if (!m_texture.loadFromFile(std::string(beg, end))) {
+                throw Error("Cannot load image \"" + std::string(beg, end) + "\".");
+            }
+            phase = bounds;
+            return k_continue;
+        case bounds:
+            std::tie(m_inner, m_outer) = ImageBackdrop::parse_rectangles(beg, end);
+            verify_rectangles(m_inner, m_outer, "load_from_string");
+            phase = anchor;
+            return k_continue;
+        case anchor:
+            m_anchor = ImageBackdrop::parse_anchor_position(beg, end);
+            return k_break;
+        }
+        throw BadBranchException();
+    });
+}
+
+template
+    <typename T, std::size_t k_quantity_required,
+     auto splitter_func, typename Func>
+std::array<T, k_quantity_required> parse_array
+    (const char * not_exactly_n_msg, const char * beg, const char * end,
+     Func && parse_item)
+{
+    using Error = std::runtime_error;
+    std::array<T, k_quantity_required> rv;
+    auto itr     = rv.begin();
+    auto end_itr = rv.end  ();
+    for_split<splitter_func>(beg, end,
+        [&itr, end_itr, not_exactly_n_msg, &parse_item](const char * beg, const char * end)
+    {
+        if (itr == end_itr) throw Error(not_exactly_n_msg);
+        *itr++ = parse_item(beg, end);
+    });
+    if (itr != end_itr) throw Error(not_exactly_n_msg);
+    return std::move(rv);
+}
+
+/* private static */ std::tuple<Rect, RectSize> ImageBackdrop::parse_rectangles
+    (const char * beg, const char * end)
+{
+    static constexpr const auto k_exactly_two_msg =
+        "Exactly two rectangluar bounds are expected.";
+    auto target = parse_array<RectSize, 2, is_semicolon>
+                  (k_exactly_two_msg, beg, end, ImageBackdrop::parse_rectangle_size);
+    return std::make_tuple( to_rect(target[0]), target[1] );
+}
+
+/* private static */ RectSize ImageBackdrop::parse_rectangle_size
+    (const char * beg, const char * end)
+{
+    static constexpr const auto k_exactly_two_msg =
+        "Exactly two rectangluar bounds are expected.";
+    static auto conv_to_num = [](const char * beg, const char * end) {
+        double x = 0.;
+        trim<is_whitespace>(beg, end);
+        if (!string_to_number(beg, end, x)) {
+            throw Error("Cannot convert \"" + std::string(beg, end) + "\" to number.");
+        }
+        if (x < 1. || !is_real(x)) {
+            throw Error("Dimension must be a real number at least one pixel.");
+        }
+        return x;
+    };
+    auto target = parse_array<double, 2, is_comma>
+        (k_exactly_two_msg, beg, end, conv_to_num);
+    return RectSize(target[0], target[1]);
+}
+
+/* private static */ Rect ImageBackdrop::to_rect(const RectSize & rect_size) {
+    Rect rv;
+    rv.width  = rect_size.width;
+    rv.height = rect_size.height;
+    return rv;
+}
+
+/* private static */ VectorD ImageBackdrop::verify_real
+    (VectorD r, const char * caller)
+{
+    if (is_real(r.x) && is_real(r.y)) return r;
+    throw InvArg("ImageBackdrop::" + std::string(caller) + ": expects real vector.");
+}
+
+/* private static */ VectorD ImageBackdrop::restrain_to
+    (VectorD r, const RectSize & rect_size)
+{
+    assert(is_real(r.x) && is_real(r.y));
+    return VectorD(
+        std::max( std::min(r.x, double(rect_size.width )), 0. ),
+        std::max( std::min(r.y, double(rect_size.height)), 0. ));
+}
+
+/* private static */ void ImageBackdrop::verify_rectangles
+    (const Rect & inner, const RectSize & outer, const char * caller)
+{
+    if (   is_real(inner.width) && is_real(inner.height)
+        && is_real(outer.width) && is_real(outer.height)
+        && inner.left == 0. && inner.top == 0.
+        && inner.height <= outer.height && inner.width <= outer.width)
+    { return; }
+
+    throw InvArg("ImageBackdrop::" + std::string(caller)
+                 + ": inner must be contained by the outer rectangle and start "
+                   "at the origin.");
+}
+
+/* private static */ AnchorPosition ImageBackdrop::parse_anchor_position
+    (const char * beg, const char * end)
+{
+    trim<is_whitespace>(beg, end);
+    auto is_eq = [beg, end](const char * s) { return std::equal(beg, end, s); };
+    if (is_eq("bottom")) return k_bottom;
+    if (is_eq("top"   )) return k_top   ;
+    if (is_eq("right" )) return k_right ;
+    if (is_eq("left"  )) return k_left  ;
+    throw InvArg("ImageBackdrop::parse_anchor_position: cannot parse anchor, \""
+                 + std::string(beg, end) + "\" is not a valid anchor string.");
+}
+
+/* private */ void ImageBackdrop::draw
+    (sf::RenderTarget & target, sf::RenderStates states) const
+{
+    DrawRectangle drect;
+    drect.set_size(float(m_inner.width), float(m_inner.height));
+    drect.set_color(sf::Color::Red);
+    target.draw(drect, states);
+
+    sf::Sprite spt;
+    spt.setTexture(m_texture);
+    auto textsize = VectorD(m_texture.getSize());
+    auto beg_x = std::fmod(m_inner.left, textsize.x);
+    if (beg_x > k_error) beg_x -= textsize.x;
+    bool anchor_to_end = m_anchor == k_bottom || m_anchor == k_right;
+    float y = anchor_to_end ? float(textsize.y - m_inner.top) : 0.f;
+    for (; beg_x < m_inner.left + m_inner.width; beg_x += textsize.x) {
+        spt.setPosition( sf::Vector2f(beg_x, y) );
+        target.draw(spt, states);
+    }
+}
+
 void load_test_map(StartupOptions &, char ** beg, char ** end);
 void save_builtin_tileset(StartupOptions &, char ** beg, char ** end);
+
+void test_backdrop(StartupOptions &, char ** beg, char ** end);
 
 int main(int argc, char ** argv) {
     std::cout << "Component table size " << Entity::k_component_table_size
@@ -175,8 +493,11 @@ int main(int argc, char ** argv) {
 
     StartupOptions opts = parse_options<StartupOptions>(argc, argv, {
         { "test-map"            , 'm', load_test_map        },
-        { "save-builtin-tileset", 's', save_builtin_tileset }
+        { "save-builtin-tileset", 's', save_builtin_tileset },
+        { "test-backdrop"       ,  0 , test_backdrop        }
     });
+
+    if (opts.quit_before_game) return 0;
 
     {
     PlayerControl pc;
@@ -241,8 +562,9 @@ int main(int argc, char ** argv) {
         }
         win.clear(sf::Color(100, 100, 255));
         if (do_this_frame) {
-            gdriver.update(double(clock.restart().asSeconds()));// 1. / 60.);
+            gdriver.update(double(clock.getElapsedTime().asSeconds()));
         }
+        clock.restart();
         if (do_this_frame && frame_advance_enabled) {
             do_this_frame = false;
         }
@@ -297,6 +619,44 @@ void save_builtin_tileset(StartupOptions &, char ** beg, char ** end) {
         throw std::runtime_error("must specify filename to save to");
     }
     to_image(generate_atlas()).saveToFile(*beg);
+}
+
+static bool is_x(char c) { return c == 'x'; }
+
+void test_backdrop(StartupOptions & opts, char ** beg, char ** end) {
+    if (beg == end) {
+        std::cerr << "No file specified for backdrop test... skipping" << std::endl;
+        return;
+    }
+    ImageBackdrop backdrop;
+    backdrop.load_from_file(*beg);
+    int win_width  = 480;
+    int win_height = 320;
+    if (end - beg > 1) {
+        try {
+            auto abeg = *(beg + 1);
+            auto aend = abeg + ::strlen(abeg);
+            static auto parse_pos_int = [](const char * beg, const char * end) {
+                int x = 0;
+                if (!string_to_number(beg, end, x)) {
+                    throw std::invalid_argument("window dims must be numeric");
+                }
+                if (x < 0) throw std::invalid_argument("window dims must be positive");
+                return x;
+            };
+            auto vals = parse_array<int, 2, is_x>
+                ("window resolution must be exactly two arguments",
+                 abeg, aend, parse_pos_int);
+            win_width  = vals[0];
+            win_height = vals[1];
+        } catch (std::exception & exp) {
+            std::cerr << exp.what() << std::endl;
+            return;
+        }
+    }
+
+    ImageBackdrop::do_test_window_for(backdrop, win_width, win_height);
+    opts.quit_before_game = true;
 }
 
 template <typename T, typename Urng>

@@ -29,6 +29,7 @@
 class TextDrawer final : public sf::Drawable {
 public:
     void load_internal_font();
+    void load_internal_font(const TextDrawer & sharing_font);
     void set_text_center  (VectorD, const std::string &);
     void set_text_top_left(VectorD, const std::string &);
     void set_text_center  (VectorD, std::string &&);
@@ -40,6 +41,8 @@ private:
     static constexpr const int k_font_dim = 8;
     static constexpr const int k_padding  = 1;
     void draw(sf::RenderTarget & target, sf::RenderStates states) const override;
+
+    void load_internal_font(const TextDrawer * sharing_font_ptr);
 
     struct FontInfo {
         sf::Texture char_pool;

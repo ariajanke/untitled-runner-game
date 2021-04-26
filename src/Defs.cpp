@@ -31,6 +31,15 @@ inline double cross_magnitude(VectorD a, VectorD b)
 
 } // end of <anonymous> namespace
 
+const char * to_string(Layer layer) {
+    switch (layer) {
+    case Layer::background: return "background";
+    case Layer::foreground: return "foreground";
+    case Layer::neither   : return "neither"   ;
+    }
+    throw BadBranchException();
+}
+
 LineSegment move_segment(const LineSegment & segment, VectorD offset) {
     auto rv = segment;
     rv.a += offset;

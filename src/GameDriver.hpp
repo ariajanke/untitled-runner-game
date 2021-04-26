@@ -152,6 +152,8 @@ public:
     void update(double et);
     void update_velocity(VectorD);
 
+    void set_debug_line(int, const std::string &);
+
 private:
     void draw(sf::RenderTarget &, sf::RenderStates) const override;
 
@@ -168,6 +170,8 @@ private:
     TextDrawer m_gems_count;
     TextDrawer m_timer_text;
     TextDrawer m_velocity;
+
+    std::vector<TextDrawer> m_debug_lines;
 
     FpsCounter m_fps_counter;
 };

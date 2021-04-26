@@ -259,10 +259,6 @@ void LineMapLoader::load_transitions_into(TransitionGrid & grid) {
 
 namespace {
 
-inline bool is_semicolon(char c) { return c == ';'; }
-inline bool is_colon    (char c) { return c == ':'; }
-inline bool is_comma    (char c) { return c == ','; }
-
 template <typename Type>
 VectorI limit_vector_to(const Grid<Type> &, VectorI);
 

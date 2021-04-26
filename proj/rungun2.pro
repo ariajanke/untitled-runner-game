@@ -40,6 +40,7 @@ SOURCES += \
     ../src/components/ComponentsComplete.cpp \
     ../src/components/DisplayFrame.cpp \
     ../src/components/PhysicsComponent.cpp \
+    ../src/components/PltfTargets.cpp \
     \ # systems
     ../src/systems/SystemsDefs.cpp \
     ../src/systems/SystemsMisc.cpp \
@@ -88,6 +89,7 @@ HEADERS += \
     ../src/components/ComponentsMisc.hpp \
     ../src/components/Defs.hpp \
     ../src/components/PhysicsComponent.hpp \
+    ../src/components/PltfTargets.hpp \
     \ # systems
     ../src/systems/FreeBodyPhysics.hpp \
     ../src/systems/SystemsComplete.hpp \

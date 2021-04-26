@@ -171,13 +171,20 @@ void SolarCycler::set_time_of_day(double seconds) {
     m_atmosphere.sync_to(m_sun);
 }
 
-void SolarCycler::set_view_size(int width, int height) {
-    m_sun.set_center(VectorD(double(width / 2), double(height / 2)));
+void SolarCycler::set_view_size(int width, int height, double horizon_line) {
+    assert(horizon_line >= 0. && horizon_line <= 1.);
+    m_sun.set_center(VectorD(double(width / 2), double(height)*horizon_line));
     m_sun.set_offset(std::max(50., double(std::min(width, height)) - Sun::k_max_radius*2.));
-    m_atmosphere.set_size(width, height);
+    m_atmosphere.set_size(width, height, horizon_line);
 }
 
 void SolarCycler::populate_sky(Rng &, int) {}
+
+void SolarCycler::mark_celestial_bodies(CelestialBodyAware & cbaware) const {
+    cbaware.mark_celestial_body(
+        m_sun.apparent_location(), m_sun.apparent_radius(),
+        m_sun.apparent_brightness(), m_sun.apparent_color() );
+}
 
 /* static */ sf::Color SolarCycler::mix_colors
     (double t, const ColorTuple3 & t_color, const ColorTuple3 & ti_color)
@@ -283,10 +290,23 @@ std::tuple<SolarCycler::TodEnum, double> SolarCycler::Sun::get_tod() const {
     return std::make_tuple(*itr, prog);
 }
 
+/* private */ VectorD SolarCycler::Sun::apparent_location() const {
+    return -m_offset*get_unit_vector(m_position);
+}
+
+/* private */ double SolarCycler::Sun::apparent_radius() const {
+    return k_horizon_radius*get_update_scale();
+}
+
+/* private */ sf::Color SolarCycler::Sun::apparent_color() const {
+    assert(!m_vertices.empty());
+    return m_vertices.back().color;
+}
+
 /* private */ void SolarCycler::Sun::draw(sf::RenderTarget & target, sf::RenderStates states) const {
     assert(!m_vertices.empty());
     // I may scale and translate here
-    states.transform.translate(sf::Vector2f( -m_offset*get_unit_vector(m_position) ));
+    states.transform.translate(sf::Vector2f( apparent_location() ));
     states.transform.scale(sf::Vector2f(1.f, 1.f)*float(get_update_scale()));
     auto old_view = target.getView();
     auto new_view = old_view;
@@ -357,9 +377,10 @@ std::tuple<SolarCycler::TodEnum, double> SolarCycler::Sun::get_tod() const {
 
 }
 
-void SolarCycler::Atmosphere::set_size(int width, int height) {
+void SolarCycler::Atmosphere::set_size(int width, int height, double horizon_line) {
+    assert(horizon_line >= 0. && horizon_line <= 1.);
     m_view_center = sf::Vector2f(float(width / 2), float(height / 2));
-    height = height*2 / 3;
+    height *= horizon_line;
     assert(height > k_troposphere_height);
     // context
     float top_pos    = 0.f;
@@ -381,8 +402,9 @@ void SolarCycler::Atmosphere::set_size(int width, int height) {
     // top
     stra[k_top_left    ].position = VecF(left_pos , top_pos    );
     stra[k_top_right   ].position = VecF(right_pos, top_pos    );
-
+#   if 0
     m_postext.load_internal_font();
+#   endif
 }
 
 void SolarCycler::Atmosphere::sync_to(const Sun & sun) {
@@ -453,28 +475,38 @@ SolarCycler::Atmosphere::ColorArray SolarCycler::Atmosphere::
     const ColorTuples * source = nullptr;
     const ColorTuples * dest   = nullptr;
 
+#   if 0
     auto str = m_postext.take_string();
     str.clear();
+#   endif
     switch (std::get<0>(sun.get_tod())) {
     case Tod::k_midnight_to_sunrise:
         source = &k_midnight_colors;
         dest   = &k_sunrise_colors ;
+#       if 0
         str    = "m->r ";
+#       endif
         break;
     case Tod::k_noon_to_sunset     :
         source = &k_noon_colors    ;
         dest   = &k_sunset_colors  ;
+#       if 0
         str    = "n->s ";
+#       endif
         break;
     case Tod::k_sunrise_to_noon    :
         source = &k_sunrise_colors ;
         dest   = &k_noon_colors    ;
+#       if 0
         str    = "r->n ";
+#       endif
         break;
     case Tod::k_sunset_to_midnight :
         source = &k_sunset_colors  ;
         dest   = &k_midnight_colors;
+#       if 0
         str    = "s->m ";
+#       endif
         break;
     }
 
@@ -489,9 +521,9 @@ SolarCycler::Atmosphere::ColorArray SolarCycler::Atmosphere::
         phase = SolarCycler::interpolate_sky_position( phase );
         break;
     }
-
+#   if 0
     m_postext.set_text_center(VectorD(100, 100), str + std::to_string(phase));
-
+#   endif
     return {
         SolarCycler::mix_colors(phase, (*dest)[k_top   ], (*source)[k_top   ]),
         SolarCycler::mix_colors(phase, (*dest)[k_middle], (*source)[k_middle]),
@@ -502,14 +534,30 @@ SolarCycler::Atmosphere::ColorArray SolarCycler::Atmosphere::
 void SolarCycler::Atmosphere::draw
     (sf::RenderTarget & target, sf::RenderStates states) const
 {
-    auto old_view = target.getView();
-    auto new_view = old_view;
-    new_view.setCenter(m_view_center);
-    target.setView(new_view);
     target.draw(m_troposphere .data(), m_troposphere .size(), sf::PrimitiveType::Quads, states);
     target.draw(m_stratosphere.data(), m_stratosphere.size(), sf::PrimitiveType::Quads, states);
+#   if 0
     target.draw(m_postext, states);
-    target.setView(old_view);
+#   endif
+}
+
+void OceanBackdrop::set_window_size(int width, int height, double horizon_line) {
+    m_basewater = DrawRectangle(
+        float(  0.f), float(double(height)*horizon_line),
+        float(width), float((double(height) - 1.) * horizon_line),
+        sf::Color(40, 40, 250));
+}
+
+void OceanBackdrop::mark_celestial_body
+    (VectorD location, double radius, double brightness, sf::Color color)
+{
+
+}
+
+/* private */ void OceanBackdrop::draw
+    (sf::RenderTarget & target, sf::RenderStates states) const
+{
+    target.draw(m_basewater, states);
 }
 
 // ----------------------------------------------------------------------------
@@ -556,7 +604,15 @@ void ForestDecor::render_background(sf::RenderTarget & target) const {
 }
 
 void ForestDecor::render_backdrop(sf::RenderTarget & target) const {
+    auto old_view = target.getView();
+    auto new_view = old_view;
+    new_view.setCenter( new_view.getSize()*0.5f );
+    target.setView(new_view);
+
     target.draw(m_solar_cycler);
+    target.draw(m_ocean);
+
+    target.setView(old_view);
 }
 
 void ForestDecor::update(double et) {
@@ -589,9 +645,11 @@ void ForestDecor::update(double et) {
 
 void ForestDecor::set_view_size(int width, int height) {
     m_solar_cycler.set_day_length(SolarCycler::k_sample_day_length);
-    m_solar_cycler.set_view_size(width, height);
+    m_solar_cycler.set_view_size(width, height, 0.67);
     std::default_random_engine rng;
     m_solar_cycler.populate_sky(rng);
+
+    m_ocean.set_window_size(width, height, 0.67);
 }
 
 /* private */ std::unique_ptr<ForestDecor::TempRes> ForestDecor::prepare_map_objects
@@ -872,13 +930,37 @@ void WfFramesInfo::WfEffect::setup_frames(const std::vector<int> & local_ids, Co
     }
 }
 
+template <typename T, typename U>
+std::enable_if_t<std::is_integral_v<T> && std::is_floating_point_v<U>, T>
+    round_odd(U x)
+{
+    auto f = T(std::floor(x));
+    return (f % 2) ? f : T(std::ceil(x));
+}
+
+template <typename T, typename U>
+std::enable_if_t<std::is_integral_v<T> && std::is_floating_point_v<U>, T>
+    round_even(U x)
+{
+    auto f = T(std::floor(x));
+    return (f % 2) ? T(std::ceil(x)) : f;
+}
+
 /* private */ void WfFramesInfo::WfEffect::operator () (sf::Sprite & spt, DrawOnlyTarget & target, sf::RenderStates states) {
     assert(m_time_ptr);
     assert( *m_time_ptr >= 0. && *m_time_ptr <= 1. );
     auto idx = std::size_t( std::floor(double( m_frames.size() )*(*m_time_ptr)) );
     const auto & frame = m_frames[idx];
     // expected values are in [0 width]
+#   if 0
     int x_offset = std::round(double(frame.width)*(*m_time_ptr));
+#   endif
+    auto round_f = idx % 2 ? round_odd<int, double> : round_even<int, double>;
+    int x_offset = round_f(double(frame.width)*(*m_time_ptr));
+    // from idx comes the rounding function
+    // two rounding functions
+    // even round
+    // odd round
     if (x_offset == 0 || x_offset == frame.width) {
         spt.setTextureRect(frame);
         target.draw(spt, states);
@@ -898,8 +980,6 @@ void WfFramesInfo::WfEffect::setup_frames(const std::vector<int> & local_ids, Co
 }
 
 } // end of <anonymous> namespace
-
-inline static bool is_comma(char c) { return c == ','; }
 
 static GroundsClassMap load_grounds_map
     (const tmap::TileLayer & layer, const LineMapLoader::SegmentMap & segments_map)

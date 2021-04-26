@@ -18,6 +18,7 @@
 *****************************************************************************/
 
 #include "DisplayFrame.hpp"
+#include "Defs.hpp"
 
 #include <SFML/Graphics/Sprite.hpp>
 
@@ -39,6 +40,7 @@ sf::IntRect read_rect(const char * beg, const char * end);
 } // end of <anonymous> namespace
 
 void SpriteSheet::load_from_file(const char * filename) {
+#   if 0
     std::ifstream fin;
     fin.exceptions(std::ifstream::failbit | std::ifstream::badbit);
     fin.open(filename);
@@ -48,6 +50,8 @@ void SpriteSheet::load_from_file(const char * filename) {
     std::stringstream sstrm;
     sstrm << fin.rdbuf();
     std::string filecontents = sstrm.str();
+#   endif
+    std::string filecontents = load_string_from_file(filename);
     bool is_first_line = true;
     const char * fbeg = &filecontents.front();
     const char * fend = fbeg + filecontents.size();
@@ -118,17 +122,33 @@ const sf::IntRect & SpriteSheet::frame
 std::size_t SpriteSheet::total_frame_count() const noexcept
     { return m_frames.size(); }
 
+/* static */ sf::IntRect SpriteSheet::parse_rect
+    (const char * beg, const char * end)
+{ return read_rect(beg, end); }
+
+/* static */ std::string SpriteSheet::load_string_from_file(const char * filename) {
+    std::ifstream fin;
+    fin.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+    fin.open(filename);
+    if (fin.bad() || fin.fail()) {
+        throw std::runtime_error("failed to file");
+    }
+    std::stringstream sstrm;
+    sstrm << fin.rdbuf();
+    return sstrm.str();
+}
+
 namespace {
-
+#if 0
 inline bool is_ss_param(char c) { return c == ','; }
-
+#endif
 sf::IntRect read_rect(const char * beg, const char * end) {
     sf::IntRect rect;
     auto list = { &rect.left, &rect.top, &rect.width, &rect.height };
     auto itr = list.begin();
     auto endf = list.end();
     static const char * const k_must_be_exactly_4 = "There must be exactly four arguments for rectangle.";
-    for_split<is_ss_param>(beg, end, [&itr, endf](const char * beg, const char * end) {
+    for_split<is_comma>(beg, end, [&itr, endf](const char * beg, const char * end) {
         if (itr == endf) {
             throw std::runtime_error(k_must_be_exactly_4);
         }

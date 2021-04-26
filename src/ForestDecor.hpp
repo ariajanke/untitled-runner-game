@@ -28,23 +28,31 @@
 
 class SolarCycler final : public sf::Drawable {
 public:
+    class CelestialBodyAware {
+    public:
+        virtual ~CelestialBodyAware() {}
+        virtual void mark_celestial_body(VectorD, double radius, double brightness, sf::Color) = 0;
+    };
+
     enum TodEnum {
         k_sunrise_to_noon, k_noon_to_sunset, k_sunset_to_midnight,
         k_midnight_to_sunrise
     };
 
     using Rng = std::default_random_engine;
-    static constexpr const double k_sample_day_length  = 30;
+    static constexpr const double k_sample_day_length  = 12*60;
     static constexpr const double k_default_day_length = 60*60*24;
     static constexpr const int    k_default_star_count = 4000;
 
-    void set_day_length  (double seconds);
-    void update          (double seconds);
-    void set_time_of_day (double seconds);
-    void set_view_size   (int width, int height);
+    void set_day_length (double seconds);
+    void update         (double seconds);
+    void set_time_of_day(double seconds);
+    void set_view_size  (int width, int height, double horizon_line);
 
     /** @param star_count excludes the sun */
-    void populate_sky    (Rng &, int star_count = k_default_star_count);
+    void populate_sky   (Rng &, int star_count = k_default_star_count);
+
+    void mark_celestial_bodies(CelestialBodyAware &) const;
 
     enum ColorIndex { k_r, k_g, k_b, k_a, k_color_tuple_count };
     // there's only two possible specializations... so no templates
@@ -64,6 +72,7 @@ private:
     // It seems natural that the Sun drives the whole cycle
     // future:
     // run more along a dome than in a circle
+    // the sun is between 340,000 - 400,000 times brighter than the moon
     class Sun final : public sf::Drawable {
     public:
         void set_center         (VectorD pixel_pos);
@@ -76,6 +85,12 @@ private:
         /** @note should be useful for atmosphere coloring
          *  @return ToD and [0 1] */
         std::tuple<TodEnum, double> get_tod() const;
+
+        VectorD   apparent_location  () const;
+        double    apparent_radius    () const;
+        sf::Color apparent_color     () const;
+        // { return -26.74; } // source: wikipedia
+        double    apparent_brightness() const { return -26.74; }
 
     private:        
         static           const sf::Color k_horizon_color;
@@ -106,7 +121,7 @@ private:
 
     class Atmosphere final : public sf::Drawable {
     public:
-        void set_size(int width, int height);
+        void set_size(int width, int height, double horizon_line);
         void sync_to(const Sun &);
 
     private:
@@ -139,8 +154,9 @@ private:
         VertexArray m_troposphere;
         // flatter color
         VertexArray m_stratosphere;
-
+#       if 0
         mutable TextDrawer m_postext;
+#       endif
     };
 
     class Star final {
@@ -164,6 +180,18 @@ private:
     Sun m_sun;
     Atmosphere m_atmosphere;
     double m_tod = 0., m_day_length = k_default_day_length;
+};
+
+class OceanBackdrop final : public sf::Drawable, public SolarCycler::CelestialBodyAware {
+public:
+    void set_window_size(int width, int height, double horizon_line);
+    void mark_celestial_body(VectorD, double radius, double brightness, sf::Color) override;
+    void set_wave_velocity(VectorD);
+
+private:
+    void draw(sf::RenderTarget &, sf::RenderStates) const override;
+
+    DrawRectangle m_basewater;
 };
 
 // for prairie backdrop
@@ -241,4 +269,6 @@ private:
     std::unique_ptr<FutureTreeMaker> m_tree_maker;
 
     SolarCycler m_solar_cycler;
+
+    OceanBackdrop m_ocean;
 };

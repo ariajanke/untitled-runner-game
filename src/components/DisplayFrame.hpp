@@ -39,6 +39,8 @@ public:
     const sf::IntRect & frame(int sequence_number, int sequence_frame) const;
     std::size_t total_frame_count() const noexcept;
 
+    static sf::IntRect parse_rect(const char * beg, const char * end);
+    static std::string load_string_from_file(const char *);
 private:
     sf::Texture m_texture;
     std::vector<sf::IntRect> m_frames;
