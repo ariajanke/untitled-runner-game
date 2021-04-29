@@ -227,6 +227,31 @@ void ScalePivotScript::update_balance() {
 #   endif
 }
 
+ScalePivotScriptN::ScalePivotScriptN(Entity pivot):
+    m_pivot(pivot)
+{}
+
+ScalePivotScriptN & ScalePivotScriptN::set_left (Entity e) {
+    m_left = e;
+    check_finish();
+    return *this;
+}
+
+ScalePivotScriptN & ScalePivotScriptN::set_right(Entity e) {
+    m_right = e;
+    check_finish();
+    return *this;
+}
+
+bool ScalePivotScriptN::is_finished() const {
+    return m_pivot && m_left && m_right;
+}
+
+/* private */ void ScalePivotScriptN::check_finish() {
+    if (!is_finished()) return;
+    ScalePivotScript::add_pivot_script_to(m_pivot, m_left, m_right);
+}
+
 /* private */ void BasketScript::on_departing(Entity e, EntityRef other_ref) {
     if (!is_simple_item(Entity(other_ref))) return;
     if (e.is_requesting_deletion()) return;
@@ -413,7 +438,10 @@ std::unique_ptr<LinkedOnBoxHit<Func>>
 
     // set up the actual launcher (seperate entity)
     auto & launcher = m_bouncable.add<TriggerBox>().reset<TriggerBox::Launcher>();
+#   if 0
     launcher.detaches = true;
+#   endif
+    launcher.type = TriggerBox::Launcher::k_detacher;
     launcher.launch_velocity = m_bounce;
     auto & rect = m_bouncable.ensure<PhysicsComponent>().reset_state<Rect>();
     rect.width = rect.height = m_radius;

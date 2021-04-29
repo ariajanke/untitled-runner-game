@@ -332,6 +332,74 @@ sf::Vector2<T> find_closest_point_to_line
     return Vec(a.x, a.y) + mag*Vec(b.x - a.x, b.y - a.y);
 }
 
+template <typename T>
+std::enable_if_t<std::is_floating_point_v<T>, std::tuple<sf::Vector2<T>,sf::Vector2<T>>>
+    compute_velocities_to_target
+    (const sf::Vector2<T> & source, const sf::Vector2<T> & target,
+     const sf::Vector2<T> & influencing_acceleration, T speed)
+{
+    // Made possible by this wonderful resource:
+    // https://www.forrestthewoods.com/blog/solving_ballistic_trajectories/
+    //
+    // note: this code doesn't quite work yet!
+    // I'm adopting 3D code for a 2D game
+    using Vec = sf::Vector2<T>;
+    using std::make_tuple;
+    if (   !is_real(source.x) || !is_real(source.y) || !is_real(speed)
+        || !is_real(target.x) || !is_real(target.y) || !is_real(influencing_acceleration.x)
+        || !is_real(influencing_acceleration.y))
+    {
+        throw std::invalid_argument("All arguments must be real numbers");
+    }
+    if (are_very_close(source, target)) {
+        if (are_very_close(influencing_acceleration, Vec())) {
+            return make_tuple(Vec(), Vec());
+        }
+        // return straight up trajectory
+        auto s = -normalize(influencing_acceleration)*speed;
+        return make_tuple(s, s);
+    }
+    if (are_very_close(influencing_acceleration, Vec())) {
+        // return straight to target
+        auto s = normalize(target - source)*speed;
+        return make_tuple(s, s);
+    }
+
+    // assumptions at this point source != target && acc != 0
+
+    static auto comp_from_basis = [](Vec basis, Vec a) {
+        static auto are_parallel = [](Vec a, Vec b)
+            { return are_very_close(normalize(a), normalize(b)); };
+        auto unita = project_onto(a, basis);
+        return magnitude(unita)*T(are_parallel(unita, basis) ? 1 : -1);
+    };
+
+    auto j = -normalize(influencing_acceleration);
+    auto i = rotate_vector(j, k_pi*0.5);
+
+    T t0, t1;
+    {
+        auto diff_i = comp_from_basis(i, target - source);
+        auto diff_j = comp_from_basis(j, target - source);
+
+        auto spd_sq = speed*speed;
+        auto g = magnitude(influencing_acceleration);
+        auto do_atan_with_sqpart = [spd_sq, g, diff_i] (T sqpart)
+            { return std::atan( (spd_sq + sqpart) / (g*diff_i) ); };
+
+        auto sqpart = std::sqrt(spd_sq*spd_sq - g*(g*diff_i*diff_i + T(2)*spd_sq*diff_j));
+        t0 = do_atan_with_sqpart( sqpart);
+        t1 = do_atan_with_sqpart(-sqpart);
+
+    }
+    auto ground_dir = normalize(project_onto(target - source, i));
+    auto up         = -normalize(influencing_acceleration);
+
+    auto s0 = ground_dir*std::cos(t0)*speed + up*std::sin(t0)*speed;
+    if (are_very_close(t0, t1)) { return make_tuple(s0, s0); }
+    return make_tuple(s0, ground_dir*std::cos(t1)*speed + up*std::sin(t1)*speed);
+}
+
 inline bool are_same(const SurfaceDetails & rhs, const SurfaceDetails & lhs) {
     return are_very_close(rhs.friction  , lhs.friction  ) &&
            are_very_close(rhs.stop_speed, lhs.stop_speed) &&

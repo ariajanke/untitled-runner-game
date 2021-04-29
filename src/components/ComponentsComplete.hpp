@@ -217,6 +217,23 @@ private:
     Entity m_pivot, m_left, m_right;
 };
 
+class ScalePivotScriptN final : public Script {
+public:
+    explicit ScalePivotScriptN(Entity pivot);
+
+    // doing a couple of dynamic casts seems to be the least evil design
+    // choice
+    // considering alternatives require something more invasive
+    ScalePivotScriptN & set_left (Entity);
+    ScalePivotScriptN & set_right(Entity);
+
+    bool is_finished() const;
+private:
+    void check_finish();
+
+    Entity m_pivot, m_left, m_right;
+};
+
 class BasketScript final : public Script {
 public:
     void set_wall(Entity e) { m_basket_wall = e; }

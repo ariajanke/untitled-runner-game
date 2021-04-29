@@ -46,6 +46,7 @@ public:
     // presently the units are in number of presently attached segments
     // rather than pixels
     double position = 0.;
+    // accidental stuck in "segments per second"
     double speed = 0.;
 
     SurfaceRef surface_ref() const { return m_surface_ref; }

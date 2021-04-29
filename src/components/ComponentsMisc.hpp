@@ -123,11 +123,18 @@ struct TriggerBox {
     struct Checkpoint {};
     struct HarmfulObject {};
     struct Launcher {
+        enum LaunchType : uint8_t { k_booster, k_setter, k_detacher, k_unset };
         MiniVector launch_velocity = MiniVector(VectorD(0, -467));
+        LaunchType type = k_unset;
+#       if 0
         bool detaches = true;
+#       endif
+    };
+    struct TargetedLauncher {
+        EntityRef target;
     };
 
-    using StateType = MultiType<HarmfulObject, Checkpoint, Launcher, ItemCollectionSharedPtr>;
+    using StateType = MultiType<HarmfulObject, Checkpoint, Launcher, ItemCollectionSharedPtr, TargetedLauncher>;
 
     template <typename T>
     T * ptr() { return state.as_pointer<T>(); }
@@ -204,6 +211,14 @@ struct PlayerControl {
     enum SimpleDirection : uint8_t
         { k_left, k_right };
 
+    enum ControlLock : uint8_t {
+        k_unlocked,
+        // unlocked by scripts (no systems!)
+        k_script_locked,
+        // locked until pcomp is transformed into a tracker
+        k_until_tracker_locked,
+    };
+
     bool jump_held    = false;
     bool grabbing     = false;
     bool will_release = false;
@@ -211,6 +226,7 @@ struct PlayerControl {
 
     Direction       direction      = k_neither_dir;
     SimpleDirection last_direction = k_right;
+    ControlLock     control_lock   = k_unlocked;
 
     // this is more physics oriented
     double jump_time = 0.;

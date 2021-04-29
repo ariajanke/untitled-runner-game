@@ -72,7 +72,13 @@ void HudTimePiece::update(double et) {
     s.clear();
     s += "Time: " + get_minutes() + ":"
       + get_seconds() + "." + get_centiseconds() + " [fps "
-      + std::to_string(m_fps_counter.fps()) + "]";
+      + std::to_string(m_fps_counter.fps());
+    if constexpr (FpsCounter::k_have_std_dev) {
+        s += " avg " + std::to_string(round_to<int>(m_fps_counter.avg()*1000.))
+          + "ms std dev "
+          +  std::to_string(round_to<int>(m_fps_counter.std_dev()*1000.)) + "ms";
+    }
+    s += "]";
     m_timer_text.set_text_top_left(VectorD(), std::move(s));
     m_fps_counter.update(et);
 }
@@ -143,6 +149,7 @@ void GameDriver::update(double et) {
     m_timer.update_gems_count(m_player.get<Collector>().diamond);
 
     m_timer.set_debug_line(0, std::string("Layer: ") + to_string(m_player.get<PhysicsComponent>().active_layer));
+    m_vtrkr.update(m_player.get<PhysicsComponent>().velocity(), m_timer);
 }
 
 void GameDriver::render_to(sf::RenderTarget & target) {
@@ -189,6 +196,11 @@ void GameDriver::process_event(const sf::Event & event) {
         get_script(m_player)->process_control_event(to_control_event(event));
     }
     switch (event.type) {
+    case sf::Event::KeyReleased:
+        if (event.key.code == sf::Keyboard::I) {
+            m_vtrkr.clear_record();
+        }
+        break;
     case sf::Event::MouseButtonReleased: {
         auto e = m_emanager.create_new_entity();
         auto & freebody = e.add<PhysicsComponent>().reset_state<FreeBody>();

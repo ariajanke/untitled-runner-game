@@ -41,8 +41,6 @@ class PlayerControlSystem final : public System, public TimeAware {
     static void handle_tracker_jumping(PhysicsComponent &, const LineTracker &, PlayerControl &);
 };
 
-//class LifetimeSystem final : public DefineTupleSystemFor<Lifetime>::Singles
-
 class LifetimeSystem final : public System, public TimeAware {
     void update(const ContainerView & view) {
         for (auto & e : view) {
@@ -87,6 +85,7 @@ private:
     using SubjectContainer = std::vector<Tuple<Entity, TriggerBoxSubjectHistory &>>;
     using CheckPoint       = TriggerBox::Checkpoint;
     using Launcher         = TriggerBox::Launcher;
+    using TargetedLauncher = TriggerBox::TargetedLauncher;
 
     void update(const ContainerView &) override;
 
@@ -129,12 +128,25 @@ private:
         void adjust_collision(const Entity & collector, VectorD & offset, Rect &) const override;
     };
 
-    class LauncherChecker final : public BaseChecker {
+    class LaunchCommonBase : public BaseChecker {
+    protected:
+        static void do_set(VectorD launch_vel, PhysicsComponent &, PlayerControl *);
+        static VectorD get_detached_position(const LineTracker &);
+    };
+
+    class LauncherChecker final : public LaunchCommonBase {
+        static constexpr const double k_max_boost = 900.;
         void handle_trespass(Entity launch_e, Entity e) const override;
         void adjust_collision(const Entity &, VectorD &, Rect &) const override {}
 
-        static void do_boost(const Launcher &, LineTracker &);
-        static void do_launch(const Launcher &, PhysicsComponent &);
+        static void do_boost (VectorD launch_vel, PhysicsComponent &);
+        static void do_launch(VectorD launch_vel, PhysicsComponent &);
+    };
+
+    class TargetedLauncherChecker final : public LaunchCommonBase {
+        static constexpr const double k_default_boost = 1200.;
+        void handle_trespass(Entity launch_e, Entity e) const override;
+        void adjust_collision(const Entity &, VectorD &, Rect &) const override {}
     };
 
     class ScriptChecker final : public BaseChecker {
@@ -146,6 +158,7 @@ private:
     ItemChecker m_item_checker;
     LauncherChecker m_launchers;
     CheckPointChecker m_checkpoints;
+    TargetedLauncherChecker m_target_launchers;
     ScriptChecker m_scripts;
 };
 

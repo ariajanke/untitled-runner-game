@@ -59,6 +59,9 @@
 /* private */ void PlayerControlSystem::update(Entity e) {
     if (!e.has<PlayerControl>()) return;
     auto & pcon = e.get<PlayerControl>();
+
+    if (pcon.control_lock != PlayerControl::k_unlocked) return;
+
     if (auto * fbody = get_freebody(e)) {
         handle_freebody_running(*fbody, pcon);
     } else if (auto * tracker = get_tracker(e)) {
@@ -323,16 +326,19 @@ void ItemCollisionSystem::check_item_collection(Entity collector, Entity item) {
             m_launchers.add(e);
         } else if (tbox->ptr<ItemCollectionSharedPtr>()) {
             m_item_checker.add(e);
+        } else if (tbox->ptr<TargetedLauncher>()) {
+            m_target_launchers.add(e);
         }
         if (get_script(e)) {
             m_scripts.add(e);
         }
     }
 
-    m_checkpoints .do_checks(m_subjects);
-    m_launchers   .do_checks(m_subjects);
-    m_item_checker.do_checks(m_subjects);
-    m_scripts     .do_checks(m_subjects);
+    m_checkpoints     .do_checks(m_subjects);
+    m_launchers       .do_checks(m_subjects);
+    m_item_checker    .do_checks(m_subjects);
+    m_scripts         .do_checks(m_subjects);
+    m_target_launchers.do_checks(m_subjects);
 
     for (auto & [e, history] : m_subjects) {
         // post this, they're equal u.u
@@ -418,33 +424,84 @@ static VectorD expansion_for_collector(const Entity & e) {
     return VectorD(frame.width / 4, frame.height / 3);
 }
 
+/* protected static */ void TriggerBoxSystem::LaunchCommonBase::do_set
+    (VectorD launch_vel, PhysicsComponent & pcomp, PlayerControl * pcont)
+{
+    if (pcont) {
+        pcont->control_lock = PlayerControl::k_until_tracker_locked;
+    }
+
+    if (pcomp.state_is_type<LineTracker>()) {
+        FreeBody freebody;
+        freebody.location = get_detached_position(pcomp.state_as<LineTracker>());
+        pcomp.reset_state<FreeBody>() = freebody;
+    }
+    assert(pcomp.state_is_type<FreeBody>());
+    pcomp.state_as<FreeBody>().velocity = launch_vel;
+}
+
+/* protected static */ VectorD TriggerBoxSystem::LaunchCommonBase::get_detached_position
+    (const LineTracker & tracker)
+{
+    return location_along(tracker.position, *tracker.surface_ref())
+           + normal_for(tracker)*k_error;
+}
+
 /* private */ void TriggerBoxSystem::LauncherChecker::handle_trespass
     (Entity launch_e, Entity e) const
 {
     auto & launcher = launch_e.get<TriggerBox>().as<Launcher>();
     auto & pcomp    = e.get<PhysicsComponent>();
-    if (!launcher.detaches && pcomp.state_is_type<LineTracker>()) {
-        return do_boost(launcher, pcomp.state_as<LineTracker>());
-    } else {
-        return do_launch(launcher, pcomp);
+    auto launch_vel = launcher.launch_velocity.expand();
+    switch (launcher.type) {
+    case Launcher::k_booster:
+        return do_boost(launch_vel, pcomp);
+    case Launcher::k_detacher:
+        return do_launch(launch_vel, pcomp);
+    case Launcher::k_setter:
+        return do_set(launch_vel, pcomp, e.ptr<PlayerControl>());
+    default: throw std::runtime_error("An unset launcher made it into the game.");
     }
 }
 
 /* private static */ void TriggerBoxSystem::LauncherChecker::do_boost
-    (const Launcher & launcher, LineTracker & tracker)
+    (VectorD launch_vel, PhysicsComponent & pcomp)
 {
-    auto seg = *tracker.surface_ref();
-    auto proj = project_onto(launcher.launch_velocity.expand(), seg.b - seg.a);
-    auto boost = magnitude(proj);
-    if (magnitude(normalize(proj) - normalize(seg.b - seg.a)) >= k_error) {
-        boost *= -1;
+    if (auto * tracker = pcomp.state_ptr<LineTracker>()) {
+        auto seg = *tracker->surface_ref();
+        auto proj = project_onto(launch_vel, seg.b - seg.a);
+        auto boost = magnitude(proj); // px/s
+        auto current_velocity = tracker->speed*(seg.b - seg.a); // px/s
+
+        // change boost direction depending on segment's direction
+        if (magnitude(normalize(proj) - normalize(seg.b - seg.a)) >= k_error) {
+            boost *= -1;
+        }
+
+        // regular boost
+        if (magnitude(current_velocity + proj) < k_max_boost) {
+            // convert to segments per second
+            tracker->speed += (boost / magnitude(seg.b - seg.a));
+        } else if (magnitude(current_velocity) > k_max_boost) {
+            // unaffected by boost
+        }
+        // cull the boost
+        else if (magnitude(current_velocity + proj) > k_max_boost) {
+            tracker->speed = k_max_boost*normalize(boost) / magnitude(seg.b - seg.a);
+        }
+    } else if (auto * freebody = pcomp.state_ptr<FreeBody>()) {
+        if (magnitude(freebody->velocity + launch_vel) < k_max_boost) {
+            freebody->velocity += launch_vel;
+        } else if (magnitude(freebody->velocity) > k_max_boost) {
+            // no effect
+        } else if (magnitude(freebody->velocity + launch_vel) > k_max_boost) {
+            freebody->velocity = normalize(freebody->velocity + launch_vel)*k_max_boost;
+        }
     }
-    // convert to segments per second
-    tracker.speed += (boost / magnitude(seg.b - seg.a));
 }
 
 /* private static */ void TriggerBoxSystem::LauncherChecker::do_launch
-    (const Launcher & launcher, PhysicsComponent & pcomp)
+    (VectorD launch_vel, PhysicsComponent & pcomp)
 {
     FreeBody freebody;
     VectorD cur_velocity;
@@ -453,18 +510,31 @@ static VectorD expansion_for_collector(const Entity & e) {
         cur_velocity = freebody.velocity;
     } else if (pcomp.state_is_type<LineTracker>()) {
         const auto & tracker = pcomp.state_as<LineTracker>();
-        auto seg    = *tracker.surface_ref();
-        auto normal = normal_for(tracker);
-        freebody.location = location_along(tracker.position, seg) +
-                            normal*k_error;
-        cur_velocity = velocity_along(tracker.speed, seg);
+        freebody.location = get_detached_position(tracker);
+        cur_velocity = velocity_along(tracker.speed, *tracker.surface_ref());
     }
-    auto launch_vel = launcher.launch_velocity.expand();
+
     freebody.velocity = launch_vel;
     if (cur_velocity != VectorD()) {
         freebody.velocity += project_onto(cur_velocity, rotate_vector(launch_vel, k_pi*0.5));
     }
     pcomp.reset_state<FreeBody>() = freebody;
+}
+
+/* private */ void TriggerBoxSystem::TargetedLauncherChecker::handle_trespass
+    (Entity launch_e, Entity e) const
+{
+    const auto & target_launcher = launch_e.get<TriggerBox>().as<TriggerBox::TargetedLauncher>();
+    Entity target_e(target_launcher.target);
+    Rect bounds = target_e.get<PhysicsComponent>().state_as<Rect>();
+
+    auto & pcomp = e.get<PhysicsComponent>();
+
+    auto loc = pcomp.location();
+    auto cent = center_of(bounds);
+
+    auto vel = std::get<1>(compute_velocities_to_target(loc, cent, k_gravity, k_default_boost));
+    do_set(vel, pcomp, e.ptr<PlayerControl>());
 }
 
 /* private */ void TriggerBoxSystem::ScriptChecker::handle_trespass

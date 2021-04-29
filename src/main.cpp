@@ -563,6 +563,8 @@ int main(int argc, char ** argv) {
         win.clear(sf::Color(100, 100, 255));
         if (do_this_frame) {
             gdriver.update(double(clock.getElapsedTime().asSeconds()));
+        } else {
+            gdriver.update(0.);
         }
         clock.restart();
         if (do_this_frame && frame_advance_enabled) {

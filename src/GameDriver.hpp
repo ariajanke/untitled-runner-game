@@ -32,6 +32,7 @@
 #include "maps/MapObjectLoader.hpp"
 
 #include <algorithm>
+#include <iostream>
 
 static const constexpr int k_view_width  = 426;
 static const constexpr int k_view_height = 240;
@@ -84,6 +85,25 @@ private:
         return m_ent_man.create_new_entity();
     }
 
+    Entity create_named_entity_for_object() override {
+        message_assert("", m_current_object);
+        auto rv = m_ent_man.create_new_entity();
+        if (m_current_object->name.empty()) {
+            throw std::runtime_error("Cannot name entity, its object has no name in the map data.");
+        }
+        bool success = m_name_entity_map.insert( std::make_pair(m_current_object->name, rv) ).second;
+        if (!success) {
+            throw std::runtime_error("");
+        }
+        return rv;
+    }
+
+    Entity find_named_entity(const std::string & name) const override {
+        auto itr = m_name_entity_map.find(name);
+        if (itr != m_name_entity_map.end()) return itr->second;
+        throw std::runtime_error("Entity named \"" + name + "\", was the name forgotten or was the requirement entities not loaded yet (need to patch entity requirements code)?");
+    }
+
     void set_player(Entity e) override {
         if (m_player) { m_player.request_deletion(); }
         m_player = e;
@@ -100,25 +120,20 @@ private:
 
 public:
     void load_map_objects(const MapObjectContainer & cont) {
-        for (const auto & obj : cont) {
-            if (obj.name.empty()) continue;
-            m_name_obj_map[obj.name] = &obj;
+        auto order = get_map_load_order(cont, &m_name_obj_map);
+        for (const auto * obj : order) {
+            m_current_object = obj;
+            get_loader_function(obj->type)(*this, *obj);
         }
-        for (const auto & obj : cont) {
-            auto load_obj = get_loader_function(obj.type);
-            if (load_obj) {
-                load_obj(*this, obj);
-            } else {
-                // unrecognized game object
-            }
-        }
-        m_name_obj_map.clear();
     }
 
     void load_tile_objects(const tmap::TileLayer &);
 
 private:
     std::map<std::string, const tmap::MapObject *> m_name_obj_map;
+    std::map<std::string, Entity> m_name_entity_map;
+
+    const tmap::MapObject * m_current_object = nullptr;
     Entity & m_player;
     EntityManager & m_ent_man;
     std::default_random_engine m_rng;
@@ -126,20 +141,55 @@ private:
 
 class FpsCounter {
 public:
+    static constexpr const bool k_have_std_dev = true;
     void update(double et) {
         ++m_count_this_frame;
+        push_frame_et(et);
         if ( (m_total_et += et) > 1. ) {
             m_fps = m_count_this_frame;
             m_count_this_frame = 0;
             m_total_et = std::fmod(m_total_et, 1.);
+            update_second_et_std_dev();
         }
     }
 
     int fps() const noexcept { return m_fps; }
 
+    std::enable_if_t<k_have_std_dev, double> std_dev() const noexcept
+        { return m_et_std_dev; }
+
+    std::enable_if_t<k_have_std_dev, double> avg() const noexcept
+        { return m_et_avg;; }
+
 private:
+    void push_frame_et(double et) {
+        if constexpr (k_have_std_dev) {
+            m_ets.push_back(et);
+        }
+    }
+
+    void update_second_et_std_dev() {
+        if constexpr (k_have_std_dev) {
+            m_et_avg = 0.;
+            for (auto x : m_ets) m_et_avg += x;
+            m_et_avg /= double(m_ets.size());
+
+            m_et_std_dev = 0.;
+            for (auto x : m_ets) {
+                m_et_std_dev += (x - m_et_avg)*(x - m_et_avg);
+            }
+            m_et_std_dev = std::sqrt(m_et_std_dev);
+
+            m_ets.clear();
+        }
+    }
+
+
     int m_fps = 0, m_count_this_frame = 0;
     double m_total_et = 0.;
+
+    double m_et_std_dev = 0., m_et_avg = 0.;
+    std::vector<double> m_ets;
 };
 
 class HudTimePiece final : public sf::Drawable {
@@ -175,6 +225,30 @@ private:
 
     FpsCounter m_fps_counter;
 };
+
+class TopSpdTracker {
+public:
+    void update(VectorD current_velocity, HudTimePiece &);
+    void clear_record();
+
+private:
+    VectorD m_top_vel;
+};
+
+inline void TopSpdTracker::update(VectorD current_velocity, HudTimePiece & hud) {
+    if (magnitude(current_velocity) > magnitude(m_top_vel)) {
+        m_top_vel = current_velocity;
+        hud.set_debug_line(1, "Top Velocity: "
+                           + std::to_string(round_to<int>(magnitude(m_top_vel))) + " ("
+                           + std::to_string(round_to<int>(m_top_vel.x)) + ", "
+                           + std::to_string(round_to<int>(m_top_vel.y)) +")");
+    } else if (m_top_vel == VectorD()) {
+        hud.set_debug_line(1, "Top Velocity: 0 (0, 0)");
+    }
+}
+
+inline void TopSpdTracker::clear_record() { m_top_vel = VectorD(); }
+
 
 class GameDriver final {
 public:
@@ -215,4 +289,7 @@ private:
 
     HudTimePiece m_timer;
     GraphicsDrawer m_graphics;
+
+    // info only
+    TopSpdTracker m_vtrkr;
 };

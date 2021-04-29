@@ -18,6 +18,7 @@
 *****************************************************************************/
 
 #include "GenBuiltinTileSet.hpp"
+#include "Defs.hpp"
 
 #include <common/SubGrid.hpp>
 #include <common/Util.hpp>
@@ -214,23 +215,71 @@ Grid<sf::Color> gen_waterfall(int w, int h, int pal_rotation_idx, int x_);
         }
     }
     assert(composite.height() % 16 == 0 && composite.width() % 16 == 0);
+    static const VectorI k_chosen_checkerboard = VectorI(34, 8)*16;
+
+    static auto x_out_tile = [](SubGrid<sf::Color> subg) {
+        assert(subg.width() == 16 && subg.height() == 16);
+        static constexpr const auto k_x_out_gfx =
+            // 0123456789ABCDEF
+            """XX            XX" // 0
+            """X              X" // 1
+            """  Xx         Xx " // 2
+            """   Xx       Xx  " // 3
+            """    Xx     Xx   " // 4
+            """     Xx   Xx    " // 5
+            """      XxxXx     " // 6
+            """       XXx      " // 7
+            """       XXx      " // 8
+            """      XxxXx     " // 9
+            """     Xx   Xx    " // A
+            """    Xx     Xx   " // B
+            """   Xx       Xx  " // C
+            """  Xx         X  " // D
+            """X              X" // E
+            """XX            XX" // F
+            ;
+        for (VectorI r; r != subg.end_position(); r = subg.next(r)) {
+            subg(r) = [] (std::size_t idx) {
+                switch (k_x_out_gfx[idx]) {
+                case ' ': return sf::Color(0, 0, 0, 0);
+                case 'x': return sf::Color(60, 60, 60, 255);
+                case 'X': return sf::Color::Black;
+                }
+                throw BadBranchException();
+            } (std::size_t(r.x + r.y*16));
+
+        }
+    };
+
     for (int y = 0; y < composite.height(); y += 16) {
     for (int x = 0; x < composite.width (); x += 16) {
         // delete all but one base checkboard
         // 544, 128 is THE CHOSEN ONE
-        if (x == 544 && y == 128) continue;
-        const auto & base = get_base_checkerboard();
+        if (k_chosen_checkerboard == VectorI(x, y)) continue;
+
         SubGrid<sf::Color> subg(composite, VectorI(x, y), 16, 16);
-        bool is_a_checkboard = true;
-        for (VectorI r; r != subg.end_position(); r = subg.next(r)) {
-            if (base(r) == subg(r)) continue;
-            is_a_checkboard = false;
-            break;
-        }
-        if (is_a_checkboard) {
+        bool is_a_checkboard = [](ConstSubGrid<sf::Color> subg) {
+            const auto & base = get_base_checkerboard();
+            for (VectorI r; r != subg.end_position(); r = subg.next(r)) {
+                if (base(r) == subg(r)) continue;
+                return false;
+            }
+            return true;
+        } (subg);
+        bool is_empty_tile = [](ConstSubGrid<sf::Color> subg) {
+            for (auto color : subg) {
+                if (color.a != 0) return false;
+            }
+            return true;
+        } (subg);
+
+        if (is_a_checkboard || is_empty_tile) {
+            x_out_tile(subg);
+#           if 0
             for (VectorI r; r != subg.end_position(); r = subg.next(r)) {
                 subg(r) = sf::Color(0, 0, 0, 0);
             }
+#           endif
         }
     }}
 #   if 0
@@ -263,7 +312,7 @@ Grid<sf::Color> gen_waterfall(int w, int h, int pal_rotation_idx, int x_);
         start += VectorI(16, 0);
     }
 
-    static constexpr const auto k_magic_tile_gfx = ""\
+    static constexpr const auto k_magic_tile_gfx = ""
         // 0123456789ABCDEF
         """XXXXXXXXXXXXXXXX" // 0
         """X              X" // 1
@@ -281,7 +330,7 @@ Grid<sf::Color> gen_waterfall(int w, int h, int pal_rotation_idx, int x_);
         """X              X" // D
         """X              X" // E
         """XXXXXXXXXXXXXXXX" // F
-            ;
+        ;
     auto magic_tile_subg = make_sub_grid(rv, start, 16, 16);
     for (VectorI r; r != magic_tile_subg.end_position(); r = magic_tile_subg.next(r)) {
         magic_tile_subg(r) = [r] {

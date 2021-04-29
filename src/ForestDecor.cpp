@@ -826,6 +826,7 @@ void ForestDecor::set_view_size(int width, int height) {
 /* private */ void ForestDecor::plant_new_future_tree
     (std::default_random_engine & rng, VectorD location, MapObjectLoader & objloader)
 {
+    return;
     TreeParameters params(location, rng);
 
     auto e = objloader.create_entity();

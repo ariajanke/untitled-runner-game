@@ -27,6 +27,7 @@ struct EnvColStateMask {
         m_owner = e;
         m_pcomp = e.ptr<PhysicsComponent>();
         m_log   = e.has<PhysicsDebugDummy>();
+        m_control_lock = e.has<PlayerControl>() ? &e.get<PlayerControl>().control_lock : nullptr;
     }
 
     template <typename T>
@@ -39,6 +40,11 @@ struct EnvColStateMask {
         new_tracker.set_owner(m_owner);
         new_tracker = tracker;
         new_tracker.set_surface_ref(surfref, velo);
+
+        if (m_control_lock) {
+            if (*m_control_lock == PlayerControl::k_until_tracker_locked)
+            { *m_control_lock = PlayerControl::k_unlocked; }
+        }
     }
 
     void set_transfer(const LineTracker & tracker) {
@@ -66,25 +72,25 @@ struct EnvColStateMask {
     int state_type_id() const { return m_pcomp->state_type_id(); }
 
     bool should_log_debug() const { return m_log; }
+
 private:
     Entity m_owner;
     bool m_log = false;
     PhysicsComponent * m_pcomp = nullptr;
+    PlayerControl::ControlLock * m_control_lock = nullptr;
 };
 
 struct EnvColParams final : public EnvColStateMask {
     using PlatformsCont = std::vector<Entity>;
-#   if 0
-    EnvColParams() {}
-#   endif
+
     EnvColParams(PhysicsComponent &, const LineMap &, const PlayerControl *,
                  const PlatformsCont &);
 
           bool            acting_will      = false;
           double          bounce_thershold = std::numeric_limits<double>::infinity();
-          Layer         & layer            ;//= get_null_reference<Layer>();
-    const LineMap       & map              ;//= get_null_reference<LineMap>();
-    const PlatformsCont & platforms        ;//= get_null_reference<PlatformsCont>();
+          Layer         & layer            ;
+    const LineMap       & map              ;
+    const PlatformsCont & platforms        ;
 };
 
 class EnvironmentCollisionSystem final :
