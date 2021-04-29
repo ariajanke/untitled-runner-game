@@ -526,18 +526,18 @@ static VectorD expansion_for_collector(const Entity & e) {
 {
     const auto & target_launcher = launch_e.get<TriggerBox>().as<TriggerBox::TargetedLauncher>();
     Entity target_e(target_launcher.target);
-    Rect bounds = target_e.get<PhysicsComponent>().state_as<Rect>();
+    Rect target_bounds = target_e.get<PhysicsComponent>().state_as<Rect>();
+    Rect source_bounds = launch_e.get<PhysicsComponent>().state_as<Rect>();
 
     auto & pcomp = e.get<PhysicsComponent>();
-
-    auto loc = pcomp.location();
-    auto cent = center_of(bounds);
-
-    auto vel = std::get<1>(compute_velocities_to_target(loc, cent, k_gravity, target_launcher.speed));
+    auto vel = std::get<1>(compute_velocities_to_target(
+        center_of(source_bounds), center_of(target_bounds),
+        k_gravity, target_launcher.speed));
     if (!is_real(vel)) {
         throw std::runtime_error("Attempting to launch with an insufficient speed, fix was supposed to occur at map loading time.");
     }
     do_set(vel, pcomp, e.ptr<PlayerControl>());
+    pcomp.state_as<FreeBody>().location = center_of(source_bounds);
 }
 
 /* private */ void TriggerBoxSystem::ScriptChecker::handle_trespass

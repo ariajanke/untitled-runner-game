@@ -171,6 +171,26 @@ protected:
 
 // ----------------------------------------------------------------------------
 
+class VariablePlatformDrawer {
+public:
+    void prepare_texture(int max_length);
+
+    // note it is (or at least should be possible) to have upside down platforms
+    void draw_platform(VectorD left, VectorD right);
+
+    void clear_platform_graphics();
+
+    void render_front(sf::RenderTarget &) const;
+
+    void render_background(sf::RenderTarget &) const;
+
+private:
+    std::vector<sf::Sprite> m_front_sprites, m_back_sprites;
+    sf::Texture m_texture;
+};
+
+// ----------------------------------------------------------------------------
+
 class GraphicsDrawer final : public GraphicsBase {
 public:
     void render_front(sf::RenderTarget & target);
@@ -190,12 +210,16 @@ public:
     template <typename T>
     void take_decor(std::enable_if_t<std::is_base_of_v<MapDecorDrawer, T>, std::unique_ptr<T>> && uptr) {
         m_map_decor = std::move(uptr);
+        m_platform_drawer.prepare_texture(400);
     }
 
 private:
     void draw_line(VectorD a, VectorD b, sf::Color color, double thickness) override {
         if (!m_view_rect.contains(a) && !m_view_rect.contains(b)) return;
-        m_line_drawer.post_line(a, b, color, thickness);
+        //m_line_drawer.post_line(a, b, color, thickness);
+        (void)color;
+        (void)thickness;
+        m_platform_drawer.draw_platform(a, b);
     }
     void draw_circle(VectorD loc, double radius, sf::Color color) override {
         Rect expanded = m_view_rect;
@@ -229,6 +253,7 @@ public:
         // clear once-per-frames
         m_sprites.clear();
         m_draw_rectangles.clear();
+        m_platform_drawer.clear_platform_graphics();
     }
 private:
     Rect m_view_rect;
@@ -240,4 +265,6 @@ private:
     FlagRaiser m_flag_raiser;
 
     std::unique_ptr<MapDecorDrawer> m_map_decor;
+
+    VariablePlatformDrawer m_platform_drawer;
 };

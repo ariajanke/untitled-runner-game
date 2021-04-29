@@ -564,6 +564,7 @@ class StlTimer final : public FrameTimer {
 }
 
 int main(int argc, char ** argv) {
+    to_image(generate_platform_texture(400)).saveToFile("/media/ramdisk/platform-texture.png");
     std::cout << "Component table size " << Entity::k_component_table_size
               << " bytes.\nNumber of inlined components "
               << Entity::k_number_of_components_inlined << "." << std::endl;
@@ -604,8 +605,8 @@ int main(int argc, char ** argv) {
     GameDriver gdriver;
 
     EnvironmentCollisionSystem::run_tests();
-    auto timer = //FrameTimer::make_sfml_timer();
-    FrameTimer::make_stl_timer();
+    auto timer = FrameTimer::make_sfml_timer();
+    //FrameTimer::make_stl_timer();
 
     win.create(sf::VideoMode(k_view_width*3, k_view_height*3), "Bouncy Bouncy UwU");
     win.setKeyRepeatEnabled(false);

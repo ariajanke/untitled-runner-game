@@ -1,6 +1,6 @@
 /****************************************************************************
 
-    Copyright 2020 Aria Janke
+    Copyright 2021 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -25,5 +25,11 @@
 #include <SFML/Graphics/Image.hpp>
 
 Grid<sf::Color> generate_atlas();
+
+// contains two frames
+// top grass
+// back platform
+// each end of the platform is 16px
+Grid<sf::Color> generate_platform_texture(int inner_width);
 
 sf::Image to_image(const Grid<sf::Color> &);

@@ -19,7 +19,7 @@
   </data>
  </layer>
  <objectgroup name="Object Layer 1">
-  <object id="1" type="player-start" x="7926.67" y="785.421" width="31.795" height="44.6721">
+  <object id="1" type="player-start" x="5553.55" y="84.0983" width="31.795" height="52.362">
    <properties>
     <property name="sprite-sheet" value="mc"/>
    </properties>
@@ -310,9 +310,9 @@
   <object id="285" name="basket-outline" x="5642.31" y="150.508">
    <polyline points="0,0 4.44618,21.0319 51.1712,20.4062 54.2199,0"/>
   </object>
-  <object id="289" type="platform" x="5475.62" y="170.534" width="58.7653" height="18.3104"/>
+  <object id="289" type="platform" x="5494.03" y="159.311" width="58.7653" height="18.3104"/>
   <object id="290" name="basket-wall" x="5755.59" y="75.5294" width="3.40643" height="138.225"/>
-  <object id="292" type="ball" gid="1770" x="5486.3" y="144.563" width="16" height="16">
+  <object id="292" type="ball" gid="1770" x="5495.73" y="144.114" width="16" height="16">
    <properties>
     <property name="ball-type" value="jump-booster"/>
     <property name="recall-bounds" value="jumper02-bounds"/>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.0" tiledversion="1.0.3" orientation="orthogonal" renderorder="right-down" width="200" height="30" tilewidth="16" tileheight="16" nextobjectid="12">
+<map version="1.0" tiledversion="1.0.3" orientation="orthogonal" renderorder="right-down" width="200" height="30" tilewidth="16" tileheight="16" nextobjectid="16">
  <tileset firstgid="1" source="tileset4.tsx"/>
  <layer name="ground" width="200" height="30">
   <data encoding="base64" compression="zlib">
@@ -28,5 +28,9 @@
    </properties>
   </object>
   <object id="10" name="scale-one" type="scale-pivot" x="2983.89" y="406.895" width="25.996" height="23.1704"/>
+  <object id="12" type="platform" x="2079.12" y="378.638" width="115.852" height="6.78158"/>
+  <object id="13" type="platform" x="2050.86" y="322.125" width="50.2965" height="6.78158"/>
+  <object id="14" type="platform" x="2094.94" y="275.219" width="18.084" height="6.78158"/>
+  <object id="15" type="platform" x="2112.46" y="206.838" width="7.34652" height="6.78158"/>
  </objectgroup>
 </map>

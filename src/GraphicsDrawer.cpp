@@ -19,6 +19,7 @@
 
 #include "GraphicsDrawer.hpp"
 #include "maps/LineMapLoader.hpp"
+#include "GenBuiltinTileSet.hpp"
 
 #include "FillIterate.hpp"
 #include "maps/MapObjectLoader.hpp"
@@ -268,13 +269,77 @@ void make_bundle_locations
 
 // ----------------------------------------------------------------------------
 
+void VariablePlatformDrawer::prepare_texture(int max_length) {
+    m_texture.loadFromImage(to_image(generate_platform_texture(max_length)));
+}
+
+void VariablePlatformDrawer::draw_platform(VectorD left, VectorD right) {
+    using sf::IntRect;
+    // yucky should come from builtin header
+    static constexpr const int k_tile_size = 16;
+    static const VectorD k_xi(1., 0);
+    auto length = round_to<int>(magnitude(left - right));
+    int length_in_first  = std::max(length - k_tile_size, length / 2);
+    int length_in_second = length - length_in_first;
+
+    sf::Sprite front_left, front_right, back_left, back_right;
+    for (auto * spt : { &front_left, &front_right, &back_left, &back_right })
+        { spt->setTexture(m_texture); }
+
+    int revx  = int(m_texture.getSize().x) - length_in_second;
+    int backy = k_tile_size*2;
+    front_left .setTextureRect(IntRect(   0,     0, length_in_first , k_tile_size*2));
+    back_left  .setTextureRect(IntRect(   0, backy, length_in_first , k_tile_size*2));
+    front_right.setTextureRect(IntRect(revx,     0, length_in_second, k_tile_size*2));
+    back_right .setTextureRect(IntRect(revx, backy, length_in_second, k_tile_size*2));
+
+    for (auto * right : { &front_right, &back_right }) {
+        right->setPosition(float(length_in_first), 0.f);
+    }
+
+    static const sf::Vector2f k_texture_offset(0.f, k_tile_size);
+    sf::Vector2f origin = sf::Vector2f( (left + right)*0.5 ) + k_texture_offset;
+    double angle_in_rads  = (std::atan2(right.y - left.y, right.x - left.x));
+    float angle_to_rotate = float(angle_in_rads*(180. / k_pi));
+    for (auto * spt : { &front_left, &front_right, &back_left, &back_right }) {
+        spt->move(sf::Vector2f(left) - k_texture_offset);
+        //spt->setOrigin(origin);
+        //spt->rotate(angle_to_rotate);
+    }
+
+    m_front_sprites.insert(m_front_sprites.end(), { front_left, front_right });
+    m_back_sprites .insert(m_back_sprites .end(), { back_left , back_right  });
+}
+
+void VariablePlatformDrawer::clear_platform_graphics() {
+    m_front_sprites.clear();
+    m_back_sprites .clear();
+}
+
+void VariablePlatformDrawer::render_front(sf::RenderTarget & target) const {
+    for (auto & spt : m_front_sprites) {
+        target.draw(spt);
+    }
+}
+
+void VariablePlatformDrawer::render_background(sf::RenderTarget & target) const {
+    for (auto & spt : m_back_sprites) {
+        target.draw(spt);
+    }
+}
+
+// ----------------------------------------------------------------------------
+
 void GraphicsDrawer::render_front(sf::RenderTarget & target) {
     m_map_decor->render_front(target);
+
+    m_platform_drawer.render_front(target);
+    m_line_drawer.render_to(target);
 }
 
 void GraphicsDrawer::render_background(sf::RenderTarget & target) {
     m_map_decor->render_background(target);
-    m_line_drawer.render_to(target);
+    // m_line_drawer.render_to(target);
     m_circle_drawer.render_to(target);
     m_flag_raiser.render_to(target);
     for (const auto & spt : m_sprites) {
@@ -284,6 +349,7 @@ void GraphicsDrawer::render_background(sf::RenderTarget & target) {
         target.draw(rect);
     }
     m_item_anis.render_to(target);
+    m_platform_drawer.render_background(target);
 }
 
 void GraphicsDrawer::render_backdrop(sf::RenderTarget & target) {
