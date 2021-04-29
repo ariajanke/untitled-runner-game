@@ -1,6 +1,6 @@
 /****************************************************************************
 
-    Copyright 2020 Aria Janke
+    Copyright 2021 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -313,10 +313,12 @@ static std::vector<const tmap::MapObject *> get_map_load_order_
     std::sort(order_temp.begin(), order_temp.end(),
         [](const TempOrderTup & lhs, const TempOrderTup & rhs)
         { return std::get<0>(lhs) < std::get<0>(rhs); });
+    // I'm considering keeping this for logging purposes
+#   if 0
     for (const auto & [depth, obj] : order_temp) {
         std::cout << (obj->name.empty() ? "<NO NAME>" : obj->name) << " depth: " << depth << std::endl;
     }
-
+#   endif
     std::vector<const tmap::MapObject *> rv;
     rv.reserve(objects.size());
     for (const auto & tuple : order_temp) {
@@ -429,7 +431,8 @@ void load_launcher(MapObjectLoader & loader, const tmap::MapObject & obj) {
     };
 
     auto e = obj.name.empty() ? loader.create_entity() : loader.create_named_entity_for_object();
-    e.add<PhysicsComponent>().reset_state<Rect>() = round_rect(Rect(obj.bounds));
+    auto launcher_bounds = round_rect(Rect(obj.bounds));
+    e.add<PhysicsComponent>().reset_state<Rect>() = launcher_bounds;
 
     auto do_if_found = make_do_if_found(obj.custom_properties);
     static constexpr const auto k_launch_props_list = "\"launch\", \"boost\", \"set\", \"set-target\"";
@@ -462,6 +465,51 @@ void load_launcher(MapObjectLoader & loader, const tmap::MapObject & obj) {
         if (e.has<TriggerBox>()) throw make_can_only_have_one_type_error();
         e.add<TriggerBox>().reset<TargetedLauncher>().target = loader.find_named_entity(val);
     });
+    bool surpress_speed_warning = false;
+    do_if_found("speed", [&e, &surpress_speed_warning](const std::string & val) {
+        if (!e.has<TriggerBox>()) return;
+        if (auto * tlauncher = e.get<TriggerBox>().ptr<TargetedLauncher>()) {
+            if (val == "just enough") {
+                surpress_speed_warning = true;
+                tlauncher->speed = 0.;
+            } else if (!string_to_number_multibase(val.begin(), val.end(), tlauncher->speed)) {
+                std::cout << "[map warning: launcher]: speed argument is not numeric using the default value of " << TargetedLauncher::k_default_launch_speed << " px/s." << std::endl;
+            }
+        } else {
+            throw std::runtime_error("Launcher cannot specify speed twice (already present with velocity).");
+        }
+    });
+
+    if (auto * tlauncher = e.get<TriggerBox>().ptr<TargetedLauncher>()) {
+        // not error "tight"
+        // either the launcher needs to set the launched object's position
+        // or the furthest possible distance needs to be accounted for
+        // a solution may have to involve both
+        auto find_launch_sol = [tlauncher, launcher_bounds] () {
+            auto target = ::center_of(Entity(tlauncher->target).get<PhysicsComponent>().state_as<Rect>());
+            auto launch_pos_ext = ::center_of(launcher_bounds);
+            return [=](double speed) {
+                return std::get<1>(compute_velocities_to_target(launch_pos_ext, target, k_gravity, speed));
+            };
+        } ();
+        auto & speed = tlauncher->speed;
+        bool failed_to_reach_target = false;
+        if (   ( failed_to_reach_target = !is_real(find_launch_sol(speed)) )
+            && !surpress_speed_warning) {
+            std::cout << "Launcher cannot reach its target with the given speed " << speed;
+        }
+
+        if (are_very_close(speed, 0.)) speed = 1.;
+        while (!is_real(find_launch_sol(speed))) speed *= 2.;
+
+        if (failed_to_reach_target) {
+            speed *= 1.1*find_lowest_true([&find_launch_sol, speed]
+                (double mul) { return is_real(find_launch_sol(mul*speed)); });
+        }
+        if (failed_to_reach_target && !surpress_speed_warning) {
+            std::cout << " px/s, adjusting speed to " << speed << " px/s." << std::endl;
+        }
+    }
 
     if (val_ptr) {
         e.get<TriggerBox>().as<Launcher>().launch_velocity = MiniVector(parse_vector(*val_ptr));

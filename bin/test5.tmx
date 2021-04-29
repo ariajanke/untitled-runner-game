@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.0" tiledversion="1.0.3" orientation="orthogonal" renderorder="right-down" width="800" height="60" tilewidth="16" tileheight="16" nextobjectid="328">
+<map version="1.0" tiledversion="1.0.3" orientation="orthogonal" renderorder="right-down" width="800" height="60" tilewidth="16" tileheight="16" nextobjectid="332">
  <tileset firstgid="1" source="atlastghd.tsrj.tsx"/>
  <tileset firstgid="1513" source="tileset4.tsx"/>
  <tileset firstgid="1769" source="items.tsx"/>
@@ -15,7 +15,7 @@
  </layer>
  <layer name="ground" width="800" height="60">
   <data encoding="base64" compression="zlib">
-   eJzt3UuMFEUcx/Ge2fUtqDeVhV0PnH0Lih7UyLqwy+Lj6kFeJhoTXoaHj6sXFRJNjAbQBXxc9aBC4kkTQDGBs5qoYLyZCIIJXPxXdivb0/TMVHdXdVVNfz/JLwLu7kx1z+7Ub6sfSQLYd0fL9zNAUaOyz7bNhf3n3yj7AQAAwBjzpvjQP8JC/wAAADDHvCk+9I+w0D8AAADMMW+KD/0jLPQPAAAAc8yb4kP/CMuE7IPV7AcAAAAjzF/jQ/8AAAAAUBf6BwAAAIC60D8AAAAA1IX+AQAAAKAu9A8AAAAAdaF/AAAAAKgL/QMAAABAXegf9vwoOVkxSebvx9gnAAAAGCD0D3suSC5azj+yT86xXxCAUX5GAAAAC+gf9qS3pWn6WdROkhHJ4jZrIfCL/gEAAGygf9jjon9o423WQuAX/QNAVXnHHf/k9RkB8IH+YY/L/qGwFgKf6B8Aqso7zvg/r88IgA/0D3tc9w+NtRD4oPtHt+smAEA/ee+DzD2A5qF/2JPelqsMUrZ/KKyFoG69rpMAACboHwAU+oc9owW346iF7c1aCAAgFvQPAAr9wx4f/UNhLQQAEAP6BwCF/mGPr/6hsRYCAAgZ/QOAQv+wZ2LuvI7VnvqHwloIACBU9A8ACv3DHxf9Q2MtBAAQGvoHAIX+4Y/L/qGwFgIACAn9w9yPyfw1ztN/5n6NGAS2+0f6e8RmpiRrJNOStdWfZhBc9w+NtRAAQAjoH+YuJPPXOE//ObT7Nbqa99nKSsm4s9GjrLz+UWU/p79HbGaHZKdkl2R3Mvv7/OOSE5H83MrbVnX1D4W1EACAb/SPckI+VsXVvM9WNku2SLZKtjnaBigu7zVdZT+XuQe4yX34ZiQHJYckh5P53+efD+z7sJtu26purIUAAHyhf5QTYv/Q6x5l532n5HOXtmZzOin3NYrMJ/dJ9ksO1LFx0Jft17Sr/pGV/n3+40PVn7cPPvqHwloIAMAH+kc5o3Pbqcg1Nl3T6x5K0bmf6h5jrc706iC6q5j0lF6OSY473CYwF2v/0N6X7vHyUJwdxFf/0FgLAQDUif5RzmhA2ym97qEVnftdSq7sH5cTs65iulbSzTmXGwfGQugfVekO8oHMpz9sV/96dfHdPxTWQgAAdaF/lBNS/0ive2jZuV/62Kpu6xbpDtKte3TrKiY9pJuRQLZj0/nuH7aoDvKdzKG/b8fTQ0LoHxprIQAA1+gf5YTQP/LWPbTs3G8y0xWmenSLXt0j/XHTrc6YroVk+b7WK9dPnmX7+le++of2d3u+h4R+zd6Q+ofCWggAwCX6Rzkh9I+8dQ+tbP+oEtPukp1r2tiOVa75Fdr1k33xff0rV1QPyV6z1/c1qH1ef7cI1kIAAC7QP8zkzRd8b6dec5Zu/UOvVZj2BJfRXBzrc6v8222S2yWLJCOSxZIl6mMzY/e9H0MxKMdf5ZlJZh9DX7PX9zWos3E9/ipYCwEA2Eb/MJOdL0y0/F33yuRYo+zcr8jaRN2xPdd9VP7+WI+PnZCsSuw+/iAY5P6B6lgLAQDYQv+Ij8mxRmWvfRp7/3hR/vySwcdvl7yS8HpPo3+gH9ZCAAA20D86xXA+slp7WdUnTewf78p/3yvwOR9JPk6a/XpPo3/AFGshAIAq6B+d1NpC3vnIk5Ftkyb2j29LfN4PSbNf72n0DxTBWggAoCz6Ryd9Xrk6xyK9DkL/CL9//FXi8/5Nmv16T6N/oAzWQgAARdE/Oun+oddBYr1XRGz9Y0XF15w6Ju2WEl9jScvfdQRCQ/9AWayFAACKoH900v1D/zfWe0XE1D9UNnp6zT3Z4Nd6Fv0DVbEWAgAwQf/olO4fMW+b2PrHnki26yDL9g8b99SjfzQPayEAgH5inmO7oM/z6HaNqViO1YmtfxyRHI1k2w6q9Gtevc6r3E9PoX80G2shAIBuYu4fT0meljwjeTbp/bvYKckaybRkbY+v2e8886nM/6/6eK7E1j/OSM5K/ozktYf+yrwGMVhYCwEA5Impf2T7xquS1ySvS95Iev8+dodkp2SXZHcy+154XHIiM9ai/cP08eruI7H1jwUyP1kouUlyc7uGDQTn6B/QWAsBAKSF2D/UtW/z1hSyfeMTyaeSzySfJ73nNTPy/w9KDkkOJ/PvhecLjjXbP05JlrY6czr1XPTjZfuIyfHzptYNJcl6yQbJRsmmofj6xzKZnyyXPCh5SLJC8rDkkfaV22VNsV0GT+gfSGMtBACghdg/1LVv89YUivSNfsm+F+atheTJ9g+1XjKWk359xPQYehNvSd94W/KOZI9kb4T943nZD+sk6yUbJBslmyQvtHuvK1U9R1pnpWS8wDZHf/QP5GEtBAAQYv+oY+78hLwHrmx3vheej/T98CvpG19LvpEckRyNsH8UTZEeZ5LNki2SrZJtku317b6BRf9AN6yFAECzNbV/pJN+L/R93nia6ZzsN+kbv0v+kJyRnG1A/7AdbZ9kv+SAq53qiD5mMaT7Y3L9K/TDWggANJOP/tHt/I6y9w2omvRaiKvje1zm+uEkuUFyo2TB8OyY6B/l577HJMervshrpo9Z9HV/zLxzkGzsCww+1kIAoHl89I9u53fo+JyHzsw9vu3je1zmPukc9w93joP+UW3Oe67aS7x2en/7WrvMOwfJ1r5AM7AWAgDNkff+73oOw9yYhJaskZx/C5nv/pF3DpKtfYHmYC0EAJoh7/1fzWFcHi9E/yAx5LmhGr8RK/LdP/LOQSq73QHWQgBgsOW9/6s5jMvjhXzPKwkxyZuR9I/0/V5c/+6gyDlIZeP7fCoSRtJrIb6fCyGEELvxPccjJNR8IfP6Ly13kJMt8+9NU3sz/SOUc5DKxvf5VCSMaONt/8+FEEKI3fie4xESan6Wef0vkl8tdZAL8jUvtsy/N01kz7U4leTf95IQQgghhBASdq4aTpKrJddIrpVcN9y5PqHvFWNiSTtJRiVjbeO60lf2XAvVPcZanenVQXRXMe0p6W7T7/OyH2vaiUweo+jz7vUYNjsaY2bMjJkxM2bGzJj5/SchVXKn9I27JHdL7pHcO9y5PuHrXjHZcy0Wzh33dCmnf1zu8jMg21VMflZMZr72VIGPNfkc08eYNPxaJuO22dEYM2NmzIyZMTNmxlxuzIQQs2h13ytGn2vxgGSZZHnqvIt0B+nWPbIfZ/rzTX3OdGs+vb5+2Z9vJo9R5eeby47GmBkzY2bMjJkxM2azMf8PbaJGhg==
+   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
   </data>
  </layer>
  <objectgroup name="Object Layer 1">
@@ -371,7 +371,8 @@
   </object>
   <object id="312" type="launcher" gid="1521" x="7472.05" y="816.184" width="16" height="16">
    <properties>
-    <property name="set" value="-750, -1100"/>
+    <property name="set-target" value="rt-2"/>
+    <property name="speed" value="just enough"/>
    </properties>
   </object>
   <object id="314" type="launcher" gid="1521" x="3887.95" y="736.286" width="16" height="16">
@@ -388,40 +389,58 @@
   <object id="317" name="ta0" type="launcher" gid="1521" x="7881.42" y="808.763" width="16" height="16">
    <properties>
     <property name="set-target" value="ta1"/>
+    <property name="speed" value="just enough"/>
    </properties>
   </object>
   <object id="318" name="ta1" type="launcher" gid="1520" x="7695.91" y="658.547" width="16" height="16">
    <properties>
     <property name="set-target" value="ta2"/>
+    <property name="speed" value="just enough"/>
    </properties>
   </object>
   <object id="320" name="ta2" type="launcher" gid="1521" x="8105.28" y="463.083" width="16" height="16">
    <properties>
     <property name="set-target" value="ta3"/>
+    <property name="speed" value="just enough"/>
    </properties>
   </object>
   <object id="321" name="ta3" type="launcher" gid="1520" x="7535.13" y="379.653" width="16" height="16">
    <properties>
     <property name="set-target" value="ta4"/>
+    <property name="speed" value="just enough"/>
    </properties>
   </object>
   <object id="322" name="ta4" type="launcher" gid="1520" x="8189.39" y="139.717" width="16" height="16">
    <properties>
     <property name="set-target" value="ta5"/>
+    <property name="speed" value="just enough"/>
    </properties>
   </object>
   <object id="323" name="ta5" type="launcher" gid="1520" x="8355.74" y="759.345" width="16" height="16">
    <properties>
     <property name="set-target" value="ta6"/>
+    <property name="speed" value="just enough"/>
    </properties>
   </object>
   <object id="324" name="ta6" type="launcher" gid="1521" x="8552.14" y="389.494" width="16" height="16">
    <properties>
     <property name="set-target" value="ta7"/>
+    <property name="speed" value="just enough"/>
    </properties>
   </object>
   <object id="325" name="correct-example" gid="1520" x="7471.44" y="669.678" width="16" height="16"/>
   <object id="326" name="ta7" type="rectangle" x="8450.93" y="245.501" width="34.6299" height="33.3931"/>
+  <object id="328" name="ta0-b" type="launcher" gid="1520" x="8560.41" y="815.698" width="16" height="16">
+   <properties>
+    <property name="set-target" value="ta1-b"/>
+   </properties>
+  </object>
+  <object id="329" name="ta1-b" type="launcher" gid="1520" x="8690.73" y="863.442" width="16" height="16">
+   <properties>
+    <property name="set" value="10, -200"/>
+   </properties>
+  </object>
+  <object id="330" name="rt-2" type="rectangle" x="5786.42" y="20.8503" width="30.8222" height="36.2614"/>
  </objectgroup>
  <objectgroup name="Object Layer 2" visible="0">
   <object id="31" name="jumper01-bounds" type="recall-bounds" x="3869.08" y="544.913" width="603.805" height="339.115"/>

@@ -224,7 +224,13 @@ private:
     void post_flag_raise(ecs::EntityRef ref, VectorD bottom, VectorD top) override {
         m_flag_raiser.post_flag_raise(ref, bottom, top);
     }
-
+public:
+    void reset_for_new_frame() override {
+        // clear once-per-frames
+        m_sprites.clear();
+        m_draw_rectangles.clear();
+    }
+private:
     Rect m_view_rect;
     CircleDrawer2 m_circle_drawer;
     LineDrawer2 m_line_drawer;

@@ -1,6 +1,6 @@
 /****************************************************************************
 
-    Copyright 2020 Aria Janke
+    Copyright 2021 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -26,53 +26,12 @@
 #include <string>
 #include <memory>
 
-
-
 // these two following classes are solutions to the dependant entity problem
 // so...
 // they're going to be obsoleted in favor of a solution which solves *all*
 // dependancy problems at once!
 // I'll retain the rule of three until attempt at generalization
-#if 0
-class ScaleLoader {
-public:
-    void register_scale_left_part (const std::string &, Entity);
-    void register_scale_right_part(const std::string &, Entity);
-    void register_scale_pivot_part(const std::string &, Entity);
 
-private:
-    struct ScaleRecord {
-        Entity pivot, left, right;
-    };
-    void check_complete_scale_record(const ScaleRecord &);
-    std::map<std::string, ScaleRecord> m_scale_records;
-};
-#endif
-#if 0
-class RecallBoundsLoader {
-public:
-    RecallBoundsLoader() {}
-    RecallBoundsLoader(const RecallBoundsLoader &) = default;
-    RecallBoundsLoader(RecallBoundsLoader &&) = default;
-
-    // does nothing if there's an active exception
-    ~RecallBoundsLoader();
-
-    RecallBoundsLoader & operator = (const RecallBoundsLoader &) = default;
-    RecallBoundsLoader & operator = (RecallBoundsLoader &&) = default;
-
-    void register_recallable(const std::string & bounds_entity_name, Entity);
-    void register_bounds    (const std::string & bounds_entity_name, const Rect &);
-
-private:
-    struct RecallRecord {
-        std::vector<Entity> recallables;
-        Rect bounds = ReturnPoint().recall_bounds;
-    };
-
-    std::map<std::string, RecallRecord> m_records;
-};
-#endif
 // ----------------------------------------------------------------------------
 
 using WaypointsTag = TypeTag<Platform>;
@@ -103,45 +62,23 @@ private:
 class MapObjectLoader :
     public CachedLoader<SpriteSheet, std::string>,
     public CachedWaypoints, public CachedItemAnimations
-#   if 0
-    public ScaleLoader,
-
-    public RecallBoundsLoader
-#   endif
 {
 public:
     using CachedLoader<SpriteSheet, std::string>::load;
     using WaypointsPtr = Waypoints::ContainerPtr;
-#   if 0
-    using EntityNameContainer = std::vector<Entity>;
-    using EntityView = View<EntityNameContainer::const_iterator>;
-#   endif
 
     MapObjectLoader();
 
     virtual ~MapObjectLoader();
-#   if 0
-    virtual Entity create_entity() = 0;
-#   endif
+
     virtual Entity create_entity() = 0;
     // callable once per loader
     virtual Entity create_named_entity_for_object() = 0;
-#   if 0
-    Entity create_entity_named_after(const tmap::MapObject & obj)
-        { return create_entity_(&obj); }
-#   endif
 
     virtual void set_player(Entity) = 0;
     virtual std::default_random_engine & get_rng() = 0;
     virtual const tmap::MapObject * find_map_object(const std::string &) const = 0;
     virtual Entity find_named_entity(const std::string &) const = 0;
-#   if 0
-    virtual EntityView get_required_entities_for(const std::string &) const = 0;
-#   endif
-#   if 0
-protected:
-    virtual Entity create_entity_(const tmap::MapObject *) = 0;
-#   endif
 };
 
 namespace tmap { struct MapObject; }
@@ -166,11 +103,6 @@ std::vector<const tmap::MapObject *> get_map_load_order
     (const tmap::MapObject::MapObjectContainer &,
      std::map<std::string, const tmap::MapObject *> * namemap = nullptr);
 
-#if 0
-using MapObjectLoaderFunction = void(*)(MapObjectLoader &, const tmap::MapObject &);
-
-MapObjectLoaderFunction get_loader_function(const std::string &);
-#endif
 // -------------------------------- utils -------------------------------------
 
 template <typename IntType, typename Func>

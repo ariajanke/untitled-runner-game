@@ -40,6 +40,8 @@
 #include <thread>
 #include <tuple>
 
+#include <chrono>
+
 #include <cstring>
 #include <cassert>
 
@@ -476,6 +478,91 @@ void save_builtin_tileset(StartupOptions &, char ** beg, char ** end);
 
 void test_backdrop(StartupOptions &, char ** beg, char ** end);
 
+class FrameTimer {
+public:
+    static constexpr const int k_default_fps = 60;
+    static constexpr const int k_choke_fps   = 15;
+
+    virtual ~FrameTimer() {}
+    virtual void prepare_window(sf::RenderWindow &) const = 0;
+    virtual double get_elapsed_time() const = 0;
+    // called once immediately before frame time
+    virtual void reset_clock() = 0;
+    // called at the end of each frame
+    virtual void on_between_frames() = 0;
+
+    static std::unique_ptr<FrameTimer> make_sfml_timer() {
+        class SfmlTimer final : public FrameTimer {
+            void prepare_window(sf::RenderWindow & win) const override {
+                win.setFramerateLimit(unsigned(k_default_fps));
+            }
+            double get_elapsed_time() const override {
+                return double(m_clock.getElapsedTime().asSeconds());
+            }
+            void reset_clock() override {
+                m_clock.restart();
+            }
+            void on_between_frames() override {
+                m_clock.restart();
+            }
+            sf::Clock m_clock;
+        };
+        return std::make_unique<SfmlTimer>();
+    }
+
+    static std::unique_ptr<FrameTimer> make_stl_timer();
+};
+
+namespace {
+
+class TimerHelper {
+
+friend class ::FrameTimer;
+
+class StlTimer final : public FrameTimer {
+    using Clock = std::chrono::steady_clock;
+    using TimePoint = Clock::time_point;
+    using TimeDiff = decltype (TimePoint() - TimePoint());
+    using Microsecs = std::chrono::microseconds;
+
+    static constexpr const double k_frame_duration = 1. / double(k_default_fps);
+    static constexpr const double k_choke_duration = 1. / double(k_choke_fps);
+    void prepare_window(sf::RenderWindow &) const override {}
+
+    double get_elapsed_time() const override {
+        return std::min(k_choke_duration, to_seconds(m_clock.now() - m_last_frame_time));
+    }
+    void reset_clock() override {
+        m_last_frame_time = m_clock.now();
+    }
+    void on_between_frames() override {
+        double et_so_far = to_seconds(m_clock.now() - m_last_frame_time);
+        m_last_frame_time = m_clock.now();
+        double dur_for_sleep = k_frame_duration;
+        dur_for_sleep += std::max(0., k_frame_duration - et_so_far);
+        sleep_for_seconds(dur_for_sleep);
+    }
+
+    static double to_seconds(const TimeDiff & diff) {
+        return double(std::chrono::duration_cast<Microsecs, long>(diff).count()) / 1'000'000.;
+    }
+
+    static void sleep_for_seconds(double seconds) {
+        std::this_thread::sleep_for(Microsecs( round_to<long>(seconds*1'000'000.) ));
+    }
+
+    TimePoint m_last_frame_time;
+    std::chrono::steady_clock m_clock;
+};
+
+};
+
+}
+
+/* static */ std::unique_ptr<FrameTimer> FrameTimer::make_stl_timer() {
+    return std::make_unique<TimerHelper::StlTimer>();
+}
+
 int main(int argc, char ** argv) {
     std::cout << "Component table size " << Entity::k_component_table_size
               << " bytes.\nNumber of inlined components "
@@ -483,7 +570,7 @@ int main(int argc, char ** argv) {
 
     InterpolativePosition::run_tests();
     {
-    DefineInPlaceVector<int, 5> ipv; //std::vector<int, DefineInPlace<4>::Allocator<int>> ipv;
+    DefineInPlaceVector<int, 5> ipv;
     reserve_in_place(ipv);
     std::cout << (sizeof(ipv) / sizeof(void *)) << ":" << (sizeof(ipv) % sizeof(void *)) << std::endl;
     ipv.push_back(1);
@@ -515,19 +602,19 @@ int main(int argc, char ** argv) {
 
     sf::RenderWindow win;
     GameDriver gdriver;
-    Gen gen;
 
     EnvironmentCollisionSystem::run_tests();
+    auto timer = //FrameTimer::make_sfml_timer();
+    FrameTimer::make_stl_timer();
 
     win.create(sf::VideoMode(k_view_width*3, k_view_height*3), "Bouncy Bouncy UwU");
     win.setKeyRepeatEnabled(false);
-    win.setFramerateLimit(60);
-    gdriver.setup(opts, win.getView());
-    gen.setup();
 
+    gdriver.setup(opts, win.getView());
     bool frame_advance_enabled = false;
     bool do_this_frame         = true ;
-    sf::Clock clock;
+    timer->prepare_window(win);
+    timer->reset_clock();
     while (win.isOpen()) {
         sf::Event event;
         while (win.pollEvent(event)) {
@@ -562,15 +649,13 @@ int main(int argc, char ** argv) {
         }
         win.clear(sf::Color(100, 100, 255));
         if (do_this_frame) {
-            gdriver.update(double(clock.getElapsedTime().asSeconds()));
-        } else {
-            gdriver.update(0.);
+            gdriver.update(timer->get_elapsed_time());
         }
-        clock.restart();
+        timer->on_between_frames();
+
         if (do_this_frame && frame_advance_enabled) {
             do_this_frame = false;
         }
-
 
         {
         const auto old_view = win.getView();
@@ -578,9 +663,7 @@ int main(int argc, char ** argv) {
         new_view.setCenter(sf::Vector2f(gdriver.camera_position()));
         win.setView(new_view);
         gdriver.render_to(win);
-#       if 1
-        gen.render_to(win);
-#       endif
+
 #       if 0
         {
         auto pl = gdriver.get_player();
@@ -601,8 +684,9 @@ int main(int argc, char ** argv) {
         win.setView(hud_view);
         gdriver.render_hud_to(win);
         }
-        gen.update(1./60.);
+
         win.display();
+
     }
     return 0;
 }

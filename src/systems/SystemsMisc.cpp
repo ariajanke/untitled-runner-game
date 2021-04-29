@@ -533,7 +533,10 @@ static VectorD expansion_for_collector(const Entity & e) {
     auto loc = pcomp.location();
     auto cent = center_of(bounds);
 
-    auto vel = std::get<1>(compute_velocities_to_target(loc, cent, k_gravity, k_default_boost));
+    auto vel = std::get<1>(compute_velocities_to_target(loc, cent, k_gravity, target_launcher.speed));
+    if (!is_real(vel)) {
+        throw std::runtime_error("Attempting to launch with an insufficient speed, fix was supposed to occur at map loading time.");
+    }
     do_set(vel, pcomp, e.ptr<PlayerControl>());
 }
 

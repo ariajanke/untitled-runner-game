@@ -284,9 +284,6 @@ void GraphicsDrawer::render_background(sf::RenderTarget & target) {
         target.draw(rect);
     }
     m_item_anis.render_to(target);
-    // clear once-per-frames
-    m_sprites.clear();
-    m_draw_rectangles.clear();
 }
 
 void GraphicsDrawer::render_backdrop(sf::RenderTarget & target) {

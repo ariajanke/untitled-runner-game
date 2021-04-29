@@ -70,6 +70,8 @@ public:
     // not once-per-frame
     virtual void post_item_collection(VectorD, AnimationPtr) = 0;
     virtual void post_flag_raise(ecs::EntityRef, VectorD bottom, VectorD top) = 0;
+
+    virtual void reset_for_new_frame() = 0;
 };
 
 class GraphicsAware {

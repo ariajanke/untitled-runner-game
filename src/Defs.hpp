@@ -340,9 +340,11 @@ std::enable_if_t<std::is_floating_point_v<T>, std::tuple<sf::Vector2<T>,sf::Vect
 {
     // Made possible by this wonderful resource:
     // https://www.forrestthewoods.com/blog/solving_ballistic_trajectories/
-    //
-    // note: this code doesn't quite work yet!
-    // I'm adopting 3D code for a 2D game
+    // Thank you for releasing your work (demo source code specifically) under
+    // the public domain Forrest Smith
+
+    // note: I plan on relocating many of my utils to the commons library
+    //       in order to release them under a more permissive license
     using Vec = sf::Vector2<T>;
     using std::make_tuple;
     if (   !is_real(source.x) || !is_real(source.y) || !is_real(speed)
@@ -366,12 +368,11 @@ std::enable_if_t<std::is_floating_point_v<T>, std::tuple<sf::Vector2<T>,sf::Vect
     }
 
     // assumptions at this point source != target && acc != 0
-
-    static auto comp_from_basis = [](Vec basis, Vec a) {
-        static auto are_parallel = [](Vec a, Vec b)
-            { return are_very_close(normalize(a), normalize(b)); };
-        auto unita = project_onto(a, basis);
-        return magnitude(unita)*T(are_parallel(unita, basis) ? 1 : -1);
+    static auto are_parallel = [](Vec a, Vec b)
+        { return are_very_close(normalize(a), normalize(b)); };
+    static auto comp_from_basis = [](Vec a, Vec basis) {
+        auto proj = project_onto(a, basis);
+        return magnitude(proj)*( are_parallel(proj, basis) ? T(1) : T(-1) );
     };
 
     auto j = -normalize(influencing_acceleration);
@@ -379,8 +380,8 @@ std::enable_if_t<std::is_floating_point_v<T>, std::tuple<sf::Vector2<T>,sf::Vect
 
     T t0, t1;
     {
-        auto diff_i = comp_from_basis(i, target - source);
-        auto diff_j = comp_from_basis(j, target - source);
+        auto diff_i = magnitude(project_onto(target - source, i));
+        auto diff_j = comp_from_basis(target - source, j);
 
         auto spd_sq = speed*speed;
         auto g = magnitude(influencing_acceleration);
@@ -399,6 +400,11 @@ std::enable_if_t<std::is_floating_point_v<T>, std::tuple<sf::Vector2<T>,sf::Vect
     if (are_very_close(t0, t1)) { return make_tuple(s0, s0); }
     return make_tuple(s0, ground_dir*std::cos(t1)*speed + up*std::sin(t1)*speed);
 }
+
+template <typename T>
+std::enable_if_t<std::is_floating_point_v<T>, bool> is_real
+    (const sf::Vector2<T> & r)
+    { return is_real(r.x) && is_real(r.y); }
 
 inline bool are_same(const SurfaceDetails & rhs, const SurfaceDetails & lhs) {
     return are_very_close(rhs.friction  , lhs.friction  ) &&

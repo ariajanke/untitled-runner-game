@@ -144,7 +144,6 @@ private:
     };
 
     class TargetedLauncherChecker final : public LaunchCommonBase {
-        static constexpr const double k_default_boost = 1200.;
         void handle_trespass(Entity launch_e, Entity e) const override;
         void adjust_collision(const Entity &, VectorD &, Rect &) const override {}
     };

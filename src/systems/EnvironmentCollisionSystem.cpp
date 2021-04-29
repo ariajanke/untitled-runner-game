@@ -79,6 +79,9 @@ EnvColParams::EnvColParams
     switch (pcomp.state_type_id()) {
     case k_freebody_state: {
         const auto & fb =  pcomp.state_as<FreeBody>();
+        if (!is_real(fb.velocity) || !is_real(fb.location)) {
+            throw std::runtime_error("EnvCol System: freebody's location and velocity must both be real vectors.");
+        }
         handle_freebody_physics(ecp, fb.location + fb.velocity*elapsed_time());
         }
         break;

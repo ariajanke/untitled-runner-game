@@ -126,12 +126,11 @@ struct TriggerBox {
         enum LaunchType : uint8_t { k_booster, k_setter, k_detacher, k_unset };
         MiniVector launch_velocity = MiniVector(VectorD(0, -467));
         LaunchType type = k_unset;
-#       if 0
-        bool detaches = true;
-#       endif
     };
     struct TargetedLauncher {
+        static constexpr const double k_default_launch_speed = 1000.;
         EntityRef target;
+        double speed = k_default_launch_speed;
     };
 
     using StateType = MultiType<HarmfulObject, Checkpoint, Launcher, ItemCollectionSharedPtr, TargetedLauncher>;

@@ -136,6 +136,7 @@ void GameDriver::setup(const StartupOptions & opts, const sf::View &) {
 }
 
 void GameDriver::update(double et) {
+    m_graphics.reset_for_new_frame();
     for (auto * tsys : m_time_aware_systems) {
         tsys->set_elapsed_time(et);
     }
@@ -143,6 +144,7 @@ void GameDriver::update(double et) {
     m_emanager.update_systems();
 
     m_emanager.process_deletion_requests();
+
     m_graphics.update(et);
 
     m_timer.update_velocity(m_player.get<PhysicsComponent>().velocity());
@@ -158,7 +160,6 @@ void GameDriver::render_to(sf::RenderTarget & target) {
     auto itr = m_tmap.begin();
     m_graphics.render_backdrop(target);
 
-    //auto ground_itr = m_tmap.find_layer("ground");
     for (; itr != m_tmap.end(); ++itr) {
         if ((**itr).name() == "ground") break;
         target.draw(**itr);
@@ -169,18 +170,6 @@ void GameDriver::render_to(sf::RenderTarget & target) {
 
     for (; itr != m_tmap.end(); ++itr) target.draw(**itr);
     m_graphics.render_front(target);
-#   if 0
-    for (const auto & layer : m_tmap) {
-
-        target.draw(*layer);
-    }
-#   endif
-    //m_graphics.render_front(target);
-    //m_graphics.render_to(target);
-#   if 0
-    m_graphics.set_view(target.getView());
-    m_graphics.render_to(target);
-#   endif
 }
 
 void GameDriver::render_hud_to(sf::RenderTarget & target) {
