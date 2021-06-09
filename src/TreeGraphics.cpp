@@ -27,6 +27,7 @@
 #include <SFML/Graphics/Sprite.hpp>
 #include <SFML/Graphics/RenderTexture.hpp>
 
+#include <common/SfmlVectorTraits.hpp>
 #include <common/SubGrid.hpp>
 
 #include <variant>
@@ -39,6 +40,9 @@ using RealDistri = std::uniform_real_distribution<double>;
 using IntDistri  = std::uniform_int_distribution<int>;
 using Tag        = Spine::Tag;
 using Anchor     = Spine::Anchor;
+using cul::ConstSubGrid;
+using cul::convert_to;
+using cul::SubGrid;
 
 template <typename Func>
 void for_each_pixel(const Spine &, Func &&);
@@ -319,7 +323,7 @@ void PlantTree::save_to_file(const std::string & fn) const {
     }
     sf::View view;
     view.setSize  (float(bb.width), float(bb.height));
-    view.setCenter(sf::Vector2f(center_of(bb)));
+    view.setCenter(convert_to<sf::Vector2f>(center_of(bb)));
     target.setView(view);
     target.clear();
     target.draw(*this);
@@ -328,27 +332,27 @@ void PlantTree::save_to_file(const std::string & fn) const {
 }
 
 Rect PlantTree::bounding_box() const noexcept {
-    VectorD tl(fore_leaves_location());
+    VectorD tl = convert_to<VectorD>(fore_leaves_location());
     VectorD high(-k_inf, -k_inf);
     auto list = {
         std::make_pair( tl, m_fore_leaves ),
-        std::make_pair( tl + VectorD(back_leaves_offset()), m_back_leaves ),
-        std::make_pair( VectorD(trunk_adjusted_location()), m_trunk )
+        std::make_pair( tl + convert_to<VectorD>(back_leaves_offset()), m_back_leaves ),
+        std::make_pair( convert_to<VectorD>(trunk_adjusted_location()), m_trunk )
     };
     for (const auto & [pos, texture] : list) {
         high.x = std::max(high.x, pos.x + double(texture.getSize().x));
         high.y = std::max(high.y, pos.y + double(texture.getSize().y));
     }
-    return Rect( tl, high - tl );
+    return Rect( tl, convert_to<cul::Size2<double>>(high - tl) );
 }
 
 
 /* private */ sf::Vector2f PlantTree::fore_leaves_location() const noexcept {
-    return sf::Vector2f(m_leaves_location) - sf::Vector2f( m_fore_leaves.getSize() )*0.5f;
+    return convert_to<sf::Vector2f>(m_leaves_location) - sf::Vector2f( m_fore_leaves.getSize() )*0.5f;
 }
 
 /* private */ sf::Vector2f PlantTree::trunk_adjusted_location() const noexcept {
-    return sf::Vector2f( m_trunk_location + m_trunk_offset );
+    return convert_to<sf::Vector2f>( m_trunk_location + m_trunk_offset );
 }
 
 /* private */ sf::Vector2f PlantTree::back_leaves_offset() const noexcept {
@@ -817,12 +821,12 @@ private:
 std::vector<VectorI> find_convex_hull(GwPoints::Interface &);
 
 template <typename T, typename IterType>
-sf::Vector2<T> find_center(IterType beg, IterType end);
+cul::Vector2<T> find_center(IterType beg, IterType end);
 
 template <bool k_is_const, typename T>
-std::vector<SelectVecIterator<k_is_const, sf::Vector2<T>>>
-    find_opposite_sides(SelectStdVectorRef<k_is_const, sf::Vector2<T>> cont,
-                        const sf::Vector2<T> & hull_center);
+std::vector<SelectVecIterator<k_is_const, cul::Vector2<T>>>
+    find_opposite_sides(SelectStdVectorRef<k_is_const, cul::Vector2<T>> cont,
+                        const cul::Vector2<T> & hull_center);
 
 template <typename Iter, typename Func>
 void for_side_by_side_wrap(Iter beg, Iter end, Func &&);
@@ -830,9 +834,9 @@ void for_side_by_side_wrap(Iter beg, Iter end, Func &&);
 // gets denormalized vector jutting out of the hull at a given segment
 // normalizing this vector will get the normal of this hull triangle/segment
 template <typename T>
-sf::Vector2<T> get_hull_out_of_segment
-    (const sf::Vector2<T> & a, const sf::Vector2<T> & b,
-     const sf::Vector2<T> & hull_center);
+cul::Vector2<T> get_hull_out_of_segment
+    (const cul::Vector2<T> & a, const cul::Vector2<T> & b,
+     const cul::Vector2<T> & hull_center);
 
 template <typename OnHolesFunc, typename OnFillsFunc>
 void for_each_holes_and_fills
@@ -887,6 +891,7 @@ bool is_within_circle(VectorI center, int radius, VectorI r) {
 
 template <typename Func>
 void for_each_point_in_circle(VectorI center, int radius, Func && f) {
+    using namespace cul::fc_signal;
     VectorI v = center - VectorI(radius, radius);
     auto x_start = v.x;
     auto x_end = v.x + radius*2;
@@ -894,7 +899,7 @@ void for_each_point_in_circle(VectorI center, int radius, Func && f) {
     while (v.y != y_end) {
         if (is_within_circle(center, radius, v)) {
             auto gv = adapt_to_flow_control_signal(f, v);
-            if (gv == fc_signal::k_break) return;
+            if (gv == k_break) return;
         }
         if (++v.x == x_end) {
             v.x = x_start;
@@ -1149,12 +1154,13 @@ using PtsVari = GwPoints::PtsVari;
 template <typename IterType, typename T>
 bool contains_point
     (IterType beg, IterType end,
-     const sf::Vector2<T> & center, const sf::Vector2<T> & pt);
+     const cul::Vector2<T> & center, const cul::Vector2<T> & pt);
 
 VectorI GwPoints::WritablePts::get_init_v() {
     auto gv = get_extremes(m_copy);
     auto rv = gv.front();
-    auto end = std::unique(gv.begin(), gv.end());
+    // remove predicate
+    auto end = std::unique(gv.begin(), gv.end(), [](VectorI a, VectorI b) { return a == b; });
 
     auto c = find_center<int>(gv.begin(), end);
 
@@ -1273,9 +1279,9 @@ std::vector<VectorI> find_convex_hull(GwPoints::Interface & pts_intf) {
 }
 
 template <typename T, typename IterType>
-sf::Vector2<T> find_center(IterType beg, IterType end) {
+cul::Vector2<T> find_center(IterType beg, IterType end) {
     // testing for overflow will be a fun test case
-    sf::Vector2<T> avg;
+    cul::Vector2<T> avg;
     for (auto itr = beg; itr != end; ++itr) {
         avg += *itr;
     }
@@ -1285,17 +1291,17 @@ sf::Vector2<T> find_center(IterType beg, IterType end) {
 }
 
 template <bool k_is_const, typename T>
-std::vector<SelectVecIterator<k_is_const, sf::Vector2<T>>>
-    find_opposite_sides(SelectStdVectorRef<k_is_const, sf::Vector2<T>> cont,
-                        const sf::Vector2<T> & hull_center)
+std::vector<SelectVecIterator<k_is_const, cul::Vector2<T>>>
+    find_opposite_sides(SelectStdVectorRef<k_is_const, cul::Vector2<T>> cont,
+                        const cul::Vector2<T> & hull_center)
 {
-    using Vec = sf::Vector2<T>;
+    using Vec = cul::Vector2<T>;
     std::vector<SelectVecIterator<k_is_const, Vec>> rv;
     static constexpr const double k_init_ray_length = 1000.;
     rv.reserve(cont.size());
 
     for_side_by_side_wrap(cont.begin(), cont.end(), [&](const Vec & a, const Vec & b) {
-        auto norm = normalize(get_hull_out_of_segment(VectorD(a), VectorD(b), VectorD(hull_center)));
+        auto norm = cul::normalize(get_hull_out_of_segment(VectorD(a), VectorD(b), VectorD(hull_center)));
         auto mid  = (VectorD(a) + VectorD(b))*0.5;
         auto ray_length = k_init_ray_length;
 
@@ -1306,11 +1312,12 @@ std::vector<SelectVecIterator<k_is_const, sf::Vector2<T>>>
             }
 
             for_side_by_side_wrap(cont.begin(), cont.end(), [&](const Vec & ap, const Vec & bp) {
-                if (&a == &ap) return fc_signal::k_continue;
+                using namespace cul::fc_signal;
+                if (&a == &ap) return k_continue;
                 auto intx = find_intersection(mid, mid + -ray_length*norm, VectorD(ap), VectorD(bp));
-                if (intx == k_no_intersection) return fc_signal::k_continue;
+                if (intx == k_no_intersection) return k_continue;
                 cand = &ap;
-                return fc_signal::k_break;
+                return k_break;
             });
             ray_length *= 2.;
         }
@@ -1321,12 +1328,13 @@ std::vector<SelectVecIterator<k_is_const, sf::Vector2<T>>>
 
 template <typename Iter, typename Func>
 void for_side_by_side_wrap(Iter beg, Iter end, Func && f) {
+    using namespace cul::fc_signal;
     if (end - beg < 2) return;
     for (auto itr = beg; itr != end - 1; ++itr) {
         const auto & a = *itr;
         const auto & b = *(itr + 1);
         auto fc = adapt_to_flow_control_signal(f, a, b);
-        if (fc == fc_signal::k_break) return;
+        if (fc == k_break) return;
     }
     const auto & a = *(end - 1);
     const auto & b = *beg;
@@ -1334,14 +1342,18 @@ void for_side_by_side_wrap(Iter beg, Iter end, Func && f) {
 }
 
 template <typename T>
-sf::Vector2<T> get_hull_out_of_segment(const sf::Vector2<T> & a, const sf::Vector2<T> & b, const sf::Vector2<T> & hull_center) {
-    VectorD mid { (a + b) / T(2) };
-    VectorD from = mid - VectorD(hull_center);
-    VectorD para = rotate_vector(VectorD(a - b), k_pi*0.5);
+cul::Vector2<T> get_hull_out_of_segment
+    (const cul::Vector2<T> & a, const cul::Vector2<T> & b,
+     const cul::Vector2<T> & hull_center)
+{
+    using Vec = cul::Vector2<T>;
+    Vec mid { (a + b) / T(2) };
+    Vec from = mid - Vec(hull_center);
+    Vec para = rotate_vector(Vec(a - b), k_pi*0.5);
     if (angle_between( from, para ) >= angle_between( from, -para )) {
         para *= -1.;
     }
-    return sf::Vector2<T>(para);
+    return para;
 }
 
 template <typename OnHolesFunc, typename OnFillsFunc>
@@ -1397,17 +1409,18 @@ void for_each_holes_and_fills
 template <typename IterType, typename T>
 bool contains_point
     (IterType beg, IterType end,
-     const sf::Vector2<T> & center, const sf::Vector2<T> & pt)
+     const cul::Vector2<T> & center, const cul::Vector2<T> & pt)
 {
-    using FVec = sf::Vector2<T>;
+    using FVec = cul::Vector2<T>;
     bool rv = false;
     for_side_by_side_wrap(beg, end, [&] (FVec a, FVec b) {
+        using namespace cul::fc_signal;
         auto gv = find_intersection(VectorD(a), VectorD(b), VectorD(center), VectorD(pt));
         if (gv == k_no_intersection) {
-            return fc_signal::k_continue;
+            return k_continue;
         }
         rv = true;
-        return fc_signal::k_break;
+        return k_break;
     });
     return rv;
 }

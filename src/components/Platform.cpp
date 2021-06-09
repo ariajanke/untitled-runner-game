@@ -219,6 +219,7 @@ void InterpolativePosition::set_segment_source(std::size_t x) {
 }
 
 /* static */ void InterpolativePosition::run_tests() {
+    using namespace cul;
     using IntPos = InterpolativePosition;
     ts::TestSuite suite;
     suite.start_series("InterpolativePosition tests");

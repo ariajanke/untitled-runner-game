@@ -29,6 +29,7 @@
 #include <SFML/Graphics/RenderTexture.hpp>
 
 #include <common/SubGrid.hpp>
+#include <common/SfmlVectorTraits.hpp>
 
 #include <tmap/TiledMap.hpp>
 #include <tmap/TileSet.hpp>
@@ -43,6 +44,7 @@
 
 namespace {
 
+using cul::convert_to;
 static const VectorD k_unit_start(1., 0.);
 
 VectorD add_polar(VectorD r, double angle, double distance) {
@@ -63,7 +65,7 @@ void LineDrawer2::post_line(VectorD a, VectorD b, sf::Color color, double thickn
     auto mk_vertex = [thickness, init_angle, color](VectorD pt, double ang_dir) {
         auto theta = init_angle + ang_dir*(k_pi / 2.0);
         auto r = add_polar(pt, theta, thickness / 2.0);
-        return sf::Vertex(sf::Vector2f(r), color);
+        return sf::Vertex(convert_to<sf::Vector2f>(r), color);
     };
 
     auto verticies = {
@@ -89,7 +91,7 @@ void CircleDrawer2::post_circle(VectorD r, double radius, sf::Color color) {
     m_vertices.insert(m_vertices.end(), vertex_range.begin(), vertex_range.end());
     for (auto itr = get_begin(); itr != m_vertices.end(); ++itr) {
         itr->color = color;
-        itr->position = float(radius)*itr->position + sf::Vector2f(r);
+        itr->position = float(radius)*itr->position + convert_to<sf::Vector2f>(r);
     }
 }
 
@@ -184,8 +186,8 @@ void FlagRaiser::update(double et) {
             }
             float height = float(magnitude(offset));
             if (height > Record::k_height) height = Record::k_height;
-            sf::Vector2f loc(rec.start + offset);
-            rec.draw_rect = DrawRectangle(loc.x, loc.y, float(Record::k_width), height, sf::Color(50, 100, 200));
+            auto loc = convert_to<sf::Vector2f>(rec.start + offset);
+            rec.draw_rect = cul::DrawRectangle(loc.x, loc.y, float(Record::k_width), height, sf::Color(50, 100, 200));
 
             ++itr;
         }
@@ -216,7 +218,7 @@ void ItemCollectAnimations::update(double et) {
 void ItemCollectAnimations::render_to(sf::RenderTarget & target) const {
     for (const auto & rec : m_records) {
         sf::Sprite brush;
-        brush.setPosition(sf::Vector2f(rec.location));
+        brush.setPosition(convert_to<sf::Vector2f>(rec.location));
         brush.setTexture(rec.ptr->tileset->texture());
         brush.setTextureRect(rec.ptr->tileset->texture_rectangle(*rec.current_frame));
         target.draw(brush);
@@ -234,14 +236,15 @@ std::string to_padded_string(int x) {
 // ----------------------------------------------------------------------------
 
 bool contains_point(const std::vector<VectorI> & points, VectorI center, VectorI pt) {
+    using namespace cul::fc_signal;
     bool rv = false;
     auto in_stripe = [&] (VectorI a, VectorI b) {
         auto gv = find_intersection(VectorD(a), VectorD(b), VectorD(center), VectorD(pt));
         if (gv == k_no_intersection) {
-            return fc_signal::k_continue;
+            return k_continue;
         }
         rv = true;
-        return fc_signal::k_break;
+        return k_break;
     };
     for_side_by_side(points, in_stripe);
     if (rv) return rv;
@@ -298,11 +301,11 @@ void VariablePlatformDrawer::draw_platform(VectorD left, VectorD right) {
     }
 
     static const sf::Vector2f k_texture_offset(0.f, k_tile_size);
-    sf::Vector2f origin = sf::Vector2f( (left + right)*0.5 ) + k_texture_offset;
+    sf::Vector2f origin = convert_to<sf::Vector2f>( (left + right)*0.5 ) + k_texture_offset;
     double angle_in_rads  = (std::atan2(right.y - left.y, right.x - left.x));
     float angle_to_rotate = float(angle_in_rads*(180. / k_pi));
     for (auto * spt : { &front_left, &front_right, &back_left, &back_right }) {
-        spt->move(sf::Vector2f(left) - k_texture_offset);
+        spt->move(convert_to<sf::Vector2f>(left) - k_texture_offset);
         //spt->setOrigin(origin);
         //spt->rotate(angle_to_rotate);
     }
@@ -357,7 +360,12 @@ void GraphicsDrawer::render_backdrop(sf::RenderTarget & target) {
 }
 
 void GraphicsDrawer::set_view(const sf::View & view) {
+    cul::set_top_left_of(m_view_rect, convert_to<VectorD>( view.getCenter() - view.getSize()*0.5f ));
+    m_view_rect.width = double(view.getSize().x);
+    m_view_rect.height = double(view.getSize().y);
+#   if 0
     m_view_rect = Rect(VectorD( view.getCenter() - view.getSize()*0.5f), VectorD(view.getSize()));
+#   endif
 }
 
 /* private */ void GraphicsDrawer::draw_sprite(const sf::Sprite & spt) {
@@ -366,6 +374,7 @@ void GraphicsDrawer::set_view(const sf::View & view) {
     spt_rect.top  = spt.getPosition().y;
     spt_rect.width = spt.getTextureRect().width;
     spt_rect.height = spt.getTextureRect().height;
-    if (!spt_rect.intersects(m_view_rect)) return;
+    // no sprite culling I guess
+    //if (!spt_rect.intersects(m_view_rect)) return;
     m_sprites.push_back(spt);
 }

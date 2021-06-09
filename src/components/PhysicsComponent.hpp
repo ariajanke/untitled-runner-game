@@ -73,7 +73,7 @@ private:
     EntityRef m_holder;
 };
 
-using PhysicsState = MultiType<LineTracker, FreeBody, Rect, HeldState>;
+using PhysicsState = cul::MultiType<LineTracker, FreeBody, Rect, HeldState>;
 
 const constexpr int k_tracker_state   = PhysicsState::GetTypeId<LineTracker>::k_value;
 const constexpr int k_freebody_state  = PhysicsState::GetTypeId<FreeBody   >::k_value;

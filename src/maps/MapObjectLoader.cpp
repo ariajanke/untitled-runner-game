@@ -24,6 +24,7 @@
 #include <tmap/TileSet.hpp>
 
 #include <common/StringUtil.hpp>
+#include <common/SfmlVectorTraits.hpp>
 
 #include <iostream>
 #include <set>
@@ -33,6 +34,11 @@
 
 namespace {
 
+using cul::for_split;
+using cul::trim;
+using cul::string_to_number;
+using cul::string_to_number_multibase;
+using cul::find_lowest_true;
 using MapObject = tmap::MapObject;
 
 class ObjectTypeLoader : public ObjectLoader {
@@ -363,9 +369,15 @@ VectorD parse_vector(const std::string & str)
 
 namespace {
 
-inline VectorD center_of(const tmap::MapObject & obj)
-    { return VectorD(::center_of(obj.bounds)); }
-
+inline VectorD center_of(const tmap::MapObject & obj) {
+    return VectorD(obj.bounds.left + obj.bounds.width *0.5f,
+                   obj.bounds.top  + obj.bounds.height*0.5f);
+}
+#if 0
+inline Rect convert_rect(const sf::FloatRect & rect) {
+    return Rect(rect.left, rect.top, rect.width, rect.height);
+}
+#endif
 InterpolativePosition::Behavior load_waypoints_behavior(const tmap::MapObject::PropertyMap &);
 
 void load_display_frame(DisplayFrame &, const tmap::MapObject &);
@@ -387,7 +399,7 @@ void load_player_start(MapObjectLoader & loader, const tmap::MapObject & obj) {
     loader.set_player(e);
 
     auto start_point = loader.create_entity();
-    start_point.add<PhysicsComponent>().reset_state<Rect>() = Rect(obj.bounds);
+    start_point.add<PhysicsComponent>().reset_state<Rect>() = to_rect(obj.bounds);
 
     e.add<ReturnPoint>().ref = start_point;
     e.add<ScriptUPtr>() = std::make_unique<PlayerScript>(e);
@@ -410,7 +422,7 @@ void load_coin(MapObjectLoader & loader, const tmap::MapObject & obj) {
 
 void load_diamond(MapObjectLoader & loader, const tmap::MapObject & obj) {
     auto e = loader.create_entity();
-    auto & rect = e.add<PhysicsComponent>().reset_state<Rect>() = Rect(obj.bounds);
+    auto & rect = e.add<PhysicsComponent>().reset_state<Rect>() = to_rect(obj.bounds);
     rect.top  -= std::remainder(rect.top , 8.);
     rect.left -= std::remainder(rect.left, 8.);
     load_display_frame(e.add<DisplayFrame>(), obj);
@@ -431,7 +443,7 @@ void load_launcher(MapObjectLoader & loader, const tmap::MapObject & obj) {
     };
 
     auto e = obj.name.empty() ? loader.create_entity() : loader.create_named_entity_for_object();
-    auto launcher_bounds = round_rect(Rect(obj.bounds));
+    auto launcher_bounds = round_rect(to_rect(obj.bounds));
     e.add<PhysicsComponent>().reset_state<Rect>() = launcher_bounds;
 
     auto do_if_found = make_do_if_found(obj.custom_properties);
@@ -486,10 +498,10 @@ void load_launcher(MapObjectLoader & loader, const tmap::MapObject & obj) {
         // or the furthest possible distance needs to be accounted for
         // a solution may have to involve both
         auto find_launch_sol = [tlauncher, launcher_bounds] () {
-            auto target = ::center_of(Entity(tlauncher->target).get<PhysicsComponent>().state_as<Rect>());
-            auto launch_pos_ext = ::center_of(launcher_bounds);
+            auto target = center_of(Entity(tlauncher->target).get<PhysicsComponent>().state_as<Rect>());
+            auto launch_pos_ext = center_of(launcher_bounds);
             return [=](double speed) {
-                return std::get<1>(compute_velocities_to_target(launch_pos_ext, target, k_gravity, speed));
+                return std::get<1>(find_velocities_to_target(launch_pos_ext, target, k_gravity, speed));
             };
         } ();
         auto & speed = tlauncher->speed;
@@ -503,7 +515,7 @@ void load_launcher(MapObjectLoader & loader, const tmap::MapObject & obj) {
         while (!is_real(find_launch_sol(speed))) speed *= 2.;
 
         if (failed_to_reach_target) {
-            speed *= 1.1*find_lowest_true([&find_launch_sol, speed]
+            speed *= 1.1*find_lowest_true<double>([&find_launch_sol, speed]
                 (double mul) { return is_real(find_launch_sol(mul*speed)); });
         }
         if (failed_to_reach_target && !surpress_speed_warning) {
@@ -590,7 +602,7 @@ void load_ball(MapObjectLoader & loader, const MapObject & obj) {
     });
 
     auto recall_e = loader.create_entity();
-    recall_e.add<PhysicsComponent>().reset_state<Rect>() = Rect(obj.bounds);
+    recall_e.add<PhysicsComponent>().reset_state<Rect>() = to_rect(obj.bounds);
 
     auto ball_e = loader.create_entity();
     ball_e.add<PhysicsComponent>().reset_state<FreeBody>().location = center_of(obj);
@@ -613,7 +625,7 @@ void load_ball(MapObjectLoader & loader, const MapObject & obj) {
         }
     });
     do_if_found(k_ball_recall_bounds, [&loader, /*&ball_e,*/ &rt_point](const std::string & val) {
-        rt_point.recall_bounds = Rect(loader.find_map_object(val)->bounds);
+        rt_point.recall_bounds = to_rect(loader.find_map_object(val)->bounds);
     });
 }
 
@@ -703,7 +715,7 @@ void load_basket(MapObjectLoader & loader, const MapObject & obj) {
 
 void load_checkpoint(MapObjectLoader & loader, const MapObject & obj) {
     auto checkpoint = loader.create_entity();
-    checkpoint.add<PhysicsComponent>().reset_state<Rect>() = Rect(obj.bounds);
+    checkpoint.add<PhysicsComponent>().reset_state<Rect>() = to_rect(obj.bounds);
     checkpoint.add<TriggerBox>().reset<TriggerBox::Checkpoint>();
 }
 
@@ -712,7 +724,7 @@ void load_scale_pivot(MapObjectLoader & loader, const MapObject & obj) {
         throw std::runtime_error("Scale pivot must have a name.");
     }
     auto e = loader.create_named_entity_for_object();
-    e.add<PhysicsComponent>().reset_state<Rect>() = Rect(obj.bounds);
+    e.add<PhysicsComponent>().reset_state<Rect>() = to_rect(obj.bounds);
     e.add<ScriptUPtr>() = std::make_unique<ScalePivotScriptN>(e);
 }
 
@@ -725,7 +737,7 @@ std::pair<std::string, Entity> load_scale_part
     }
     auto e = loader.create_entity();
     // will be removed by the script on creation
-    e.add<PhysicsComponent>().reset_state<Rect>() = Rect(obj.bounds);
+    e.add<PhysicsComponent>().reset_state<Rect>() = to_rect(obj.bounds);
 
     return std::make_pair(itr->second, e);
 }
@@ -759,7 +771,7 @@ const std::vector<std::string> & get_scale_part_requirements() {
 
 void load_rectangle(MapObjectLoader & loader, const MapObject & obj) {
     auto e = loader.create_named_entity_for_object();
-    e.add<PhysicsComponent>().reset_state<Rect>() = Rect(obj.bounds);
+    e.add<PhysicsComponent>().reset_state<Rect>() = to_rect(obj.bounds);
 }
 
 template <typename T>

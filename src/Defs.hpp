@@ -29,19 +29,31 @@
 
 #include <SFML/System/Vector2.hpp>
 #include <SFML/Graphics/Color.hpp>
+#include <SFML/Graphics/Rect.hpp>
 
 #include <common/Util.hpp>
 #include <common/StringUtil.hpp>
 #include <common/Grid.hpp>
+#include <common/Vector2Util.hpp>
 
 #include <ecs/ecs.hpp>
 
-using VectorD = sf::Vector2<double>;
-using VectorI = sf::Vector2<int>;
-using Rect    = sf::Rect<double>;
+using VectorD = cul::Vector2<double>;
+using VectorI = cul::Vector2<int>;
+using Rect    = cul::Rectangle<double>;
+
+using cul::TypeTag;
+using cul::magnitude;
+using cul::Grid;
+using cul::find_closest_point_to_line;
+using cul::find_velocities_to_target;
+using cul::is_real;
+using cul::convert_to;
+using cul::is_contained_in;
+using cul::normalize;
 
 constexpr const double k_error = 0.00005;
-constexpr const double k_pi    = get_pi<double>();
+constexpr const double k_pi    = cul::k_pi_for_type<double>;
 constexpr const double k_inf   = std::numeric_limits<double>::infinity();
 
 extern const VectorD k_no_intersection;
@@ -109,12 +121,12 @@ class LineMap;
 class LineMapLayer;
 enum class Layer : uint8_t { foreground, background, neither };
 const char * to_string(Layer);
-
+#if 0
 /// like it's member function varient EXCEPT it handles infinities
 /// @param r both components must be real numbers
 template <typename T>
 bool rect_contains(const sf::Rect<T> &, const sf::Vector2<T> & r);
-
+#endif
 // ------------------------- LineSegments / Surfaces --------------------------
 
 LineSegment move_segment(const LineSegment &, VectorD);
@@ -139,9 +151,9 @@ Layer switch_layer(Layer l);
 // ----------------------------------- misc -----------------------------------
 
 VectorD find_intersection(const LineSegment &, VectorD old, VectorD new_);
-
+#if 0
 VectorD find_intersection(VectorD a_first, VectorD a_second, VectorD b_first, VectorD b_second);
-
+#endif
 template <typename T, typename U>
 std::enable_if_t<std::is_integral_v<T> && std::is_floating_point_v<U>, T>
     round_to(U u)
@@ -153,7 +165,7 @@ std::enable_if_t<std::is_integral_v<T> && std::is_floating_point_v<U>, sf::Vecto
 { return sf::Vector2<T>(round_to<T>(r.x), round_to<T>(r.y)); }
 
 template <typename T>
-inline bool are_very_close(const sf::Vector2<T> & r, const sf::Vector2<T> & u) {
+inline bool are_very_close(const cul::Vector2<T> & r, const cul::Vector2<T> & u) {
     auto diff = r - u;
     return (diff.x*diff.x + diff.y*diff.y) < k_error*k_error;
 }
@@ -162,13 +174,7 @@ template <typename T>
 std::enable_if_t<std::is_arithmetic_v<T>, bool> are_very_close(T a, T b) {
     return magnitude(a - b) < k_error;
 }
-#if 0
-template <typename T>
-inline T & get_null_reference() {
-    T * rv = nullptr;
-    return *rv;
-}
-#endif
+
 template <typename RngType>
 sf::Color random_color(RngType & rng);
 
@@ -180,14 +186,14 @@ uint8_t component_average(int total_steps, int step, uint8_t begin, uint8_t end)
 template <typename T>
 inline std::ostream & operator << (std::ostream & out, const sf::Vector2<T> & r)
     { return (out << r.x << ", " << r.y); }
-
+#if 0
 template <typename T>
 inline std::ostream & operator << (std::ostream & out, const sf::Rect<T> & rect) {
     return (out
             << rect.left << ", " << rect.top << ", w: " << rect.width
             << ", h: " << rect.height);
 }
-
+#endif
 template <typename T>
 std::size_t ref_to_index(const std::vector<T> & cont, const T & ref) {
     if (&ref < &cont[0] || &ref >= (&cont[0] + cont.size())) {
@@ -225,10 +231,10 @@ std::tuple<T &, T &> as_tuple(sf::Vector2<T> & r) { return std::tie(r.x, r.y); }
 template <typename T>
 std::tuple<const T &, const T &> as_tuple(const sf::Vector2<T> & r)
     { return std::tie(r.x, r.y); }
-
+#if 1
 template <typename T>
-std::enable_if_t<std::is_arithmetic_v<T>, sf::Rect<T>> expand
-    (sf::Rect<T> rv, T amount)
+std::enable_if_t<std::is_arithmetic_v<T>, cul::Rectangle<T>> expand
+    (cul::Rectangle<T> rv, T amount)
 {
     rv.left   -= amount;
     rv.top    -= amount;
@@ -236,7 +242,7 @@ std::enable_if_t<std::is_arithmetic_v<T>, sf::Rect<T>> expand
     rv.height += amount*2;
     return rv;
 }
-
+#endif
 template <typename T, typename KeyType, typename SpecTag = TypeTag<T>>
 class CachedLoader {
 public:
@@ -260,7 +266,7 @@ private:
 // --------------------------- function definitions ---------------------------
 
 template <typename T>
-bool rect_contains(const sf::Rect<T> & rect, const sf::Vector2<T> & r) {
+bool rect_contains(const cul::Rectangle<T> & rect, const cul::Vector2<T> & r) {
     if (rect.width < 0. || rect.height < 0.) {
         throw std::invalid_argument("rect_contains: negative sized rectangle unhandled.");
     }
@@ -306,6 +312,11 @@ const T & choose_random(Rng & rng, std::initializer_list<T> list) {
     return *(list.begin() + std::uniform_int_distribution<int>(0, list.size() - 1)(rng));
 }
 
+inline Rect to_rect(const sf::FloatRect & rect) {
+    return Rect { rect.left, rect.top, rect.width, rect.height };
+}
+
+#if 0
 template <typename T>
 sf::Vector2<T> find_closest_point_to_line
     (const sf::Vector2<T> & a, const sf::Vector2<T> & b,
@@ -405,12 +416,16 @@ template <typename T>
 std::enable_if_t<std::is_floating_point_v<T>, bool> is_real
     (const sf::Vector2<T> & r)
     { return is_real(r.x) && is_real(r.y); }
-
+#endif
 inline bool are_same(const SurfaceDetails & rhs, const SurfaceDetails & lhs) {
     return are_very_close(rhs.friction  , lhs.friction  ) &&
            are_very_close(rhs.stop_speed, lhs.stop_speed) &&
            rhs.hard_ceilling == lhs.hard_ceilling;
 }
+
+double truncate_mantissa_to(double x, int bin_digits);
+
+VectorD truncate_mantissa_to(VectorD r, int bin_digits);
 
 // ----------------------------------------------------------------------------
 

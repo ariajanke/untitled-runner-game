@@ -29,6 +29,8 @@
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <SFML/Graphics/Sprite.hpp>
 
+#include <common/SfmlVectorTraits.hpp>
+
 #include <cassert>
 
 #include <iostream>
@@ -43,6 +45,10 @@ using RtError         = std::runtime_error;
 template <typename ... Types>
 using Tuple           = std::tuple<Types...>;
 using InvArg          = std::invalid_argument;
+using cul::convert_to;
+using cul::for_split;
+using cul::trim;
+using cul::string_to_number_multibase;
 
 struct WfStripInfo {
     static constexpr const int k_uninit = -1;
@@ -306,7 +312,7 @@ std::tuple<SolarCycler::TodEnum, double> SolarCycler::Sun::get_tod() const {
 /* private */ void SolarCycler::Sun::draw(sf::RenderTarget & target, sf::RenderStates states) const {
     assert(!m_vertices.empty());
     // I may scale and translate here
-    states.transform.translate(sf::Vector2f( apparent_location() ));
+    states.transform.translate(convert_to<sf::Vector2f>( apparent_location() ));
     states.transform.scale(sf::Vector2f(1.f, 1.f)*float(get_update_scale()));
     auto old_view = target.getView();
     auto new_view = old_view;
@@ -542,7 +548,7 @@ void SolarCycler::Atmosphere::draw
 }
 
 void OceanBackdrop::set_window_size(int width, int height, double horizon_line) {
-    m_basewater = DrawRectangle(
+    m_basewater = cul::DrawRectangle(
         float(  0.f), float(double(height)*horizon_line),
         float(width), float((double(height) - 1.) * horizon_line),
         sf::Color(40, 40, 250));
@@ -574,9 +580,10 @@ ForestDecor::~ForestDecor() {
 }
 
 void ForestDecor::render_front(sf::RenderTarget & target) const {
+#   if 0
     Rect draw_bounds(VectorD(target.getView().getCenter() - target.getView().getSize()*0.5f),
                      VectorD(target.getView().getSize()));
-#   if 1
+
     for (const auto & tree : m_trees) {
         if (!draw_bounds.intersects(tree.bounding_box())) continue;
         tree.render_fronts(target, sf::RenderStates::Default);
@@ -586,7 +593,7 @@ void ForestDecor::render_front(sf::RenderTarget & target) const {
 
 void ForestDecor::render_background(sf::RenderTarget & target) const {
 
-#   if 1
+#   if 0
     Rect draw_bounds(VectorD(target.getView().getCenter() - target.getView().getSize()*0.5f),
                      VectorD(target.getView().getSize()));
     for (const auto & flower : m_flowers) {
@@ -595,7 +602,7 @@ void ForestDecor::render_background(sf::RenderTarget & target) const {
         target.draw(flower);
     }
 #   endif
-#   if 1
+#   if 0
     for (const auto & tree : m_trees) {
         if (!draw_bounds.intersects(tree.bounding_box())) continue;
         tree.render_backs(target, sf::RenderStates::Default);

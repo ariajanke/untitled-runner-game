@@ -81,6 +81,7 @@ void MapLinks::add_link(VectorI offset, MapSharedPtr mapptr, MapEdge edge) {
 }
 
 /* static */ void MapLinks::run_tests() {
+    using namespace cul;
     ts::TestSuite suite;
     suite.start_series("MapLinks");
     suite.test([]() {

@@ -1,6 +1,6 @@
 /****************************************************************************
 
-    Copyright 2020 Aria Janke
+    Copyright 2021 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -148,6 +148,15 @@
                         normal*k_error;
     freebody.velocity = velocity_along(tracker.speed, segment) +
                         normal*k_jump_speed;
+
+
+    auto g_comp = project_onto(freebody.velocity, k_gravity);
+    auto s_comp = freebody.velocity - g_comp;
+
+    if (magnitude(g_comp) > k_max_jump_speed) {
+        freebody.velocity = normalize(g_comp)*k_max_jump_speed + s_comp;
+    }
+
     pcomp.reset_state<FreeBody>() = freebody;
 }
 
@@ -239,6 +248,7 @@
                 multiplier = 1.5;
         }
     }
+
     if (auto * fb = get_freebody(e)) {
         fb->velocity += k_gravity*elapsed_time()*multiplier;
     }
@@ -530,7 +540,7 @@ static VectorD expansion_for_collector(const Entity & e) {
     Rect source_bounds = launch_e.get<PhysicsComponent>().state_as<Rect>();
 
     auto & pcomp = e.get<PhysicsComponent>();
-    auto vel = std::get<1>(compute_velocities_to_target(
+    auto vel = std::get<1>(find_velocities_to_target(
         center_of(source_bounds), center_of(target_bounds),
         k_gravity, target_launcher.speed));
     if (!is_real(vel)) {

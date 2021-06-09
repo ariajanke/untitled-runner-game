@@ -21,6 +21,7 @@
 #include "get_8x8_char.hpp"
 
 #include <common/Grid.hpp>
+#include <common/SfmlVectorTraits.hpp>
 
 #include <SFML/Graphics/RenderTarget.hpp>
 
@@ -160,12 +161,11 @@ void TextDrawer::set_text_top_left(VectorD r, std::string && text) {
     if (&m_string != &text)
         m_string = std::move(text);
     m_start_brush.setTexture(m_font->char_pool);
-    m_start_brush.setPosition(sf::Vector2f(r));
+    m_start_brush.setPosition(convert_to<sf::Vector2f>(r));
 }
 
-
 void TextDrawer::move(VectorD r) {
-    m_start_brush.move(sf::Vector2f(r));
+    m_start_brush.move(convert_to<sf::Vector2f>(r));
 }
 
 std::string TextDrawer::take_string()

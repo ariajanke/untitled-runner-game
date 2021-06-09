@@ -21,6 +21,8 @@
 
 #include <SFML/Graphics/RenderTarget.hpp>
 
+#include <common/SfmlVectorTraits.hpp>
+
 #include <cassert>
 
 /* private static */ AnimatorSystem::CharAniUpdate
@@ -116,20 +118,21 @@
     // need to translate for frame's size
     animator.sprite_sheet->bind_to(spt, animator.current_sequence, animator.current_frame);
     VectorD foot_anchor(double(spt.getTextureRect().width)*0.5, double(spt.getTextureRect().height));
+    static constexpr const auto k_high_run_speed = CharacterAnimator::k_high_run_speed_thershold;
 
     [this](Entity e, VectorD r) {
         auto & vec = m_previous_positions[e];
         vec.push_back(r);
-        std::size_t max_history = 1;
-        static constexpr const auto k_high_run_speed = CharacterAnimator::k_high_run_speed_thershold;
+        std::size_t max_history = 1;    
         if (magnitude(e.get<PhysicsComponent>().velocity()) > k_high_run_speed) {
             max_history = 3;
         }
         if (vec.size() > max_history)
             vec.erase(vec.begin(), vec.begin() + (vec.size() - max_history));
-    }(e, e.get<PhysicsComponent>().location());
-    spt.setPosition(sf::Vector2f(e.get<PhysicsComponent>().location()));
-    spt.setOrigin(sf::Vector2f(foot_anchor));
+    } (e, e.get<PhysicsComponent>().location());
+
+    spt.setPosition(convert_to<sf::Vector2f>(e.get<PhysicsComponent>().location()));
+    spt.setOrigin(convert_to<sf::Vector2f>(foot_anchor));
     if (e.get<PlayerControl>().last_direction == PlayerControl::k_left) {
         spt.setScale(-1.f, 1.f);
     }
@@ -146,12 +149,23 @@
             spt.rotate(-float(ang*180 / k_pi));
     }
 
+    static auto color_shift = [](double speed, sf::Color c) {
+        if (speed < k_high_run_speed) return c;
+        static constexpr const double k_max_speed = 1200.;
+        speed = std::min(speed, k_max_speed) - k_high_run_speed;
+        auto intp = [speed] (uint8_t c) {
+            return round_to<uint8_t>((speed / (k_max_speed - k_high_run_speed))*double(c));
+        };
+        return sf::Color( 255 - intp(255), c.g, intp(255), c.a );
+    };
+
     [this](Entity e, sf::Sprite spt) {
         auto color = spt.getColor();
         for (auto r : make_reverse_view(m_previous_positions[e])) {
-            spt.setPosition(sf::Vector2f(r));
+            spt.setPosition(convert_to<sf::Vector2f>(r));
             graphics().draw_sprite(spt);
             if (color.a > 50) color.a -= 50;
+            color = color_shift(magnitude(e.get<PhysicsComponent>().velocity()), color);
             spt.setColor(color);
         }
     } (e, spt);
@@ -163,7 +177,7 @@
     spt.setTextureRect(simg.texture_rectangle);
     auto loc = e.get<PhysicsComponent>().location();
     if (!e.get<PhysicsComponent>().state_is_type<Rect>()) {
-        Rect text_bounds = Rect(simg.texture_rectangle);
+        Rect text_bounds = Rect(simg.texture_rectangle.left, simg.texture_rectangle.top, simg.texture_rectangle.width, simg.texture_rectangle.height);
         loc -= VectorD(text_bounds.width*0.5, text_bounds.height);
     }
 #   if 0
@@ -183,6 +197,6 @@
         assert(is_real(t) && t >= 0. && t <= 1.);
         spt.setColor(sf::Color(255, 255, 255, int(std::round(t*255.))));
     }
-    spt.setPosition(sf::Vector2f(loc));
+    spt.setPosition(convert_to<sf::Vector2f>(loc));
     graphics().draw_sprite(spt);
 }

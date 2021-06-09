@@ -25,10 +25,10 @@
 namespace {
 
 using Error = std::runtime_error;
-
+#if 0
 inline double cross_magnitude(VectorD a, VectorD b)
     { return a.x*b.y - a.y*b.x; }
-
+#endif
 } // end of <anonymous> namespace
 
 const char * to_string(Layer layer) {
@@ -65,12 +65,13 @@ Layer switch_layer(Layer l) {
 
 // ----------------------------------------------------------------------------
 
-const VectorD k_no_intersection =
+const VectorD k_no_intersection = cul::get_no_solution_sentinel<VectorD>();
+#   if 0
     VectorD(std::numeric_limits<double>::infinity(),
             std::numeric_limits<double>::infinity());
-
+#   endif
 const VectorD k_gravity = VectorD(0, 667);
-
+#if 0
 VectorD find_intersection(VectorD a_first, VectorD a_second, VectorD b_first, VectorD b_second) {
     auto p = a_first;
     auto r = a_second - p;
@@ -93,7 +94,7 @@ VectorD find_intersection(VectorD a_first, VectorD a_second, VectorD b_first, Ve
 
     return p + t*r;
 }
-
+#endif
 VectorD find_intersection(const LineSegment & seg, VectorD old, VectorD new_) {
     return find_intersection(seg.a, seg.b, old, new_);
 }
@@ -139,4 +140,30 @@ uint8_t component_average(int total_steps, int step, uint8_t b, uint8_t e) {
     int res = (int(b)*(total_steps - step) + int(e)*step) / total_steps;
     assert(res < 256);
     return uint8_t(res);
+}
+
+double truncate_mantissa_to(double x, int bin_digits) {
+    static_assert(sizeof(double) == 8, "");
+    static_assert(std::numeric_limits<double>::is_iec559, "");
+    static constexpr const int k_mantissa_bit_count = 52;
+    if (bin_digits < 0 || bin_digits > k_mantissa_bit_count) {
+        throw std::invalid_argument("");
+    }
+    // first 12 are sign and exponent
+    static constexpr const uint64_t k_sign_exp_mask =
+        //                 1               2               3
+        // 0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF
+         0b1111111111110000000000000000000000000000000000000000000000000000;
+    static constexpr const uint64_t k_mantissa_mask = ~k_sign_exp_mask;
+    const uint64_t & x_as_u64 = reinterpret_cast<const uint64_t &>(x);
+    uint64_t x_bits_to_push = x_as_u64 & k_mantissa_mask;
+    x_bits_to_push >>= (k_mantissa_bit_count - bin_digits);
+    x_bits_to_push <<= (k_mantissa_bit_count - bin_digits);
+    auto prod = (k_sign_exp_mask & x_as_u64) | x_bits_to_push;
+    return reinterpret_cast<const double &>(prod);
+}
+
+VectorD truncate_mantissa_to(VectorD r, int bin_digits) {
+    return VectorD(truncate_mantissa_to(r.x, bin_digits),
+                   truncate_mantissa_to(r.y, bin_digits));
 }

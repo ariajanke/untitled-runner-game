@@ -101,7 +101,7 @@ private:
         static constexpr const double k_raise_speed = 50.;
         static constexpr const double k_width  = 52.;
         static constexpr const double k_height = 28.;
-        DrawRectangle draw_rect;
+        cul::DrawRectangle draw_rect;
         VectorD start, end;
         double time_passed;
     };
@@ -123,13 +123,13 @@ private:
 };
 
 template <typename T>
-std::enable_if_t<std::is_floating_point_v<T>, sf::Vector2<T>>
+std::enable_if_t<std::is_floating_point_v<T>, cul::Vector2<T>>
     to_unit_circle_vector(T t)
-{ return sf::Vector2<T>(std::cos(t), std::sin(t)); }
+{ return cul::Vector2<T>(std::cos(t), std::sin(t)); }
 
 template <typename T>
 std::enable_if_t<std::is_floating_point_v<T>, T>
-    to_direction(sf::Vector2<T> r)
+    to_direction(cul::Vector2<T> r)
 {
     static const auto k_unit = to_unit_circle_vector(T(0));
     auto angle = angle_between(r, k_unit);
@@ -215,8 +215,11 @@ public:
 
 private:
     void draw_line(VectorD a, VectorD b, sf::Color color, double thickness) override {
+#       if 0
         if (!m_view_rect.contains(a) && !m_view_rect.contains(b)) return;
-        //m_line_drawer.post_line(a, b, color, thickness);
+#       endif
+        if (!is_contained_in(a, m_view_rect) && !is_contained_in(b, m_view_rect)) return;
+
         (void)color;
         (void)thickness;
         m_platform_drawer.draw_platform(a, b);
@@ -227,7 +230,10 @@ private:
         expanded.top  -= radius;
         expanded.width += radius;
         expanded.height += radius;
+#       if 0
         if (!expanded.contains(loc)) return;
+#       endif
+        if (!is_contained_in(loc, expanded)) return;
         m_circle_drawer.post_circle(loc, radius, color);
     }
 
@@ -261,7 +267,7 @@ private:
     LineDrawer2 m_line_drawer;
     std::vector<sf::Sprite> m_sprites;
     ItemCollectAnimations m_item_anis;
-    std::vector<DrawRectangle> m_draw_rectangles;
+    std::vector<cul::DrawRectangle> m_draw_rectangles;
     FlagRaiser m_flag_raiser;
 
     std::unique_ptr<MapDecorDrawer> m_map_decor;

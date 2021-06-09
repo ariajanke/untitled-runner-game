@@ -28,6 +28,8 @@
 
 namespace {
 
+using cul::find_highest_false;
+
 void compute_intersections(IntersectionsVec &, const EnvColParams &, VectorD);
 
 bool is_inverted_normal(const LineSegment &, VectorD old_pos, VectorD new_pos);
@@ -233,7 +235,7 @@ FreeBody handle_slide
     auto cull_new_pos = [old_pos, n_comp, p_comp](double x)
         { return old_pos + p_comp + n_comp*x; };
     assert(find_intersection(seg, old_pos, cull_new_pos(0)) == k_no_intersection);
-    auto t = find_highest_false([cull_new_pos, &seg, old_pos](double x) {
+    auto t = find_highest_false<double>([cull_new_pos, &seg, old_pos](double x) {
         return k_no_intersection !=
                find_intersection(seg, old_pos, cull_new_pos(x));
     });
@@ -438,7 +440,7 @@ std::pair<double, VectorD>
     auto diff = new_ - old_;
     auto cull_new_pos = [old_, diff](double x) { return old_ + diff*x; };
 
-    auto t = find_highest_false([old_, &seg, &cull_new_pos](double x) {
+    auto t = find_highest_false<double>([old_, &seg, &cull_new_pos](double x) {
         return k_no_intersection !=
                find_intersection(seg, old_, cull_new_pos(x));
     });
@@ -458,9 +460,9 @@ std::pair<double, VectorD>
 VectorD reflect_approach(const LineSegment & seg, VectorD approach) {
     auto antiapproach = -approach;
     auto normal = normal_from_approach(seg, approach);
-    double angle = ::angle_between(normal, antiapproach);
-    if (::angle_between(normal, rotate_vector(antiapproach, -angle)) <
-        ::angle_between(normal, rotate_vector(antiapproach,  angle)) )
+    double angle = angle_between(normal, antiapproach);
+    if (angle_between(normal, rotate_vector(antiapproach, -angle)) <
+        angle_between(normal, rotate_vector(antiapproach,  angle)) )
     { angle *= -1.; }
     return rotate_vector(antiapproach, angle*2.);
 }

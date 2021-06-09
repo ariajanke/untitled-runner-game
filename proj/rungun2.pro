@@ -27,6 +27,7 @@ SOURCES += \
     ../src/TreeGraphics.cpp \
     ../src/ForestDecor.cpp \
     ../src/Flower.cpp \
+    ../src/Log.cpp \
     \ # maps
     ../src/maps/Maps.cpp \
     ../src/maps/MapObjectLoader.cpp \
@@ -75,6 +76,7 @@ HEADERS += \
     ../src/BresenhamView.hpp \
     ../src/ForestDecor.hpp \
     ../src/Flower.hpp \
+    ../src/Log.hpp \
     \ # maps
     ../src/maps/Maps.hpp \
     ../src/maps/MapObjectLoader.hpp \

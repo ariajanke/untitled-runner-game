@@ -20,6 +20,7 @@
 #include "Systems.hpp"
 #include "GameDriver.hpp"
 #include "GenBuiltinTileSet.hpp"
+#include "Log.hpp"
 
 #include "maps/MapLinks.hpp"
 #include "components/Platform.hpp"
@@ -30,10 +31,12 @@
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Graphics/Texture.hpp>
 #include <SFML/Graphics/Sprite.hpp>
+#include <SFML/System/Sleep.hpp>
 
 #include <common/DrawRectangle.hpp>
 #include <common/ParseOptions.hpp>
 #include <common/SubGrid.hpp>
+#include <common/SfmlVectorTraits.hpp>
 
 #include <iostream>
 #include <future>
@@ -328,6 +331,7 @@ private:
 /* private */ void ImageBackdrop::load_from_string(const char * beg, const char * end) {
     enum { texture_file, bounds, anchor };
     auto phase = texture_file;
+    using namespace cul;
     for_split<is_newline>(beg, end, [this, &phase](const char * beg, const char * end) {
         using namespace fc_signal;
         switch (phase) {
@@ -361,7 +365,7 @@ std::array<T, k_quantity_required> parse_array
     std::array<T, k_quantity_required> rv;
     auto itr     = rv.begin();
     auto end_itr = rv.end  ();
-    for_split<splitter_func>(beg, end,
+    cul::for_split<splitter_func>(beg, end,
         [&itr, end_itr, not_exactly_n_msg, &parse_item](const char * beg, const char * end)
     {
         if (itr == end_itr) throw Error(not_exactly_n_msg);
@@ -387,6 +391,7 @@ std::array<T, k_quantity_required> parse_array
     static constexpr const auto k_exactly_two_msg =
         "Exactly two rectangluar bounds are expected.";
     static auto conv_to_num = [](const char * beg, const char * end) {
+        using namespace cul;
         double x = 0.;
         trim<is_whitespace>(beg, end);
         if (!string_to_number(beg, end, x)) {
@@ -442,7 +447,7 @@ std::array<T, k_quantity_required> parse_array
 /* private static */ AnchorPosition ImageBackdrop::parse_anchor_position
     (const char * beg, const char * end)
 {
-    trim<is_whitespace>(beg, end);
+    cul::trim<is_whitespace>(beg, end);
     auto is_eq = [beg, end](const char * s) { return std::equal(beg, end, s); };
     if (is_eq("bottom")) return k_bottom;
     if (is_eq("top"   )) return k_top   ;
@@ -455,14 +460,14 @@ std::array<T, k_quantity_required> parse_array
 /* private */ void ImageBackdrop::draw
     (sf::RenderTarget & target, sf::RenderStates states) const
 {
-    DrawRectangle drect;
+    cul::DrawRectangle drect;
     drect.set_size(float(m_inner.width), float(m_inner.height));
     drect.set_color(sf::Color::Red);
     target.draw(drect, states);
 
     sf::Sprite spt;
     spt.setTexture(m_texture);
-    auto textsize = VectorD(m_texture.getSize());
+    auto textsize = convert_to<VectorD>(m_texture.getSize());
     auto beg_x = std::fmod(m_inner.left, textsize.x);
     if (beg_x > k_error) beg_x -= textsize.x;
     bool anchor_to_end = m_anchor == k_bottom || m_anchor == k_right;
@@ -480,7 +485,7 @@ void test_backdrop(StartupOptions &, char ** beg, char ** end);
 
 class FrameTimer {
 public:
-    static constexpr const int k_default_fps = 60;
+    static constexpr const int k_default_fps = 80;
     static constexpr const int k_choke_fps   = 15;
 
     virtual ~FrameTimer() {}
@@ -504,6 +509,7 @@ public:
             }
             void on_between_frames() override {
                 m_clock.restart();
+                //sf::sleep(sf::microseconds(16667));
             }
             sf::Clock m_clock;
         };
@@ -563,7 +569,10 @@ class StlTimer final : public FrameTimer {
     return std::make_unique<TimerHelper::StlTimer>();
 }
 
+Grid<sf::Color> generate_atlas_2();
+
 int main(int argc, char ** argv) {
+    generate_atlas_2();
     to_image(generate_platform_texture(400)).saveToFile("/media/ramdisk/platform-texture.png");
     std::cout << "Component table size " << Entity::k_component_table_size
               << " bytes.\nNumber of inlined components "
@@ -579,7 +588,7 @@ int main(int argc, char ** argv) {
     MapLinks::run_tests();
     std::cout << &k_gravity << std::endl;
 
-    StartupOptions opts = parse_options<StartupOptions>(argc, argv, {
+    StartupOptions opts = cul::parse_options<StartupOptions>(argc, argv, {
         { "test-map"            , 'm', load_test_map        },
         { "save-builtin-tileset", 's', save_builtin_tileset },
         { "test-backdrop"       ,  0 , test_backdrop        }
@@ -661,7 +670,7 @@ int main(int argc, char ** argv) {
         {
         const auto old_view = win.getView();
         auto new_view = old_view;
-        new_view.setCenter(sf::Vector2f(gdriver.camera_position()));
+        new_view.setCenter(convert_to<sf::Vector2f>(gdriver.camera_position()));
         win.setView(new_view);
         gdriver.render_to(win);
 
@@ -725,7 +734,7 @@ void test_backdrop(StartupOptions & opts, char ** beg, char ** end) {
             auto aend = abeg + ::strlen(abeg);
             static auto parse_pos_int = [](const char * beg, const char * end) {
                 int x = 0;
-                if (!string_to_number(beg, end, x)) {
+                if (!cul::string_to_number(beg, end, x)) {
                     throw std::invalid_argument("window dims must be numeric");
                 }
                 if (x < 0) throw std::invalid_argument("window dims must be positive");
@@ -779,6 +788,8 @@ Grid<sf::Color> gen_cloud
     return rv;
 }
 
+using cul::SubGrid;
+
 void flip_horizontally(SubGrid<sf::Color> grid) {
     for (int y = 0; y != grid.height()    ; ++y) {
     for (int x = 0; x != grid.width () / 2; ++x) {
@@ -793,10 +804,11 @@ void flip_vertically(SubGrid<sf::Color> grid) {
     }}
 }
 
+// candidate for cul, used in two projects!
 template <typename T>
 bool is_inside_triangle
-    (const sf::Vector2<T> & a, const sf::Vector2<T> & b,
-     const sf::Vector2<T> & c, const sf::Vector2<T> & test_point)
+    (const cul::Vector2<T> & a, const cul::Vector2<T> & b,
+     const cul::Vector2<T> & c, const cul::Vector2<T> & test_point)
 {
     // derived from mathematics presented here:
     // https://blackpawn.com/texts/pointinpoly/default.html
@@ -820,9 +832,10 @@ bool is_inside_triangle
 }
 
 template <typename T>
-sf::Rect<T> find_rectangle_bounds
-    (const sf::Vector2<T> & a, const sf::Vector2<T> & b, const sf::Vector2<T> & c)
+cul::Rectangle<T> find_rectangle_bounds
+    (const cul::Vector2<T> & a, const cul::Vector2<T> & b, const cul::Vector2<T> & c)
 {
+#   if 0
     static constexpr const auto k_low  = std::numeric_limits<T>::min();
     static constexpr const auto k_high = std::numeric_limits<T>::max();
 
@@ -838,7 +851,15 @@ sf::Rect<T> find_rectangle_bounds
         max_y = std::max(max_y, y);
         min_y = std::min(min_y, y);
     }
-    return sf::Rect<T>(min_x, min_y, max_x - min_x, max_y - min_y);
+#   else
+    auto x_list = { a.x, b.x, c.x };
+    auto y_list = { a.y, b.y, c.y };
+    auto min_x = std::min(x_list);
+    auto min_y = std::min(y_list);
+    auto max_x = std::max(x_list);
+    auto max_y = std::max(y_list);
+#   endif
+    return cul::Rectangle<T>(min_x, min_y, max_x - min_x, max_y - min_y);
 }
 
 void extend_int_triangle(VectorI & a, VectorI & b, VectorI & c) {
@@ -951,15 +972,25 @@ Grid<sf::Color> gen_shaded_circle(int radius, sf::Vector3<int> light_pos) {
 
 template <typename T>
 struct VecHash {
-    std::size_t operator () (const sf::Vector2<T> & r) const {
+    std::size_t operator () (const cul::Vector2<T> & r) const {
         std::hash<T> hashf;
         return hashf(r.x) ^ hashf(r.y + 12467);
     }
 };
 
+template <typename T>
+struct VecEqual {
+    bool operator () (const cul::Vector2<T> & a, const cul::Vector2<T> & b) const {
+        return a == b;
+    }
+};
+
+
+using cul::ConstSubGrid;
+
 void do_line_circle_segments(ConstSubGrid<sf::Color>, const std::vector<LineSegment> & segments) {
     if (segments.empty()) return;
-    std::unordered_map<VectorI, std::vector<LineSegment>, VecHash<int>> seg_tile_map;
+    std::unordered_map<VectorI, std::vector<LineSegment>, VecHash<int>/*, VecEqual<int>*/> seg_tile_map;
     static auto vec_tile_loc = [](VectorD r) { return VectorI(int(r.x) / 16, int(r.y) / 16); };
     static auto add_seg = [](decltype (seg_tile_map) & map, LineSegment seg) {
         assert(vec_tile_loc(seg.a) == vec_tile_loc(seg.b));

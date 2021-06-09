@@ -26,6 +26,9 @@
 
 #include <cassert>
 
+using cul::string_to_number;
+using cul::for_split;
+
 LineTracker * get_tracker(Entity e) {
     if (!e.has<PhysicsComponent>()) return nullptr;
     return e.get<PhysicsComponent>().state_ptr<LineTracker>();
@@ -37,7 +40,7 @@ FreeBody * get_freebody(Entity e) {
 }
 
 Rect * get_rectangle(Entity e) {
-    using Rect = sf::Rect<double>;
+    //using Rect = sf::Rect<double>;
     if (!e.has<PhysicsComponent>()) return nullptr;
     return e.get<PhysicsComponent>().state_ptr<Rect>();
 }
@@ -333,7 +336,7 @@ std::unique_ptr<LinkedOnBoxHit<Func>>
     } ();
     static constexpr const double k_def_radius = 8.;
 
-    auto bounds = Rect(obj.bounds);
+    auto bounds = to_rect(obj.bounds);
     auto e = loader.create_entity();
     {
         auto & cc = e.add<DisplayFrame>().reset<ColorCircle>();
@@ -361,12 +364,13 @@ std::unique_ptr<LinkedOnBoxHit<Func>>
         do_if_found("float", [&script](const std::string & val) {
             int i = 0;
             for_split<is_colon>(val, [&script, &i](StrIter beg, StrIter end) {
+                using namespace cul::fc_signal;
                 switch (i++) {
                 case 0: script->m_float_velocity = parse_vector(beg, end); break;
                 case 1: string_to_number(beg, end, script->m_float_distance_max); break;
-                default: return fc_signal::k_break;
+                default: return k_break;
                 }
-                return fc_signal::k_continue;
+                return k_continue;
             });
         });
 
@@ -515,16 +519,25 @@ void LeavesDecorScript::check_invarients() const {
 /* private static */ std::pair<VectorD, VectorD> LeavesDecorScript::get_displacement_within
     (VectorD old, VectorD new_, const Rect & rect)
 {
+#   if 0
     if (!rect.contains(old) && !rect.contains(new_)) {
+#   endif
+    if (!is_contained_in(old, rect) && !is_contained_in(new_, rect)) {
         throw std::invalid_argument("get_displacement_within: neither vector is contain in the rectangle.");
     }
     auto inx = find_intersection(rect, old, new_);
     if (inx == k_no_intersection) {
         return std::make_pair(old, new_);
     }
+#   if 0
     if (rect.contains(old)) {
+#   endif
+    if (is_contained_in(old, rect)) {
         return std::make_pair(old, inx);
+#   if 0
     } else if (rect.contains(new_)) {
+#   endif
+    } else if (is_contained_in(new_, rect)) {
         return std::make_pair(inx, new_);
     }
     throw BadBranchException();

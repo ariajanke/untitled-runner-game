@@ -191,7 +191,7 @@ public:
 private:
     void draw(sf::RenderTarget &, sf::RenderStates) const override;
 
-    DrawRectangle m_basewater;
+    cul::DrawRectangle m_basewater;
 };
 
 // for prairie backdrop

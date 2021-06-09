@@ -44,7 +44,7 @@ class TileLayer;
 
 }
 
-using CompleteSystemList = TypeList<
+using CompleteSystemList = cul::TypeList<
     EnvironmentCollisionSystem,
     LifetimeSystem,
     SnakeSystem,
@@ -86,7 +86,7 @@ private:
     }
 
     Entity create_named_entity_for_object() override {
-        message_assert("", m_current_object);
+        //message_assert("", m_current_object);
         auto rv = m_ent_man.create_new_entity();
         if (m_current_object->name.empty()) {
             throw std::runtime_error("Cannot name entity, its object has no name in the map data.");
@@ -249,6 +249,61 @@ inline void TopSpdTracker::update(VectorD current_velocity, HudTimePiece & hud) 
 
 inline void TopSpdTracker::clear_record() { m_top_vel = VectorD(); }
 
+class LocationTracker {
+public:
+    void update(VectorD current_location, HudTimePiece &);
+    void clear_record();
+
+private:
+    struct RectBounds {
+        RectBounds() {}
+        RectBounds(double low_x_, double low_y_, double high_x_, double high_y_):
+            low_x(low_x_), low_y(low_y_), high_x(high_x_), high_y(high_y_)
+        {}
+        bool are_same(const RectBounds & rhs) const {
+            auto is_eq = std::equal_to<double>();
+            return    is_eq(low_x , rhs.low_x ) && is_eq(low_y , rhs.low_y )
+                   && is_eq(high_x, rhs.high_x) && is_eq(high_y, rhs.high_y);
+        }
+        bool operator == (const RectBounds & rhs) const { return  are_same(rhs); }
+        bool operator != (const RectBounds & rhs) const { return !are_same(rhs); }
+        double low_x, low_y, high_x, high_y;
+    };
+    static RectBounds make_default_rect();
+    void update_hud(HudTimePiece &) const;
+
+    RectBounds m_bounds = make_default_rect();
+};
+
+inline void LocationTracker::update(VectorD current_location, HudTimePiece & hud) {
+    using std::min;
+    using std::max;
+    RectBounds new_bounds(min(m_bounds.low_x , current_location.x),
+                          min(m_bounds.low_y , current_location.y),
+                          max(m_bounds.high_x, current_location.x),
+                          max(m_bounds.high_y, current_location.y));
+    if (new_bounds != m_bounds) {
+        m_bounds = new_bounds;
+        update_hud(hud);
+    }
+}
+
+inline void LocationTracker::clear_record() {
+    m_bounds = make_default_rect();
+}
+
+inline /* private static */ LocationTracker::RectBounds LocationTracker::make_default_rect() {
+    return RectBounds(k_inf, k_inf, -k_inf, -k_inf);
+}
+
+inline /* private */ void LocationTracker::update_hud(HudTimePiece & hud) const {
+    static auto to_string = [](double x)
+        { return std::to_string(round_to<int>(x)); };
+    hud.set_debug_line(2, "Extreme Bounds : (l r) ("
+                       + to_string(m_bounds.low_x) + " " + to_string(m_bounds.high_x)
+                       + ") (d u) (" + to_string(m_bounds.low_y) + " "
+                       + to_string(m_bounds.high_y) + ")");
+}
 
 class GameDriver final {
 public:
@@ -266,13 +321,13 @@ public:
 
 private:
     template <typename ... Types>
-    void setup_systems(TypeList<>);
+    void setup_systems(cul::TypeList<>);
 
     template <typename HeadType, typename ... Types>
-    void setup_systems(TypeList<HeadType, Types...>);
+    void setup_systems(cul::TypeList<HeadType, Types...>);
 
     template <typename ... Types>
-    void setup_systems() { setup_systems(TypeList<Types...>()); }
+    void setup_systems() { setup_systems(cul::TypeList<Types...>()); }
 
     tmap::TiledMap m_tmap;
     EntityManager m_emanager;
@@ -292,4 +347,5 @@ private:
 
     // info only
     TopSpdTracker m_vtrkr;
+    LocationTracker m_ltrkr;
 };

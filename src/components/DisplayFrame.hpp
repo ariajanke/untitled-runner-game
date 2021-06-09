@@ -85,7 +85,7 @@ struct CharacterAnimator {
 };
 
 struct SingleImage {
-    const sf::Texture * texture;
+    const sf::Texture * texture = nullptr;
     sf::IntRect texture_rectangle;
 };
 
@@ -94,4 +94,5 @@ struct HoloCrate {
     sf::IntRect rect;
 };
 
-using DisplayFrame = MultiType<ColorCircle, CharacterAnimator, SingleImage, HoloCrate>;
+using DisplayFrame = cul::MultiType<ColorCircle, CharacterAnimator, SingleImage, HoloCrate>;
+

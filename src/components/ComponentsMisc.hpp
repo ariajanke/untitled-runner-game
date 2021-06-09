@@ -133,7 +133,7 @@ struct TriggerBox {
         double speed = k_default_launch_speed;
     };
 
-    using StateType = MultiType<HarmfulObject, Checkpoint, Launcher, ItemCollectionSharedPtr, TargetedLauncher>;
+    using StateType = cul::MultiType<HarmfulObject, Checkpoint, Launcher, ItemCollectionSharedPtr, TargetedLauncher>;
 
     template <typename T>
     T * ptr() { return state.as_pointer<T>(); }
@@ -257,7 +257,7 @@ struct ReleaseEvent {
     ControlMove button;
 };
 
-using ControlEvent = MultiType<PressEvent, ReleaseEvent>;
+using ControlEvent = cul::MultiType<PressEvent, ReleaseEvent>;
 constexpr const int k_press_event   = ControlEvent::GetTypeId<PressEvent  >::k_value;
 constexpr const int k_release_event = ControlEvent::GetTypeId<ReleaseEvent>::k_value;
 

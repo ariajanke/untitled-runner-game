@@ -58,6 +58,7 @@ private:
 
 class GraphicsBase {
 public:
+    // can we merge a lot of this with display frame?
     using AnimationPtr = std::shared_ptr<const ItemCollectionAnimation>;
     virtual ~GraphicsBase();
 

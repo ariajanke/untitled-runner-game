@@ -24,12 +24,12 @@
 #include <SFML/Graphics/Color.hpp>
 #include <SFML/Graphics/Image.hpp>
 
-Grid<sf::Color> generate_atlas();
+cul::Grid<sf::Color> generate_atlas();
 
 // contains two frames
 // top grass
 // back platform
 // each end of the platform is 16px
-Grid<sf::Color> generate_platform_texture(int inner_width);
+cul::Grid<sf::Color> generate_platform_texture(int inner_width);
 
-sf::Image to_image(const Grid<sf::Color> &);
+sf::Image to_image(const cul::Grid<sf::Color> &);

@@ -39,6 +39,10 @@ using SurfaceDetailsPtr = LineMapLoader::SurfaceDetailsPtr;
 using SurfaceDetailsMap = LineMapLoader::SurfaceDetailsMap;
 using SegmentsInfo      = LineMapLoader::SegmentsInfo;
 
+using cul::for_split;
+using cul::string_to_number;
+using cul::trim;
+
 /// value known from TilEd as the universally "empty" tile
 constexpr const int k_empty_tile_gid = 0;
 
@@ -249,8 +253,8 @@ void LineMapLoader::load_transitions_into(TransitionGrid & grid) {
     grid.set_size(m_foreground.width(), m_foreground.height(), TransitionTileType::no_transition);
     for (const auto & obj : map.map_objects()) {
         if (obj.type != k_transition_object) continue;
-        VectorD a(sf::Vector2f(obj.bounds.left, obj.bounds.top));
-        VectorD b = a + VectorD(sf::Vector2f(obj.bounds.width, obj.bounds.height));
+        VectorD a(obj.bounds.left, obj.bounds.top);
+        VectorD b = a + VectorD(obj.bounds.width, obj.bounds.height);
         auto range = compute_range_for_tiles(grid, a, b, tile_width(), tile_height());
         using RefType = TransitionGrid::ReferenceType;
         for (RefType & b : range) { b = TransitionTileType::toggle_layers; }

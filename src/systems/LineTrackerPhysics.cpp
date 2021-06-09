@@ -30,6 +30,9 @@
 namespace {
 
 using PhysicsStateMask = EnvColStateMask;
+using cul::find_smallest_diff;
+using cul::find_lowest_true;
+using cul::find_highest_false;
 
 struct NeighborPosition : public SurfaceRef {
     // describes the segment end we are transferring to
@@ -103,7 +106,7 @@ void update_layer
     {
     const auto & tracker = params.state_as<LineTracker>();
     if (!in_segment_range(tracker.position + et*tracker.speed)) {
-        auto [port_before, port_after] = find_smallest_diff([&tracker, et](double x) {
+        auto [port_before, port_after] = find_smallest_diff<double>([&tracker, et](double x) {
             auto new_pos = tracker.position + et*x*tracker.speed;
             return !in_segment_range(new_pos);
         });
@@ -179,14 +182,16 @@ void update_layer
         if (old_tracker.surface_ref().attached_entity()) {
             std::cout << old_tracker.surface_ref().attached_entity().hash();
         } else {
-            std::cout << "tile " << old_tracker.surface_ref().tile_location();
+            auto r = old_tracker.surface_ref().tile_location();
+            std::cout << "tile " << r.x << ", " << r.y;
         }
 
         std::cout << " num " << old_tracker.surface_ref().segment_number() << " to ";
         if (new_tracker.surface_ref().attached_entity()) {
             std::cout << new_tracker.surface_ref().attached_entity().hash();
         } else {
-            std::cout << "tile " << new_tracker.surface_ref().tile_location();
+            auto r = new_tracker.surface_ref().tile_location();
+            std::cout << "tile " << r.x << ", " << r.y;
         }
         std::cout << " num " << new_tracker.surface_ref().segment_number() << std::endl;
     }
@@ -209,8 +214,8 @@ PlatformTransfer check_for_platform_transfer
 LineTracker transfer_tracker(const PlatformTransfer &, const LineTracker &);
 
 template <typename T>
-sf::Vector2<T> next_after(const sf::Vector2<T> & r, const sf::Vector2<T> & u)
-    { return sf::Vector2<T>(std::nextafter(r.x, u.x), std::nextafter(r.y, u.y)); }
+cul::Vector2<T> next_after(const cul::Vector2<T> & r, const cul::Vector2<T> & u)
+    { return cul::Vector2<T>(std::nextafter(r.x, u.x), std::nextafter(r.y, u.y)); }
 
 double angle_between(const LineSegment & old, const LineSegment & new_,
                      bool inverted_normal_on_old);
@@ -247,7 +252,7 @@ double check_for_traversal_interruption(EnvColParams & params, double et_trav) {
 
     auto norm = normal_for(tracker);
     // falling off from waning momentum on ceiling
-    if ( ::angle_between(k_gravity, norm) < k_pi*0.25
+    if (   angle_between(k_gravity, norm) < k_pi*0.25
         && magnitude(tracker.speed)*segment_length(current_seg) < 50.)
     {
         // have to find a non-intersecting position...
@@ -435,7 +440,7 @@ PlatformTransfer check_for_platform_transfer
     }
 
     PlatformTransfer rv;
-    std::tie(rv.et_to_transfer, rv.et_after_transfer) = find_smallest_diff(
+    std::tie(rv.et_to_transfer, rv.et_after_transfer) = find_smallest_diff<double>(
         [&tracker, &inx, fullet](double x)
     {
         auto old_loc2d = location_along(tracker.position, *tracker.surface_ref());
@@ -507,12 +512,12 @@ LineTracker transfer_tracker
         // function selection matter low val = pt a, high val pt b
         if (new_speed < 0.) {
             // if we're heading toward a, we want to 'move' pt b
-            return find_highest_false([&](double x) {
+            return find_highest_false<double>([&](double x) {
                 return find_intersection(old_segment, location_along(x, new_surface), new_surface.a) !=
                        k_no_intersection;
             });
         } else if (new_speed > 0.) {
-            return find_lowest_true([&](double x) {
+            return find_lowest_true<double>([&](double x) {
                 return find_intersection(old_segment, location_along(x, new_surface), new_surface.b) ==
                        k_no_intersection;
             });
@@ -567,7 +572,7 @@ double angle_between(const LineSegment & old, const LineSegment & new_,
     }
     assert(pivot && extremity && other_ext);
     auto saught = normal_for(old, inverted_normal_on_old) + (old.a + old.b)*0.5;
-    auto shortest_ang = ::angle_between(*extremity - *pivot, *other_ext - *pivot);
+    auto shortest_ang = angle_between(*extremity - *pivot, *other_ext - *pivot);
 
     if (magnitude(shortest_ang - k_pi) < k_error) return k_pi;
 

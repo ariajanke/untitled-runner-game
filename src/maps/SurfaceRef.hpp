@@ -51,7 +51,7 @@ public:
     operator bool() const noexcept { return m_segment_number != k_no_segment; }
 private:
     using SmallVecEl = uint16_t;
-    using SmallVec = sf::Vector2<SmallVecEl>;
+    using SmallVec = cul::Vector2<SmallVecEl>;
     static SmallVec to_small_vec(VectorI);
     Surface get_surface() const;
     void check_invarients() const;

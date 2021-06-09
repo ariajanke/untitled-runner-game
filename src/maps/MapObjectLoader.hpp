@@ -148,10 +148,10 @@ public:
 
         auto vbeg = itr->second.begin();
         auto vend = itr->second.end  ();
-        trim<is_whitespace>(vbeg, vend);
+        cul::trim<is_whitespace>(vbeg, vend);
 
         IntType datum = 0;
-        if (!string_to_number_multibase(vbeg, vend, datum)) {
+        if (!cul::string_to_number_multibase(vbeg, vend, datum)) {
             throw throw_f(itr->first, itr->second);
         }
         do_f(datum);
@@ -166,24 +166,28 @@ MapValueFinder<Key, T, Compare> make_do_if_found(const std::map<Key, T, Compare>
 }
 
 template <typename T, typename U>
-std::vector<T> convert_vector_to(const std::vector<U> & vec) {
-    static_assert(std::is_constructible_v<U, T>, "Cannot convert source vector.");
+std::enable_if_t<
+    cul::k_both_types_conversion_suitible<U, T>,
+    std::vector<T>> convert_vector_to(const std::vector<U> & vec)
+{
+    //static_assert(std::is_constructible_v<U, T>, "Cannot convert source vector.");
     std::vector<T> rv;
     rv.reserve(vec.size());
     for (const auto & src : vec)
-        rv.emplace_back(src);
+        rv.emplace_back(convert_to<T>(src));
     return rv;
 }
 
 template <typename T, typename Func>
 void for_side_by_side(const std::vector<T> & vec, Func && f) {
+    using namespace cul::fc_signal;
     if (vec.empty()) return;
     auto itr = vec.begin();
     auto jtr = itr + 1;
     for (; jtr != vec.end(); ++itr, ++jtr) {
         const auto & lhs = *itr;
         const auto & rhs = *jtr;
-        if (adapt_to_flow_control_signal(std::move(f), lhs, rhs) == fc_signal::k_break)
+        if (adapt_to_flow_control_signal(std::move(f), lhs, rhs) == k_break)
             return;
     }
 }

@@ -1,6 +1,6 @@
 /****************************************************************************
 
-    Copyright 2020 Aria Janke
+    Copyright 2021 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -27,6 +27,8 @@ class PlayerControlSystem final : public System, public TimeAware {
     static constexpr const double k_max_voluntary_speed = 400;
     static constexpr const double k_booster_factor      = 2.5;
     static constexpr const double k_jump_speed          = 333.;
+    // no more jumping to the moon >:c
+    static constexpr const double k_max_jump_speed      = 500.;
 
     void update(const ContainerView & view) {
         for (auto e : view) update(e);
@@ -111,7 +113,8 @@ private:
             { return e.get<PhysicsComponent>().state_as<Rect>(); }
         static bool is_entering_box(VectorD old, VectorD new_, const Rect & rect) {
             if (old == TriggerBoxSubjectHistory::k_no_location) return false;
-            return !rect.contains(old) && line_crosses_rectangle(rect, old, new_);
+            return    !is_contained_in(old, rect)/* rect.contains(old)*/
+                   && line_crosses_rectangle(rect, old, new_);
         }
         // cleared every frame
         std::vector<Entity> m_trespassees;
@@ -187,8 +190,10 @@ class TriggerBoxOccupancySystem final : public System, public TimeAware {
     static void do_check(Entity target, Entity subject, double et) {
         auto & target_script = *get_script(target);
         auto target_rect = target.get<PhysicsComponent>().state_as<Rect>();
-
+#       if 0
         if (target_rect.contains(subject.get<PhysicsComponent>().location())) {
+#       endif
+        if (is_contained_in(subject.get<PhysicsComponent>().location(), target_rect)) {
             target_script.on_box_occupancy(target, subject, et);
             return;
         }
@@ -196,7 +201,10 @@ class TriggerBoxOccupancySystem final : public System, public TimeAware {
         static const auto k_no_location = TriggerBoxSubjectHistory::k_no_location;
         auto last_loc = get_last_location(subject);
         if (last_loc == k_no_location) return;
+#       if 0
         if (target_rect.contains(last_loc)) {
+#       endif
+        if (is_contained_in(last_loc, target_rect)) {
             target_script.on_box_occupancy(target, subject, et);
         }
     }
@@ -322,7 +330,10 @@ class PlatformBreakingSystem final : public System {
             rect.height = k_min_size;
             rect.top -= k_min_size*0.5;
         }
+#       if 0
         if (!rect.contains(item_e.get<PhysicsComponent>().location())) return;
+#       endif
+        if (!is_contained_in(item_e.get<PhysicsComponent>().location(), rect)) return;
         platform_e.request_deletion();
     }
 

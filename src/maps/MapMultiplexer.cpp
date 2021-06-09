@@ -100,7 +100,7 @@ void prepare_element
     const auto & map_props = mme.get_tmap().map_properties();
     auto itr = map_props.find("map-link-depth");
     if (itr != map_props.end()) {
-        if (!string_to_number(itr->second, mme.max_link_depth)) {
+        if (!cul::string_to_number(itr->second, mme.max_link_depth)) {
             // ideal emit a warning
         }
     }
@@ -129,6 +129,7 @@ void prepare_element_links
     const auto & map_props = mme.get_tmap().map_properties();
     auto itr = map_props.find("map-link-names");
     if (itr == map_props.end()) return;
+    using namespace cul;
 
     for_split<is_semicolon>(itr->second, [&](StringCIter beg, StringCIter end) {
         trim<is_whitespace>(beg, end);
@@ -161,6 +162,7 @@ LinkInfo load_link(const std::string & link_string) {
     LinkInfo rv;
     enum { k_read_edge, k_read_offset, k_read_filename, k_warned, k_done };
     auto phase = k_read_edge;
+    using namespace cul;
     for_split<is_semicolon>(link_string.c_str(), link_string.c_str() + link_string.length(),
         [&rv, &phase](const char * beg, const char * end)
     {

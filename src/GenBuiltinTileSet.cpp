@@ -1,6 +1,6 @@
 /****************************************************************************
 
-    Copyright 2020 Aria Janke
+    Copyright 2021 Aria Janke
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@
 
 #include <common/SubGrid.hpp>
 #include <common/Util.hpp>
+#include <common/MultiType.hpp>
 
 #include <random>
 #include <future>
@@ -33,282 +34,343 @@
 
 namespace {
 
-using VectorI = sf::Vector2i;
+using cul::SubGrid;
+using cul::ConstSubGrid;
+using sf::Color;
 
-static constexpr const int k_rest_of_grid = SubGrid<sf::Color>::k_rest_of_grid;
-static constexpr const int k_tile_size = 16;
+using cul::make_sub_grid;
 
-const Grid<sf::Color> & get_base_checkerboard();
+static constexpr const int   k_rest_of_grid = cul::k_rest_of_grid;
+static constexpr const int   k_tile_size    = 16;
+static           const Color k_transparency = Color(0, 0, 0, 0);
+
+const Grid<Color> & get_base_checkerboard();
 
 // assumes four way symetric
-void add_border(SubGrid<sf::Color>);
+void add_border(SubGrid<Color>);
 
-void cut_circle(SubGrid<sf::Color>, bool as_hole);
+void cut_circle(SubGrid<Color>, bool as_hole);
 
 template <typename T>
 Grid<T> extend(const Grid<T> & gin, int wmul, int hmul);
 
-void cut_diamond(SubGrid<sf::Color>, bool as_hole);
+void cut_diamond(SubGrid<Color>, bool as_hole);
 
-Grid<sf::Color> push_down(ConstSubGrid<sf::Color>, int x_line, int y_amount);
-
-void add_grass(SubGrid<sf::Color>, std::default_random_engine &);
-void add_grass(SubGrid<sf::Color> dest, ConstSubGrid<sf::Color> source, std::default_random_engine &);
-
-Grid<sf::Color> gen_flats(std::default_random_engine &);
-
-Grid<sf::Color> gen_all_indents();
-
-Grid<sf::Color> gen_waterfall(int w, int h, int pal_rotation_idx, int x_);
-
-} // end of <anonymous> namespace
-
-/* free fn */ Grid<sf::Color> generate_atlas() {
-#   if 1
-    const auto seed = std::random_device()();
-    Grid<sf::Color> rv;
-    {
-    using std::make_pair;
-    get_base_checkerboard();
-
-    using ProdFunc = void (*)(SubGrid<sf::Color>, bool);
-    auto gen_slopes_ = [&seed](int width, int height, ProdFunc pf, bool as_hole) {
-        std::default_random_engine rng { seed };
-        static constexpr const int k_rest_of = SubGrid<sf::Color>::k_rest_of_grid;
-
-        auto g = get_base_checkerboard();
-        g = extend(g, width*2,
-                   height*2 + (as_hole && pf == cut_circle ? 0 : 1) + (as_hole ? 1 : 0));
-        pf        (SubGrid<sf::Color>(g, k_rest_of, height*2*k_tile_size), as_hole);
-
-        add_border(SubGrid<sf::Color>(g, k_rest_of, height*2*k_tile_size));
-
-        if (pf == cut_diamond || (!as_hole && pf == cut_circle))
-            g = push_down(g, as_hole ? height*k_tile_size : 0, k_tile_size);
-
-        SubGrid<sf::Color> grass_seg;
-        if (as_hole) {
-            grass_seg = SubGrid<sf::Color>(g, VectorI(0, height*k_tile_size), k_rest_of, k_rest_of);
-        } else {
-            grass_seg = SubGrid<sf::Color>(g, k_rest_of, (height + 1)*k_tile_size);
-        }
-
-        add_grass(grass_seg, rng);
-        return g;
-    };
-#   if 0
-    auto bottom_half = [&gen_slopes_](int width, int height, ProdFunc pf, bool as_hole) {
-        // div 16, round down
-        auto g = gen_slopes_(width, height, pf, as_hole);
-        Grid<sf::Color> dest;
-        auto h = g.height() / 2 - ((g.height() / 2) % 16 ? 8 : 0);
-        dest.set_size(g.width(), h);
-        for (VectorI r; r != dest.end_position(); r = dest.next(r)) {
-            dest(r) = g(r + VectorI(0, g.height() - h));
-        }
-        return dest;
-    };
-
-    auto top_half = [&gen_slopes_](int width, int height, ProdFunc pf, bool as_hole) {
-        // div 16, round up
-        auto g = gen_slopes_(width, height, pf, as_hole);
-        auto h = g.height() / 2 + ((g.height() / 2) % 16 ? 8 : 0);
-        g.set_size(g.width(), h);
-        return g;
-    };
-#   endif
-#   if 0
-    auto gen_slopes = [&gen_slopes_](int width, int height, ProdFunc pf, bool as_hole, const char * filename) {
-        to_image(gen_slopes_(width, height, pf, as_hole)).saveToFile(filename);
-    };
-    gen_slopes(1, 1, cut_diamond, true, "/media/ramdisk/1x1diamond.png"); //
-    gen_slopes(1, 2, cut_diamond, true, "/media/ramdisk/1x2diamond.png"); //
-    gen_slopes(1, 3, cut_diamond, true, "/media/ramdisk/1x3diamond.png"); //
-    gen_slopes(1, 4, cut_diamond, true, "/media/ramdisk/1x4diamond.png"); //
-
-    gen_slopes(2, 1, cut_diamond, true, "/media/ramdisk/2x1diamond.png"); //
-    gen_slopes(3, 1, cut_diamond, true, "/media/ramdisk/3x1diamond.png"); //
-    gen_slopes(4, 1, cut_diamond, true, "/media/ramdisk/4x1diamond.png"); //
-
-    gen_slopes(2, 3, cut_diamond, true, "/media/ramdisk/2x3diamond.png"); //
-    gen_slopes(3, 2, cut_diamond, true, "/media/ramdisk/3x2diamond.png");
-
-    gen_slopes(5, 5, cut_circle, true, "/media/ramdisk/5x5loop.png");
-    gen_slopes(5, 5, cut_circle, false, "/media/ramdisk/5x5circle.png");
-
-    gen_slopes(7, 7, cut_circle, true , "/media/ramdisk/7x7loop.png");
-    gen_slopes(7, 7, cut_circle, false, "/media/ramdisk/7x7circle.png");
-
-    gen_slopes(10, 10, cut_circle, true , "/media/ramdisk/10x10loop.png");
-    gen_slopes(10, 10, cut_circle, false, "/media/ramdisk/10x10circle.png");
-
-    to_image(gen_flats(rng)).saveToFile("/media/ramdisk/flats.png");
-
+Grid<Color> push_down(ConstSubGrid<Color>, int x_line, int y_amount);
+#if 0
+void add_grass(SubGrid<Color>, std::default_random_engine &);
 #endif
+void add_grass(SubGrid<Color> dest, SubGrid<Color> source, std::default_random_engine &);
+void add_grass(SubGrid<Color> dest, ConstSubGrid<Color> source, std::default_random_engine &);
 
-    using std::bind;
-    using std::move;
-    using Rng = std::default_random_engine;
+inline void add_grass(SubGrid<Color> single_target, std::default_random_engine & rng) {
+    add_grass(single_target, single_target, rng);
+}
 
-    std::vector<std::pair<std::function<Grid<sf::Color>()>, VectorI>>
-        task_list
-    {
-#       if 0
-        make_pair(bind(gen_slopes_, 10, 10, cut_circle, true ), VectorI(  0,   0)),
-#       endif
-        make_pair(bind(gen_slopes_,  7,  7, cut_circle, false), VectorI( 48,  32) + VectorI(3, -2)*k_tile_size),
-        make_pair(bind(gen_slopes_,  7,  7, cut_circle, true ), VectorI(320,   0)),
-        make_pair(bind(gen_slopes_,  5,  5, cut_circle, false), VectorI(352,  16)),
-        make_pair(bind(gen_slopes_,  5,  5, cut_circle, true ), VectorI(320, 240)),
-#       if 0
-        make_pair(bind(top_half   , 10, 10, cut_circle, false), VectorI(  0, 336)),
-        make_pair(bind(bottom_half, 10, 10, cut_circle, false), VectorI(320, 416)),
-#       endif
-        make_pair(bind(gen_flats      ,Rng { seed }), VectorI(544,  64)),
-        make_pair(     gen_all_indents              , VectorI(592,  64)),
+Grid<Color> gen_flats(std::default_random_engine &);
 
-        make_pair(bind(gen_slopes_, 1, 1, cut_diamond, true), VectorI(576, 288)),
-        make_pair(bind(gen_slopes_, 1, 2, cut_diamond, true), VectorI(608, 224)),
-        make_pair(bind(gen_slopes_, 1, 3, cut_diamond, true), VectorI(544, 288)),
-        make_pair(bind(gen_slopes_, 1, 4, cut_diamond, true), VectorI(640, 128)),
-        make_pair(bind(gen_slopes_, 2, 1, cut_diamond, true), VectorI(544, 224)),
-        make_pair(bind(gen_slopes_, 3, 1, cut_diamond, true), VectorI(576, 352)),
-        make_pair(bind(gen_slopes_, 4, 1, cut_diamond, true), VectorI(544,   0)),
-        make_pair(bind(gen_slopes_, 3, 2, cut_diamond, true), VectorI(544, 128)),
-        make_pair(bind(gen_slopes_, 2, 3, cut_diamond, true), VectorI(480, 240)),
-    };
-    using FutureGrid = std::future<Grid<sf::Color>>;
-    std::vector<std::pair<FutureGrid, VectorI>> futures;
-    futures.reserve(task_list.size());
+Grid<Color> gen_all_indents();
 
-    std::vector<std::thread> threads;
-    threads.reserve(task_list.size());
-    for (auto & [task, loc] : task_list) {
-        std::packaged_task<Grid<sf::Color>()> pkgtask { std::move(task) };
-        futures.emplace_back(make_pair(FutureGrid { pkgtask.get_future() }, loc));
-        threads.emplace_back(std::move(pkgtask));
-        threads.back().detach();
-    }
+Grid<Color> gen_waterfall(int w, int h, int pal_rotation_idx, int x_);
 
-    for (auto & [future, _] : futures) {
-        (void)_;
-        future.wait();
-    }
 
-    std::vector<std::pair<Grid<sf::Color>, VectorI>> products;
-    products.reserve(futures.size());
-    for (auto & [future, loc] : futures) {
-        try {
-            products.emplace_back(future.get(), loc);
-        } catch (std::exception & exp) {
-            std::cerr << exp.what() << std::endl;
-        }
-    }
-
-    int w = 0, h = 0;
-    for (const auto & [grid, r] : products) {
-        w = std::max(w, r.x + grid.width ());
-        h = std::max(h, r.y + grid.height());
-    }
-    Grid<sf::Color> composite;
-    composite.set_size(w, h, sf::Color(0, 0, 0, 0));
-    for (const auto & [grid, r] : products) {
-        for (VectorI u; u != grid.end_position(); u = grid.next(u)) {
-            if (grid(u).a == 0) continue;
-            composite(r + u) = grid(u);
-        }
-    }
-    assert(composite.height() % k_tile_size == 0 && composite.width() % k_tile_size == 0);
-    static const VectorI k_chosen_checkerboard = VectorI();//34, 8)*16;
-    std::copy(get_base_checkerboard().begin(), get_base_checkerboard().end(),
-              make_sub_grid(composite, VectorI(), k_tile_size, k_tile_size).begin());
-    static auto x_out_tile = [](SubGrid<sf::Color> subg) {
-        assert(subg.width() == k_tile_size && subg.height() == k_tile_size);
-        static constexpr const auto k_x_out_gfx =
-            // 0123456789ABCDEF
-            """XX            XX" // 0
-            """X              X" // 1
-            """  Xx         Xx " // 2
-            """   Xx       Xx  " // 3
-            """    Xx     Xx   " // 4
-            """     Xx   Xx    " // 5
-            """      XxxXx     " // 6
-            """       XXx      " // 7
-            """       XXx      " // 8
-            """      XxxXx     " // 9
-            """     Xx   Xx    " // A
-            """    Xx     Xx   " // B
-            """   Xx       Xx  " // C
-            """  Xx         X  " // D
-            """X              X" // E
-            """XX            XX" // F
-            ;
-        for (VectorI r; r != subg.end_position(); r = subg.next(r)) {
-            subg(r) = [] (std::size_t idx) {
-                switch (k_x_out_gfx[idx]) {
-                case ' ': return sf::Color(0, 0, 0, 0);
-                case 'x': return sf::Color(60, 60, 60, 255);
-                case 'X': return sf::Color::Black;
-                }
-                throw BadBranchException();
-            } (std::size_t(r.x + r.y*k_tile_size));
-
-        }
+class Slopes {
+public:
+    static constexpr const bool k_use_mutlithreading = true;
+    using GrassMappings = std::vector<std::tuple<VectorI, VectorI>>;
+    struct MergeInfo {
     };
 
-    for (int y = 0; y < composite.height(); y += k_tile_size) {
-    for (int x = 0; x < composite.width (); x += k_tile_size) {
-        // delete all but one base checkboard
-        // 544, 128 is THE CHOSEN ONE
-        if (k_chosen_checkerboard == VectorI(x, y)) continue;
+    virtual ~Slopes() {}
 
-        SubGrid<sf::Color> subg(composite, VectorI(x, y), k_tile_size, k_tile_size);
-        bool is_a_checkboard = [](ConstSubGrid<sf::Color> subg) {
-            const auto & base = get_base_checkerboard();
-            for (VectorI r; r != subg.end_position(); r = subg.next(r)) {
-                if (base(r) == subg(r)) continue;
-                return false;
-            }
-            return true;
-        } (subg);
-        bool is_empty_tile = [](ConstSubGrid<sf::Color> subg) {
-            for (auto color : subg) {
-                if (color.a != 0) return false;
-            }
-            return true;
-        } (subg);
+    virtual void do_cuts(SubGrid<Color> ground_target, SubGrid<Color> grass_target) = 0;
+    virtual void wait_and_merge(SubGrid<Color> target, MergeInfo &) = 0;
+    virtual std::unique_ptr<Slopes> clone() const = 0;
 
-        if (is_a_checkboard || is_empty_tile) {
-            x_out_tile(subg);
-#           if 0
-            for (VectorI r; r != subg.end_position(); r = subg.next(r)) {
-                subg(r) = sf::Color(0, 0, 0, 0);
-            }
-#           endif
-        }
-    }}
-#   if 0
-    to_image(composite).saveToFile("/media/ramdisk/atlas.png");
-#   endif
-    rv.swap(composite);
+    using Task = std::tuple<std::unique_ptr<Slopes>, VectorI, int, int>;
+
+    static Task copy_task(const Task & task) {
+        using std::get;
+        return std::make_tuple( get<0>(task)->clone(),
+                                get<1>(task), get<2>(task), get<3>(task));
     }
 
+    template <void (*cut_f)(SubGrid<Color>, bool), bool kt_as_hole>
+    static Task make_task(VectorI r, int width, int height);
+
+    template <void (*cut_f)(SubGrid<Color>, bool)>
+    static View<const Task *> get_tasks_for();
+
+protected:
+    static void verify_dims(ConstSubGrid<Color> subg) {
+        assert(subg.width() % k_tile_size == 0 && subg.height() % k_tile_size == 0);
+    }
+
+    static void fill_with_checkerboard(SubGrid<Color> target) {
+        verify_dims(target);
+        static const auto & k_base = get_base_checkerboard();
+        for (int y = 0; y != target.height(); y += k_tile_size) {
+        for (int x = 0; x != target.width (); x += k_tile_size) {
+            auto sub = make_sub_grid(target, VectorI(x, y), k_tile_size, k_tile_size);
+            std::copy(k_base.begin(), k_base.end(), sub.begin());
+        }}
+    }
+
+    static void clear_only_full_checkerboards(SubGrid<Color> target) {
+        verify_dims(target);
+        static const auto & k_base = get_base_checkerboard();
+        for (int y = 0; y != target.height(); y += k_tile_size) {
+        for (int x = 0; x != target.width (); x += k_tile_size) {
+            auto sub = make_sub_grid(target, VectorI(x, y), k_tile_size, k_tile_size);
+            if (!std::equal(k_base.begin(), k_base.end(), sub.begin())) continue;
+            std::fill(sub.begin(), sub.end(), k_transparency);
+        }}
+    }
+
+    template <bool kt_as_hole>
+    static VectorI grass_bounds_offset() {
+        return VectorI(0, kt_as_hole ? 0 : k_tile_size);
+
+    }
+
+    static bool is_transparency(Color c) { return c == k_transparency; }
+};
+
+template <void (*cut_f)(SubGrid<Color>, bool), bool kt_as_hole>
+class CutsSlopes : public Slopes {
+protected:
+
+    void do_cuts_task(SubGrid<Color> ground_target, SubGrid<Color> grass_target) {
+        static const bool k_is_circle = cut_f == cut_circle;
+        static const bool k_is_diamond = cut_f == cut_diamond;
+        auto cut_target = make_sub_grid(ground_target,
+            grass_bounds_offset<kt_as_hole>(),
+            k_rest_of_grid,
+            ground_target.height() - k_tile_size - (k_is_diamond ? k_tile_size : 0));
+        if (k_is_circle) {
+            fill_with_checkerboard(ground_target);
+        } else if (k_is_diamond) {
+            fill_with_checkerboard(cut_target);
+        } else {
+            throw BadBranchException();
+        }
+        cut_f(cut_target, kt_as_hole);
+        if (k_is_circle) {
+            add_border(cut_target);
+        } else if (k_is_diamond) {
+            // post cut push down
+            do_diamond_push_down(ground_target);
+            // add jagged portion
+        } else {
+            throw BadBranchException();
+        }
+
+        auto subrect = grass_bounds(ground_target.width(), ground_target.height());
+        VectorI r(subrect.left, subrect.top);
+        add_grass(make_sub_grid(grass_target , r, subrect.width, subrect.height),
+                  make_sub_grid(ground_target, r, subrect.width, subrect.height),
+                  m_rng);
+
+        clear_only_full_checkerboards(ground_target);
+        m_grass_mappings = compute_grass_mappings(ground_target, grass_target);
+    }
+
+private:
+    static void do_diamond_push_down(SubGrid<Color> ground_target) {
+        auto h = (ground_target.height() - k_tile_size*2) / 2;
+        auto src_move = make_sub_grid(ground_target, VectorI(0, h +   k_tile_size), k_rest_of_grid, h);
+        auto dst_move = make_sub_grid(ground_target, VectorI(0, h + 2*k_tile_size), k_rest_of_grid, h);
+        assert(src_move.width() == dst_move.width() && src_move.height() == dst_move.height());
+        // reverse iterators don't seem to work =_=
+        for (int y = src_move.height() - 1; y != -1; --y) {
+        for (int x = 0; x != src_move.width(); ++x) {
+            dst_move(x, y) = src_move(x, y);
+        }}
+        auto whipe_row = make_sub_grid(src_move, VectorI(), k_rest_of_grid, k_tile_size);
+        fill_with_checkerboard(whipe_row);
+    }
+
+    static cul::Rectangle<int> grass_bounds(int target_width, int target_height) {
+        static const bool k_is_diamond = cut_f == cut_diamond;
+        auto h = (target_height - k_tile_size) / 2;
+        VectorI offset(0, k_has_grass_on_top ? 0 : h);
+        h += k_tile_size;
+        if (k_has_grass_on_top && k_is_diamond) {
+            h += k_tile_size;
+        }
+        return cul::Rectangle<int>(offset, cul::Size2<int>(target_width, h));
+    }
+
+    static GrassMappings compute_grass_mappings
+        (ConstSubGrid<Color> ground_target, ConstSubGrid<Color> grass_target)
     {
-#   if 0
-    std::default_random_engine rng { seed };
-    to_image(gen_waterfall(16, 14*16, 0, 0)).saveToFile("/media/ramdisk/waterfall0.png");
-    to_image(gen_waterfall(16, 14*16, 1, 0)).saveToFile("/media/ramdisk/waterfall1.png");
-    to_image(gen_waterfall(16, 14*16, 2, 0)).saveToFile("/media/ramdisk/waterfall2.png");
-    to_image(gen_waterfall(16, 14*16, 3, 0)).saveToFile("/media/ramdisk/waterfall3.png");
-#   endif
-    static constexpr const int k_water_fall_height = 13*k_tile_size;
+        verify_dims(ground_target);
+        verify_dims(grass_target );
+        GrassMappings rv;
+        rv.reserve( ((ground_target.width () / k_tile_size) + 1)
+                   *((ground_target.height() / k_tile_size) + 1) );
+        for (int y = 0; y != ground_target.height(); y += k_tile_size) {
+        for (int x = 0; x != ground_target.width (); x += k_tile_size) {
+            auto subg = make_sub_grid(grass_target, VectorI(x, y), k_tile_size, k_tile_size);
+            if (std::all_of(subg.begin(), subg.end(), is_transparency)) continue;
+            rv.emplace_back( VectorI(x, y), VectorI(x, y) );
+        }}
+        return rv;
+    }
+
+    static constexpr const bool k_has_grass_on_top = !kt_as_hole;
+    std::vector<std::tuple<VectorI, VectorI>> m_grass_mappings;
+    std::default_random_engine m_rng { std::random_device()() };
+};
+
+template <void (*cut_f)(SubGrid<Color>, bool), bool kt_as_hole>
+class SeriesSlopes final : public CutsSlopes<cut_f, kt_as_hole> {
+    using MergeInfo = Slopes::MergeInfo;
+    void do_cuts(SubGrid<Color> ground_target, SubGrid<Color> grass_target) override
+        { CutsSlopes<cut_f, kt_as_hole>::do_cuts_task(ground_target, grass_target); }
+
+    void wait_and_merge(SubGrid<Color>, MergeInfo &) override
+        { /*Slopes::identify_tiles<cut_f>(info, target);*/ }
+
+    std::unique_ptr<Slopes> clone() const override
+        { return std::make_unique<SeriesSlopes>(*this); }
+};
+
+template <void (*cut_f)(SubGrid<Color>, bool), bool kt_as_hole>
+class ParallelSlopes final : public CutsSlopes<cut_f, kt_as_hole> {
+public:
+    ParallelSlopes() {}
+    ParallelSlopes(const ParallelSlopes &): m_future() {}
+    ParallelSlopes(ParallelSlopes &&) = default;
+
+    ParallelSlopes & operator = (const ParallelSlopes &) { return *this; }
+    ParallelSlopes & operator = (ParallelSlopes &&) = default;
+
+    ~ParallelSlopes() final {}
+
+private:
+    using BaseClass = CutsSlopes<cut_f, kt_as_hole>;
+    using MergeInfo = Slopes::MergeInfo;
+
+    void do_cuts(SubGrid<Color> ground_target, SubGrid<Color> grass_target) override {
+        m_future = std::make_shared<std::future<void>>( std::async(std::launch::async, [=]() {
+            BaseClass::do_cuts_task(ground_target, grass_target);
+        }) );
+    }
+
+    void wait_and_merge(SubGrid<Color>, MergeInfo &) override {
+        m_future->wait();
+        m_future->get();
+    }
+
+    std::unique_ptr<Slopes> clone() const override
+        { return std::make_unique<ParallelSlopes>(*this); }
+
+    std::shared_ptr<std::future<void>> m_future;
+};
+
+VectorI get_position(const Slopes::Task & el) { return std::get<1>(el); }
+int get_target_width(const Slopes::Task & el) { return std::get<2>(el); }
+int get_target_height(const Slopes::Task & el) { return std::get<3>(el); }
+const Slopes * get_slopes(const Slopes::Task & el) { return std::get<0>(el).get(); }
+Slopes * get_slopes(Slopes::Task & el) {
+    const auto & const_el = el;
+    return const_cast<Slopes *>(get_slopes(const_el));
+}
+
+SubGrid<Color> make_sub_grid(SubGrid<Color> target, const Slopes::Task & task) {
+    return make_sub_grid(target, get_position(task), get_target_width(task), get_target_height(task));
+}
+
+template <void (*cut_f)(SubGrid<Color>, bool), bool kt_as_hole>
+/* static */ std::tuple<std::unique_ptr<Slopes>, VectorI, int, int> Slopes::make_task
+    (VectorI r, int width, int height)
+{
+    std::unique_ptr<Slopes> ptr = nullptr;
+    if constexpr (k_use_mutlithreading) {
+        ptr = std::make_unique<ParallelSlopes<cut_f, kt_as_hole>>();
+    } else {
+        ptr = std::make_unique<SeriesSlopes<cut_f, kt_as_hole>>();
+    }
+
+    return std::make_tuple(
+        std::move(ptr),
+        r*k_tile_size,
+        width*k_tile_size, height*k_tile_size );
+}
+
+template <void (*cut_f)(SubGrid<Color>, bool)>
+/* static */ View<const Slopes::Task *> Slopes::get_tasks_for() {
+    // doubled for four way symetric
+    // + 1 tile height for grass and shading on circles
+    static const std::array k_circle_tasks = {
+        make_task<cut_circle, false>(VectorI( 0,  0), 5*2, 5*2 + 1),
+        make_task<cut_circle, true >(VectorI(10,  0), 5*2, 5*2 + 1),
+        make_task<cut_circle, false>(VectorI( 0, 11), 7*2, 7*2 + 1),
+        make_task<cut_circle, true >(VectorI(14, 11), 7*2, 7*2 + 1),
+    };
+    // + 2 tile height for diamonds
+    static const std::array k_diamond_tasks = {
+        make_task<cut_diamond, false>(VectorI( 0, 0), 1*2, 1*2 + 2),
+        make_task<cut_diamond, false>(VectorI( 2, 0), 2*2, 1*2 + 2),
+        make_task<cut_diamond, false>(VectorI( 6, 0), 3*2, 1*2 + 2),
+        make_task<cut_diamond, false>(VectorI(12, 0), 4*2, 1*2 + 2),
+
+        make_task<cut_diamond, false>(VectorI( 0, 4), 3*2, 2*2 + 2),
+        make_task<cut_diamond, false>(VectorI( 6, 4), 2*2, 3*2 + 2),
+
+        make_task<cut_diamond, false>(VectorI(10, 4), 1*2, 2*2 + 2),
+        make_task<cut_diamond, false>(VectorI(12, 4), 1*2, 3*2 + 2),
+        make_task<cut_diamond, false>(VectorI(14, 4), 1*2, 4*2 + 2),
+    };
+    static const Task * k_circle_beg = k_circle_tasks.data();
+    static const Task * k_circle_end = k_circle_beg + k_circle_tasks.size();
+    static const Task * k_diamond_beg = k_diamond_tasks.data();
+    static const Task * k_diamond_end = k_diamond_beg + k_diamond_tasks.size();
+    if (cut_f == cut_circle) {
+        return View(k_circle_beg, k_circle_end);
+    } else if (cut_f == cut_diamond) {
+        return View(k_diamond_beg, k_diamond_end);
+    }
+    throw BadBranchException();
+}
+
+std::tuple<Grid<Color>, Slopes::MergeInfo, Grid<Color>> do_grid_tasks(View<const Slopes::Task *> tasks_view) {
+    int twidth = 0, theight = 0;
+    for (const auto & task : tasks_view) {
+        twidth  = std::max( twidth , get_position(task).x + get_target_width (task) );
+        theight = std::max( theight, get_position(task).y + get_target_height(task) );
+    }
+    std::vector<Slopes::Task> tasks;
+    for (const auto & task : tasks_view) {
+        tasks.emplace_back( Slopes::copy_task(task) );
+    }
+
+    Grid<Color> target;
+    Grid<Color> grass_target;
+    target      .set_size(twidth, theight, k_transparency);
+    grass_target.set_size(twidth, theight, k_transparency);
+    for (auto & task : tasks) {
+        get_slopes(task)->do_cuts(make_sub_grid(target, task), make_sub_grid(grass_target, task));
+    }
+    Slopes::MergeInfo info;
+    for (auto & task : tasks) {
+        get_slopes(task)->wait_and_merge(make_sub_grid(target, task), info);
+    }
+    return std::make_tuple(std::move(target), std::move(info), std::move(grass_target));
+}
+
+static constexpr const int k_water_fall_height = 13*k_tile_size;
+static constexpr const int k_water_fall_width  = 5*k_tile_size;
+
+void gen_waterfalls(SubGrid<Color> rv) {
     auto waterfall_list = {
         gen_waterfall(k_tile_size, k_water_fall_height, 0, 0),
         gen_waterfall(k_tile_size, k_water_fall_height, 1, 0),
         gen_waterfall(k_tile_size, k_water_fall_height, 2, 0),
         gen_waterfall(k_tile_size, k_water_fall_height, 3, 0)
     };
-    VectorI start = VectorI(k_tile_size, 0);// 112, 368);
+    VectorI start;// = VectorI(k_tile_size, 0);// 112, 368);
     for (const auto & waterfall : waterfall_list) {
         auto subg = make_sub_grid(rv, start, waterfall.width(), waterfall.height());
         for (VectorI r; r != subg.end_position(); r = subg.next(r)) {
@@ -342,45 +404,330 @@ Grid<sf::Color> gen_waterfall(int w, int h, int pal_rotation_idx, int x_);
             auto idx = r.x + r.y*k_tile_size;
             assert(idx < int(strlen(k_magic_tile_gfx)));
             switch (k_magic_tile_gfx[idx]) {
-            case ' ': return sf::Color(0, 0, 0);
-            case 'W': return sf::Color(180, 180, 255);
-            case 'X': return sf::Color(255, 100, 100);
+            case ' ': return Color::Black;
+            case 'W': return Color(180, 180, 255);
+            case 'X': return Color(255, 100, 100);
             default: throw std::runtime_error("");
             }
         } ();
     }
-    }
-#   if 0
-    for (int i = 0; i != 4*8; ++i) {
-        m_textures.emplace_back();
-        std::default_random_engine rng { seed };
+}
 
-        m_textures.back().loadFromImage(to_image(
-        gen_waterfall(16*10, 14*16, i % 4, i)));
-        //add_bottom_ridges( gen_grass_blocks(rng))));
-        //gen_cloud(100, 30, 0.005, 4, rng)));
-        //to_image(gen_waterfall(8*16, 14*16, i, rng)));//
+} // end of <anonymous> namespace
+
+static void generate_platform_texture(SubGrid<Color> target_grid);
+
+template <void (*cut_f)(SubGrid<Color>, bool), bool as_hole>
+static void gen_slopes(SubGrid<Color> target, VectorI offset, int width, int height);
+
+static void copy_subgrid_to(ConstSubGrid<Color> src, SubGrid<Color> dest) {
+    if (src.width() != dest.width() || src.height() != dest.height()) {
+        throw std::out_of_range("");
     }
-#   endif
-#   endif
+    std::copy(src.begin(), src.end(), dest.begin());
+}
+#if 0
+static void copy_subgrid_to
+    (ConstSubGrid<Color> src, SubGrid<Color> dest,
+     VectorI src_pos, VectorI dest_pos, int width, int height)
+{
+    copy_subgrid_to(make_const_sub_grid(src, src_pos, width, height));
+}
+#endif
+Grid<Color> generate_atlas_2() {
+    static const auto k_circle_tasks  = Slopes::get_tasks_for<cut_circle >();
+    static const auto k_diamond_tasks = Slopes::get_tasks_for<cut_diamond>();
+
+    auto circle_slopes  = do_grid_tasks(k_circle_tasks );
+    auto diamond_slopes = do_grid_tasks(k_diamond_tasks);
+
+    to_image(std::get<0>(diamond_slopes)).saveToFile("/media/ramdisk/diamonds.png");
+    to_image(std::get<0>(circle_slopes)).saveToFile("/media/ramdisk/circles.png");
+    std::default_random_engine rng { std::random_device()() };
+
+    to_image(std::get<2>(diamond_slopes)).saveToFile("/media/ramdisk/diamondgrass.png");
+    to_image(std::get<2>(circle_slopes)).saveToFile("/media/ramdisk/circlegrass.png");
+
+    auto flats   = gen_flats(rng);
+    auto indents = gen_all_indents();
+    to_image(flats).saveToFile("/media/ramdisk/flats.png");
+
+
+    using std::get;
+    Grid<Color> composite;
+    composite.set_size(
+        std::max( { get<0>(diamond_slopes).width(), get<0>(circle_slopes).width() } ),
+          get<0>(diamond_slopes).height() + get<0>(circle_slopes).height()
+        + std::max(flats.height(), indents.height()),
+        k_transparency);
+
+    return Grid<Color>();
+}
+
+/* free fn */ Grid<Color> generate_atlas() {
+    const auto seed = std::random_device()();
+    Grid<Color> rv;
+    {
+    using std::make_pair;
+    get_base_checkerboard();
+
+    using ProdFunc = void (*)(SubGrid<Color>, bool);
+    auto gen_slopes_ = [&seed](int width, int height, ProdFunc pf, bool as_hole) {
+        std::default_random_engine rng { seed };
+        static constexpr const int k_rest_of = k_rest_of_grid;
+
+        auto g = get_base_checkerboard();
+        g = extend(g, width*2,
+                   height*2 + (as_hole && pf == cut_circle ? 0 : 1) + (as_hole ? 1 : 0));
+        pf        (SubGrid<Color>(g, k_rest_of, height*2*k_tile_size), as_hole);
+
+        add_border(SubGrid<Color>(g, k_rest_of, height*2*k_tile_size));
+
+        if (pf == cut_diamond || (!as_hole && pf == cut_circle))
+            g = push_down(g, as_hole ? height*k_tile_size : 0, k_tile_size);
+
+        SubGrid<Color> grass_seg;
+        if (as_hole) {
+            grass_seg = SubGrid<Color>(g, VectorI(0, height*k_tile_size), k_rest_of, k_rest_of);
+        } else {
+            grass_seg = SubGrid<Color>(g, k_rest_of, (height + 1)*k_tile_size);
+        }
+#       if 0
+        add_grass(grass_seg, rng);
+#       endif
+        return g;
+    };
 #   if 0
-    for (int z = 60; z != 360; ++z) {
-        auto grid = gen_shaded_circle(50, sf::Vector3<int>(20, 20, z));
-        auto img = to_image(grid);
-        sf::Texture texture;
-        texture.loadFromImage(img);
-        m_textures.push_back(texture);
-    }
+    auto bottom_half = [&gen_slopes_](int width, int height, ProdFunc pf, bool as_hole) {
+        // div 16, round down
+        auto g = gen_slopes_(width, height, pf, as_hole);
+        Grid<Color> dest;
+        auto h = g.height() / 2 - ((g.height() / 2) % 16 ? 8 : 0);
+        dest.set_size(g.width(), h);
+        for (VectorI r; r != dest.end_position(); r = dest.next(r)) {
+            dest(r) = g(r + VectorI(0, g.height() - h));
+        }
+        return dest;
+    };
+
+    auto top_half = [&gen_slopes_](int width, int height, ProdFunc pf, bool as_hole) {
+        // div 16, round up
+        auto g = gen_slopes_(width, height, pf, as_hole);
+        auto h = g.height() / 2 + ((g.height() / 2) % 16 ? 8 : 0);
+        g.set_size(g.width(), h);
+        return g;
+    };
 #   endif
-    //m_output.loadFromImage(to_image(gen_grass_blocks(rng)));
+
+    using std::bind;
+    using std::move;
+    using Rng = std::default_random_engine;
+
+    std::vector<std::pair<std::function<Grid<Color>()>, VectorI>>
+        task_list
+    {
+        make_pair(bind(gen_slopes_,  7,  7, cut_circle, false), VectorI( 48,  32) + VectorI(3, -2)*k_tile_size),
+        make_pair(bind(gen_slopes_,  7,  7, cut_circle, true ), VectorI(320,   0)),
+        make_pair(bind(gen_slopes_,  5,  5, cut_circle, false), VectorI(352,  16)),
+        make_pair(bind(gen_slopes_,  5,  5, cut_circle, true ), VectorI(320, 240)),
+        make_pair(bind(gen_flats      ,Rng { seed }), VectorI(544,  64)),
+        make_pair(     gen_all_indents              , VectorI(592,  64)),
+
+        make_pair(bind(gen_slopes_, 1, 1, cut_diamond, false), VectorI(576, 288)),
+        make_pair(bind(gen_slopes_, 1, 2, cut_diamond, false), VectorI(608, 224)),
+        make_pair(bind(gen_slopes_, 1, 3, cut_diamond, false), VectorI(544, 288)),
+        make_pair(bind(gen_slopes_, 1, 4, cut_diamond, false), VectorI(640, 128)),
+        make_pair(bind(gen_slopes_, 2, 1, cut_diamond, false), VectorI(544, 224)),
+        make_pair(bind(gen_slopes_, 3, 1, cut_diamond, false), VectorI(576, 352)),
+        make_pair(bind(gen_slopes_, 4, 1, cut_diamond, false), VectorI(544,   0)),
+        make_pair(bind(gen_slopes_, 3, 2, cut_diamond, false), VectorI(544, 128)),
+        make_pair(bind(gen_slopes_, 2, 3, cut_diamond, false), VectorI(480, 240)),
+    };
+    using FutureGrid = std::future<Grid<Color>>;
+    std::vector<std::pair<FutureGrid, VectorI>> futures;
+    futures.reserve(task_list.size());
+
+    std::vector<std::thread> threads;
+    threads.reserve(task_list.size());
+    for (auto & [task, loc] : task_list) {
+        std::packaged_task<Grid<Color>()> pkgtask { std::move(task) };
+        futures.emplace_back(make_pair(FutureGrid { pkgtask.get_future() }, loc));
+        threads.emplace_back(std::move(pkgtask));
+        threads.back().detach();
+    }
+
+    for (auto & [future, _] : futures) {
+        (void)_;
+        future.wait();
+    }
+
+    std::vector<std::pair<Grid<Color>, VectorI>> products;
+    products.reserve(futures.size());
+    for (auto & [future, loc] : futures) {
+        try {
+            products.emplace_back(future.get(), loc);
+        } catch (std::exception & exp) {
+            std::cerr << exp.what() << std::endl;
+        }
+    }
+
+    int w = 0, h = 0;
+    for (const auto & [grid, r] : products) {
+        w = std::max(w, r.x + grid.width ());
+        h = std::max(h, r.y + grid.height());
+    }
+    Grid<Color> composite;
+    composite.set_size(w, h, k_transparency);
+    for (const auto & [grid, r] : products) {
+        for (VectorI u; u != grid.end_position(); u = grid.next(u)) {
+            if (grid(u).a == 0) continue;
+            composite(r + u) = grid(u);
+        }
+    }
+
+    generate_platform_texture(make_sub_grid(composite, VectorI(0, k_tile_size*14), k_tile_size*3, k_tile_size*4));
+
+    assert(composite.height() % k_tile_size == 0 && composite.width() % k_tile_size == 0);
+    static const VectorI k_chosen_checkerboard = VectorI();//34, 8)*16;
+    std::copy(get_base_checkerboard().begin(), get_base_checkerboard().end(),
+              make_sub_grid(composite, VectorI(), k_tile_size, k_tile_size).begin());
+    static auto x_out_tile = [](SubGrid<Color> subg) {
+        assert(subg.width() == k_tile_size && subg.height() == k_tile_size);
+        static constexpr const auto k_x_out_gfx =
+            // 0123456789ABCDEF
+            """XX            XX" // 0
+            """X              X" // 1
+            """  Xx         Xx " // 2
+            """   Xx       Xx  " // 3
+            """    Xx     Xx   " // 4
+            """     Xx   Xx    " // 5
+            """      XxxXx     " // 6
+            """       XXx      " // 7
+            """       XXx      " // 8
+            """      XxxXx     " // 9
+            """     Xx   Xx    " // A
+            """    Xx     Xx   " // B
+            """   Xx       Xx  " // C
+            """  Xx         X  " // D
+            """X              X" // E
+            """XX            XX" // F
+            ;
+        for (VectorI r; r != subg.end_position(); r = subg.next(r)) {
+            subg(r) = [] (std::size_t idx) {
+                switch (k_x_out_gfx[idx]) {
+                case ' ': return k_transparency;
+                case 'x': return Color(60, 60, 60, 255);
+                case 'X': return Color::Black;
+                }
+                throw BadBranchException();
+            } (std::size_t(r.x + r.y*k_tile_size));
+
+        }
+    };
+
+    std::vector<VectorI> empty_squares =
+            [](ConstSubGrid<Color> composite) {
+    std::vector<VectorI> empty_squares;
+    for (int y = 0; y < composite.height(); y += k_tile_size) {
+    for (int x = 0; x < composite.width (); x += k_tile_size) {
+        // delete all but one base checkboard
+        if (k_chosen_checkerboard == VectorI(x, y)) continue;
+
+        auto subg = make_const_sub_grid/*ConstSubGrid<Color> subg*/(composite, VectorI(x, y), k_tile_size, k_tile_size);
+#       if 0
+        bool is_a_checkboard = [](ConstSubGrid<Color> subg) {
+            const auto & base = get_base_checkerboard();
+            for (VectorI r; r != subg.end_position(); r = subg.next(r)) {
+                if (base(r) == subg(r)) continue;
+                return false;
+            }
+            return true;
+        } (subg);
+#       endif
+
+        bool is_empty_tile = [](ConstSubGrid<Color> subg) {
+            for (auto color : subg) {
+                if (color.a != 0) return false;
+            }
+            return true;
+        } (subg);
+
+        if (/*is_a_checkboard ||*/ is_empty_tile) {
+            empty_squares.emplace_back(x, y);
+#           if 0
+            x_out_tile(subg);
+#           endif
+        }
+    }}
+    return empty_squares;
+    } (composite);
+    rv.swap(composite);
+    }
+
+    gen_waterfalls(make_sub_grid(rv, VectorI(k_tile_size, 0), k_water_fall_width, k_water_fall_height));
+#   if 0
+    static constexpr const int k_water_fall_height = 13*k_tile_size;
+    static constexpr const int k_water_fall_width  = 5*k_tile_size;
+    [](VectorI start, SubGrid<Color> rv){
+
+
+    auto waterfall_list = {
+        gen_waterfall(k_tile_size, k_water_fall_height, 0, 0),
+        gen_waterfall(k_tile_size, k_water_fall_height, 1, 0),
+        gen_waterfall(k_tile_size, k_water_fall_height, 2, 0),
+        gen_waterfall(k_tile_size, k_water_fall_height, 3, 0)
+    };
+    //VectorI start = VectorI(k_tile_size, 0);// 112, 368);
+    for (const auto & waterfall : waterfall_list) {
+        auto subg = make_sub_grid(rv, start, waterfall.width(), waterfall.height());
+        for (VectorI r; r != subg.end_position(); r = subg.next(r)) {
+            subg(r) = waterfall(r);
+        }
+        start += VectorI(k_tile_size, 0);
+    }
+
+    static constexpr const auto k_magic_tile_gfx = ""
+        // 0123456789ABCDEF
+        """XXXXXXXXXXXXXXXX" // 0
+        """X              X" // 1
+        """X              X" // 2
+        """X W    W    W  X" // 3
+        """X W    W    W  X" // 4
+        """X W    W    W  X" // 5
+        """X W    W    W  X" // 6
+        """X  W   W   W   X" // 7
+        """X  W   W   W   X" // 8
+        """X   W W W W    X" // 9
+        """X   W W W W    X" // A
+        """X   W W W W    X" // B
+        """X    W   W     X" // C
+        """X              X" // D
+        """X              X" // E
+        """XXXXXXXXXXXXXXXX" // F
+        ;
+    auto magic_tile_subg = make_sub_grid(rv, start, k_tile_size, k_tile_size);
+    for (VectorI r; r != magic_tile_subg.end_position(); r = magic_tile_subg.next(r)) {
+        magic_tile_subg(r) = [r] {
+            auto idx = r.x + r.y*k_tile_size;
+            assert(idx < int(strlen(k_magic_tile_gfx)));
+            switch (k_magic_tile_gfx[idx]) {
+            case ' ': return Color::Black;
+            case 'W': return Color(180, 180, 255);
+            case 'X': return Color(255, 100, 100);
+            default: throw std::runtime_error("");
+            }
+        } ();
+    }
+    }(VectorI(k_tile_size, 0), rv);
+#   endif
+
     return rv;
 }
 
-/* free fn */ Grid<sf::Color> generate_platform_texture(int inner_width) {
-    static const sf::Color k_transparency = sf::Color(0, 0, 0, 0);
+static void gen_soft_cieling(SubGrid<Color> target_grid) {
     static const auto & k_base = get_base_checkerboard();
     static constexpr const auto k_cut_all = -1;
-    auto get_cut_amount = [] (int depth) {
+    static auto get_cut_amount = [] (int depth) {
         static constexpr const auto k_cuts =
             // 01234567
             """xxxxxxxx" // 0
@@ -407,50 +754,52 @@ Grid<sf::Color> gen_waterfall(int w, int h, int pal_rotation_idx, int x_);
             }
             return k_cut_all;
     };
-    Grid<sf::Color> rv;
-    rv.set_size(k_tile_size*2 + inner_width, k_tile_size*4, k_transparency);
-    // full tiles
-    int last_tile_end = rv.width() - (rv.width() % k_tile_size);
-    assert(last_tile_end <= rv.width());
-    static constexpr const auto k_plat_y = k_tile_size*3;
+    int last_tile_end = target_grid.width() - (target_grid.width() % k_tile_size);
+    assert(last_tile_end <= target_grid.width());
     for (int x = 0; x != last_tile_end; x += k_tile_size) {
-        auto subg = make_sub_grid(rv, VectorI(x, k_plat_y), k_tile_size, k_tile_size);
+        auto subg = make_sub_grid(target_grid, VectorI(x, 0), k_tile_size, k_tile_size);
         assert(subg.width() == k_tile_size && subg.height() == k_tile_size);
         std::copy(k_base.begin(), k_base.end(), subg.begin());
     }
-    for (int y = k_plat_y; y != k_plat_y + k_tile_size; ++y) {
-    for (int x = last_tile_end; x != rv.width()   ; ++x) {
-        rv(x, y) = k_base(x - last_tile_end, y - k_plat_y);
+    for (int y = 0            ; y != k_tile_size        ; ++y) {
+    for (int x = last_tile_end; x != target_grid.width(); ++x) {
+        target_grid(x, y) = k_base(x - last_tile_end, y);
     }}
-    for (int y = k_plat_y; y != k_plat_y + k_tile_size; ++y) {
-        int cut_this_line = get_cut_amount(y - k_plat_y);
+    for (int y = 0; y != k_tile_size; ++y) {
+        int cut_this_line = get_cut_amount(y);
         if (cut_this_line == k_cut_all) {
-            for (int x = 0; x != rv.width(); ++x) rv(x, y) = k_transparency;
+            for (int x = 0; x != target_grid.width(); ++x) {
+                target_grid(x, y) = k_transparency;
+            }
         } else {
-            for (int x = 0; x != rv.width(); ++x) {
-                if (x < cut_this_line || x > (rv.width() - cut_this_line))
-                    { rv(x, y) = k_transparency; }
+            for (int x = 0; x != target_grid.width(); ++x) {
+                if (x < cut_this_line || x > (target_grid.width() - cut_this_line))
+                    { target_grid(x, y) = k_transparency; }
             }
         }
     }
-#   if 1
+}
+
+static void generate_platform_texture(SubGrid<Color> target_grid) {
+    assert(target_grid.width() >= k_tile_size*2);
+
+    static constexpr const auto k_plat_y = k_tile_size*3;
+    gen_soft_cieling(make_sub_grid(target_grid, VectorI(0, k_plat_y), k_tile_size, k_rest_of_grid));
     std::default_random_engine rng { std::random_device()() };
-    add_grass(make_sub_grid(rv, k_rest_of_grid, k_tile_size*2),
-              make_const_sub_grid(rv, VectorI(0, k_tile_size*2), k_rest_of_grid, k_rest_of_grid),
+    add_grass(make_sub_grid(target_grid, k_rest_of_grid, k_tile_size*2),
+              make_const_sub_grid(target_grid, VectorI(0, k_tile_size*2), k_rest_of_grid, k_rest_of_grid),
               rng);
-#   if 0
-    // whipe mid section of the texture
-    for (int y = k_tile_size; y != k_tile_size*2; ++y) {
-    for (int x =           0; x != rv.width()   ; ++x) {
-        rv(x, y) = k_transparency;
-    }}
-#   endif
-    add_grass(make_sub_grid(rv, VectorI(0, k_tile_size), k_rest_of_grid, k_rest_of_grid), rng);
-#   endif
+    add_grass(make_sub_grid(target_grid, VectorI(0, k_tile_size), k_rest_of_grid, k_rest_of_grid), rng);
+}
+
+/* free fn */ Grid<Color> generate_platform_texture(int inner_width) {
+    Grid<Color> rv;
+    rv.set_size(k_tile_size*2 + inner_width, k_tile_size*4, k_transparency);
+    generate_platform_texture(rv);
     return rv;
 }
 
-/* free fn */ sf::Image to_image(const Grid<sf::Color> & grid) {
+/* free fn */ sf::Image to_image(const Grid<Color> & grid) {
     sf::Image img;
     img.create(unsigned(grid.width()), unsigned(grid.height()));
     for (VectorI r; r != grid.end_position(); r = grid.next(r)) {
@@ -461,26 +810,26 @@ Grid<sf::Color> gen_waterfall(int w, int h, int pal_rotation_idx, int x_);
 
 namespace {
 
-inline sf::Color mk_color(int hex)
-    { return sf::Color(hex >> 16, (hex >> 8) & 0xFF, hex & 0xFF); }
+inline Color mk_color(int hex)
+    { return Color(hex >> 16, (hex >> 8) & 0xFF, hex & 0xFF); }
 
 template <typename T>
 inline T get(std::initializer_list<T> list, int x)
     { return *(list.begin() + x); }
 
-std::array<VectorI, 4> get_mirror_points(ConstSubGrid<sf::Color>, VectorI);
-std::array<VectorI, 4> get_mirror_points(ConstSubGrid<sf::Color>, int x, int y);
+std::array<VectorI, 4> get_mirror_points(ConstSubGrid<Color>, VectorI);
+std::array<VectorI, 4> get_mirror_points(ConstSubGrid<Color>, int x, int y);
 
-void darken_color(sf::Color &, int index);
+void darken_color(Color &, int index);
 
-void do_indent(SubGrid<sf::Color>, bool is_corner, bool inverse);
+void do_indent(SubGrid<Color>, bool is_corner, bool inverse);
 
-void rotate_90(SubGrid<sf::Color>);
+void rotate_90(SubGrid<Color>);
 
-void swap_grid_contents(SubGrid<sf::Color>, SubGrid<sf::Color>);
+void swap_grid_contents(SubGrid<Color>, SubGrid<Color>);
 
-const Grid<sf::Color> & get_base_checkerboard() {
-    static Grid<sf::Color> rv;
+const Grid<Color> & get_base_checkerboard() {
+    static Grid<Color> rv;
     if (!rv.is_empty()) return rv;
 
     constexpr const int k_width  = k_tile_size;
@@ -514,14 +863,15 @@ const Grid<sf::Color> & get_base_checkerboard() {
 }
 
 // assumes four way symetric
-void add_border(SubGrid<sf::Color> grid) {
+void add_border(SubGrid<Color> grid) {
     using std::make_pair;
-    static const sf::Color k_light = mk_color(0x906000);
-    static const sf::Color k_dark  = mk_color(0x603000);
-    static const sf::Color k_trnsp(0, 0, 0, 0);
-
-    auto safe_write = [&grid](VectorI r) -> sf::Color & {
-        static sf::Color badref;
+    static const Color k_light = mk_color(0x906000);
+    static const Color k_dark  = mk_color(0x603000);
+#   if 0
+    static const Color k_trnsp(0, 0, 0, 0);
+#   endif
+    auto safe_write = [&grid](VectorI r) -> Color & {
+        static Color badref;
         if (grid.has_position(r)) return std::ref(grid(r));
         return std::ref(badref);
     };
@@ -537,12 +887,12 @@ void add_border(SubGrid<sf::Color> grid) {
         VectorI l(x - 1, y);
         int x_ways = 0;
         if (grid.has_position(r)) {
-            if (grid(r) == k_trnsp && grid(v) != k_trnsp) {
+            if (grid(r) == k_transparency && grid(v) != k_transparency) {
                 x_ways = -1;
             }
         }
         if (grid.has_position(l)) {
-            if (grid(l) == k_trnsp && grid(v) != k_trnsp) {
+            if (grid(l) == k_transparency && grid(v) != k_transparency) {
                 // we can't go both ways
                 x_ways = x_ways == 0 ? 1 : 0;
             }
@@ -562,12 +912,12 @@ void add_border(SubGrid<sf::Color> grid) {
         VectorI t(x, y - 1);
         VectorI b(x, y + 1);
         if (grid.has_position(t)) {
-            if (grid(t) == k_trnsp && grid(v) != k_trnsp) {
+            if (grid(t) == k_transparency && grid(v) != k_transparency) {
                 y_ways = 1;
             }
         }
         if (grid.has_position(b)) {
-            if (grid(b) == k_trnsp && grid(v) != k_trnsp) {
+            if (grid(b) == k_transparency && grid(v) != k_transparency) {
                 y_ways = y_ways == 0 ? -1 : 0;
             }
         }
@@ -589,8 +939,7 @@ void add_border(SubGrid<sf::Color> grid) {
     }}
 }
 
-void cut_circle(SubGrid<sf::Color> grid, bool as_hole) {
-
+void cut_circle(SubGrid<Color> grid, bool as_hole) {
     auto radius = std::min(grid.width(), grid.height()) / 2;
     VectorI center(grid.width() / 2, grid.height() / 2);
     for (int y = 0; y != grid.height() / 2; ++y) {
@@ -599,11 +948,11 @@ void cut_circle(SubGrid<sf::Color> grid, bool as_hole) {
         bool is_inside = (diff.x*diff.x + diff.y*diff.y) < radius*radius;
         if ((is_inside && as_hole) || (!is_inside && !as_hole)) {
             for (const auto & pt : get_mirror_points(grid, x, y))
-                { grid(pt) = sf::Color(0, 0, 0, 0); }
+                { grid(pt) = k_transparency; }
         }
     }}
 #   if 0
-    auto bump_color = as_hole ? sf::Color(0, 0, 0, 0) : sf::Color::White;
+    auto bump_color = as_hole ? Color(0, 0, 0, 0) : Color::White;
 
     grid(grid.width() / 2    , grid.height() - 1) = bump_color;
     grid(grid.width() / 2 + 1, grid.height() - 1) = bump_color;
@@ -618,7 +967,7 @@ void cut_circle(SubGrid<sf::Color> grid, bool as_hole) {
     grid(grid.width() - 1, grid.height() / 2 - 1) = bump_color;
 #   endif
     std::vector<VectorI> edge_pixels;
-    auto one_neighbor_is = [grid](VectorI r, bool (*f)(sf::Color)) {
+    auto one_neighbor_is = [grid](VectorI r, bool (*f)(Color)) {
         auto neighbors = {
             VectorI(1, 0), VectorI(0, 1), VectorI(-1, 0), VectorI(0, -1),
             VectorI(1, 1), VectorI(-1, 1), VectorI(1, -1), VectorI(-1, -1)
@@ -633,10 +982,10 @@ void cut_circle(SubGrid<sf::Color> grid, bool as_hole) {
     for (int y = 0; y != grid.height(); ++y) {
     for (int x = 0; x != grid.width (); ++x) {
         if (!(x % 4 == 0 || y % k_tile_size == 0 || y % k_tile_size == 15)) continue;
-        static const sf::Color k_t(0, 0, 0, 0);
+        static const Color k_t = k_transparency;
         VectorI r(x, y);
-        auto transparent = [](sf::Color c){ return c == k_t; };
-        auto opaque      = [](sf::Color c){ return c != k_t; };
+        auto transparent = [](Color c){ return c == k_t; };
+        auto opaque      = [](Color c){ return c != k_t; };
         if (opaque(grid(r)) && one_neighbor_is(r, transparent) && one_neighbor_is(r, opaque)) {
             edge_pixels.push_back(r);
         }
@@ -681,7 +1030,7 @@ Grid<T> extend(const Grid<T> & gin, int wmul, int hmul) {
     return gout;
 }
 
-void cut_diamond(SubGrid<sf::Color> grid, bool as_hole) {
+void cut_diamond(SubGrid<Color> grid, bool as_hole) {
     assert(grid.width() % 2 == 0 && grid.height() % 2 == 0);
     auto is_inside_f = [&grid](VectorI r) {
         r.x = magnitude(r.x);
@@ -698,45 +1047,40 @@ void cut_diamond(SubGrid<sf::Color> grid, bool as_hole) {
         bool is_inside = is_inside_f(adj);
         if ((is_inside && as_hole) || (!is_inside && !as_hole)) {
             for (const auto & pt : get_mirror_points(grid, x, y))
-                { grid(pt) = sf::Color(0, 0, 0, 0); }
+                { grid(pt) = k_transparency; }
         }
     }}
 }
 
-Grid<sf::Color> push_down(ConstSubGrid<sf::Color> grid, int x_line, int y_amount) {
-    static constexpr const int k_rest = SubGrid<sf::Color>::k_rest_of_grid;
-    Grid<sf::Color> rv;
+Grid<Color> push_down(ConstSubGrid<Color> grid, int x_line, int y_amount) {
+    Grid<Color> rv;
     rv.set_size(grid.width(), grid.height());
-    SubGrid<sf::Color> head(rv                               , k_rest, x_line  );
-    SubGrid<sf::Color> body(rv, VectorI(0, x_line           ), k_rest, y_amount);
-    SubGrid<sf::Color> foot(rv, VectorI(0, x_line + y_amount), k_rest, k_rest  );
+    SubGrid<Color> head(rv                               , k_rest_of_grid, x_line        );
+    SubGrid<Color> body(rv, VectorI(0, x_line           ), k_rest_of_grid, y_amount      );
+    SubGrid<Color> foot(rv, VectorI(0, x_line + y_amount), k_rest_of_grid, k_rest_of_grid);
     for (VectorI r; r != head.end_position(); r = head.next(r)) {
         head(r) = grid(r);
     }
     for (VectorI r; r != body.end_position(); r = body.next(r)) {
-        body(r) = sf::Color(0, 0, 0, 0);
+        body(r) = k_transparency;
     }
-#   if 0
-    auto footw = foot.width();
-    auto footh = foot.height();
-#   endif
+
     for (VectorI r; r != foot.end_position(); r = foot.next(r)) {
         foot(r) = grid(r + VectorI(0, x_line));
     }
     return rv;
 }
 
-void add_grass(SubGrid<sf::Color> grid, std::default_random_engine & rng) {
-    add_grass(grid, grid, rng);
-}
 
-void add_grass
-    (SubGrid<sf::Color> dest, ConstSubGrid<sf::Color> source,
+template <bool kt_ground_is_const>
+void add_grass_impl
+    (SubGrid<Color> grass_dest,
+     std::conditional_t<kt_ground_is_const, ConstSubGrid<Color>, SubGrid<Color>> ground,
      std::default_random_engine & rng)
 {
     // dest and source, maybe the same! (and that's ok!)
     // but they must be the same size
-    assert(dest.width() == source.width() && dest.height() == source.height());
+    assert(grass_dest.width() == ground.width() && grass_dest.height() == ground.height());
     using IntDistri = std::uniform_int_distribution<int>;
     static const auto k_greens = {
         mk_color(0x008000),
@@ -744,11 +1088,11 @@ void add_grass
         mk_color(0x00C000),
         mk_color(0x20D820),
     };
-    for (VectorI r; r != dest.end_position(); r = dest.next(r)) {
+    for (VectorI r; r != grass_dest.end_position(); r = grass_dest.next(r)) {
         VectorI upper = r + VectorI(0, -1);
-        if (!dest.has_position(upper)) continue;
-        if (source(upper) == sf::Color(0, 0, 0, 0) &&
-            source(upper) != source(r))
+        if (!grass_dest.has_position(upper)) continue;
+        if (   ground(upper) == k_transparency
+            && ground(upper) != ground(r))
         {
             // at least three green, two below, one  above
             // at most  six   green, ''       , four above
@@ -761,85 +1105,89 @@ void add_grass
             // starts at the shadow
             int yd = (over_amount > 3 ? -4 : -3) + grass_start;
             for (; yd != over_amount; ++yd) {
-                if (!dest.has_position(r - VectorI(0, yd))) continue;
-                auto & c = dest(r - VectorI(0, yd));
+                if (!grass_dest.has_position(r - VectorI(0, yd))) continue;
+                auto t = r - VectorI(0, yd);
+
                 if (yd < grass_start) {
-                    darken_color(c, 2);
+                    // do nothing
+                    if constexpr (!kt_ground_is_const) darken_color(ground(t) , 2);
                 } else if (yd <= 0) {
-                    c = get(k_greens, 0 + offset);
+                    grass_dest(t) = get(k_greens, 0 + offset);
+                    if constexpr (!kt_ground_is_const) darken_color(ground(t) , 2);
                 } else if (deep_over > 0) {
                     --deep_over;
-                    c = get(k_greens, 0 + offset);
+                    grass_dest(t) = get(k_greens, 0 + offset);
                 } else if(mid_over > 0) {
                     --mid_over;
-                    c = get(k_greens, 1 + offset);
+                    grass_dest(t) = get(k_greens, 1 + offset);
                 } else {
-                    c = get(k_greens, 2 + offset);
+                    grass_dest(t) = get(k_greens, 2 + offset);
                 }
             }
         }
     }
 }
 
-Grid<sf::Color> gen_flats(std::default_random_engine & rng) {
+void add_grass
+    (SubGrid<Color> grass_dest, SubGrid<Color> ground,
+     std::default_random_engine & rng)
+{
+    add_grass_impl<false>(grass_dest, ground, rng);
+}
+
+void add_grass(SubGrid<Color> grass_dest, ConstSubGrid<Color> ground, std::default_random_engine & rng) {
+    add_grass_impl<true>(grass_dest, ground, rng);
+}
+
+Grid<Color> gen_flats(std::default_random_engine & rng) {
     static constexpr const int k_rest_of = k_rest_of_grid;
-    static constexpr const int k_size = k_tile_size;
+    static constexpr const int k_size    = k_tile_size;
     const auto & base = get_base_checkerboard();
-    Grid<sf::Color> preimage;
-    preimage.set_size(5*k_size, 5*k_size, sf::Color(0, 0, 0, 0));
+    Grid<Color> preimage;
+    preimage.set_size(5*k_size, 5*k_size, k_transparency);
     for (int y = k_size; y != 4*k_size - (k_size / 2); ++y) {
     for (int x = k_size; x != 4*k_size; ++x) {
         preimage(x, y) = base(x % k_size, y % k_size);
     }}
     add_border(make_sub_grid(preimage, k_rest_of, preimage.height() - (k_size / 2)));
-    add_grass(make_sub_grid(preimage, k_rest_of, 4*k_size - (k_size / 2)), rng);
+    //add_grass(make_sub_grid(preimage, k_rest_of, 4*k_size - (k_size / 2)), rng);
 
-    SubGrid<sf::Color> dark_tile(preimage, VectorI(2*k_size, 2*k_size), k_size, k_size);
+    SubGrid<Color> dark_tile(preimage, VectorI(2*k_size, 2*k_size), k_size, k_size);
     for (VectorI r; r != dark_tile.end_position(); r = dark_tile.next(r)) {
         darken_color(dark_tile(r), 3);
     }
 
-    Grid<sf::Color> rv;
-    rv.set_size(3*k_size, 4*k_size);
-    ConstSubGrid<sf::Color> imgin(preimage, VectorI(k_size, 0), k_size*3, k_size*4);
-    for (VectorI r; r != rv.end_position(); r = rv.next(r)) {
+    Grid<Color> rv;
+    rv.set_size(3*k_size, 5*k_size);
+    ConstSubGrid<Color> imgin(preimage, VectorI(k_size, 0), k_size*3, k_size*4);
+    for (VectorI r; r != imgin.end_position(); r = imgin.next(r)) {
         rv(r) = imgin(r);
     }
+
+    gen_soft_cieling(make_sub_grid(rv, VectorI(0, 4*k_size), k_rest_of, k_size));
     return rv;
 }
 
-Grid<sf::Color> gen_all_indents() {
+Grid<Color> gen_all_indents() {
     auto grid = get_base_checkerboard();
 
     auto tile_width = grid.width();
     auto tile_height = grid.height();
-#   if 0
-    if (false){
-    ConstSubGrid<sf::Color> base(grid, 8, 8);
-    SubGrid<sf::Color> a(grid, VectorI(0, 8), 8, 8);
-    SubGrid<sf::Color> b(grid, VectorI(8, 0), 8, 8);
-    for (auto * g : { &a, &b }) {
-        for (VectorI r; r != base.end_position(); r = base.next(r)) {
-            (*g)(r) = base(r);
-        }
-    }
-    }
-#   endif
 
     auto get_hexdecant = [&grid, tile_width, tile_height](int x, int y) {
-        return SubGrid<sf::Color>(grid, VectorI(x*tile_width, y*tile_height), tile_width, tile_height);
+        return SubGrid<Color>(grid, VectorI(x*tile_width, y*tile_height), tile_width, tile_height);
     };
-    auto gen_set = [tile_width, tile_height](SubGrid<sf::Color> grid) {
-        auto ff = grid.make_sub_grid(tile_width, tile_height); //SubGrid<sf::Color> ff(grid, tile_width, tile_height);
+    auto gen_set = [tile_width, tile_height](SubGrid<Color> grid) {
+        auto ff = grid.make_sub_grid(tile_width, tile_height);
         do_indent(ff, false, false);
 
-        auto ft = grid.make_sub_grid(VectorI(0, tile_height), tile_width, tile_height);// SubGrid<sf::Color> ft(grid, VectorI(0, tile_height), tile_width, tile_height);
+        auto ft = grid.make_sub_grid(VectorI(0, tile_height), tile_width, tile_height);
         do_indent(ft, false, true);
 
-        auto tf = grid.make_sub_grid(VectorI(tile_width, 0), tile_width, tile_height);// SubGrid<sf::Color> tf(grid, VectorI(tile_width, 0), tile_width, tile_height);
+        auto tf = grid.make_sub_grid(VectorI(tile_width, 0), tile_width, tile_height);
         do_indent(tf, true, false);
 
-        auto tt = grid.make_sub_grid(VectorI(tile_width, tile_height), tile_width, tile_height);// SubGrid<sf::Color> tt(grid, VectorI(tile_width, tile_height), tile_width, tile_height);
+        auto tt = grid.make_sub_grid(VectorI(tile_width, tile_height), tile_width, tile_height);
         do_indent(tt, true, true);
     };
 
@@ -847,27 +1195,27 @@ Grid<sf::Color> gen_all_indents() {
     auto quad_width = tile_width*2;
     auto quad_height = tile_height*2;
     {
-    SubGrid<sf::Color> g(grid, VectorI(), quad_width, quad_height);
+    SubGrid<Color> g(grid, VectorI(), quad_width, quad_height);
     gen_set(g);
     }
     {
-    SubGrid<sf::Color> g(grid, VectorI(quad_width, 0), quad_width, quad_height);
-    rotate_90(g);
-    gen_set(g);
-    rotate_90(g);
-    rotate_90(g);
-    rotate_90(g);
-    }
-    {
-    SubGrid<sf::Color> g(grid, VectorI(0, quad_height), quad_width, quad_height);
-    rotate_90(g);
+    SubGrid<Color> g(grid, VectorI(quad_width, 0), quad_width, quad_height);
     rotate_90(g);
     gen_set(g);
     rotate_90(g);
     rotate_90(g);
+    rotate_90(g);
     }
     {
-    SubGrid<sf::Color> g(grid, VectorI(quad_width, quad_height), quad_width, quad_height);
+    SubGrid<Color> g(grid, VectorI(0, quad_height), quad_width, quad_height);
+    rotate_90(g);
+    rotate_90(g);
+    gen_set(g);
+    rotate_90(g);
+    rotate_90(g);
+    }
+    {
+    SubGrid<Color> g(grid, VectorI(quad_width, quad_height), quad_width, quad_height);
     rotate_90(g);
     rotate_90(g);
     rotate_90(g);
@@ -891,7 +1239,7 @@ Grid<sf::Color> gen_all_indents() {
     return grid;
 }
 
-Grid<sf::Color> gen_waterfall
+Grid<Color> gen_waterfall
     (int w, int h, int pal_rotation_idx, int x_)
 {
     //x_ = (x_ % 2) + 1;
@@ -929,7 +1277,7 @@ Grid<sf::Color> gen_waterfall
         mk_color(0x2020B0),
         mk_color(0x4040D0),
     };
-    Grid<sf::Color> image;
+    Grid<Color> image;
     image.set_size(w, h);
     for (VectorI r; r != image.end_position(); r = image.next(r)) {        
         image(r) = get(k_palette, (preimage(r) + pal_rotation_idx) % k_max_colors);
@@ -943,7 +1291,7 @@ Grid<sf::Color> gen_waterfall
 
 // ----------------------------- Helpers Level 1 ------------------------------
 
-std::array<VectorI, 4> get_mirror_points(ConstSubGrid<sf::Color> grid, VectorI r) {
+std::array<VectorI, 4> get_mirror_points(ConstSubGrid<Color> grid, VectorI r) {
     return {
         r,
         VectorI(grid.width() - r.x - 1,                 r.y    ),
@@ -952,10 +1300,11 @@ std::array<VectorI, 4> get_mirror_points(ConstSubGrid<sf::Color> grid, VectorI r
     };
 }
 
-std::array<VectorI, 4> get_mirror_points(ConstSubGrid<sf::Color> grid, int x, int y)
+std::array<VectorI, 4> get_mirror_points(ConstSubGrid<Color> grid, int x, int y)
     { return get_mirror_points(grid, VectorI(x, y)); }
 
-void darken_color(sf::Color & c, int index) {
+void darken_color(Color & c, int index) {
+    if (c == k_transparency) return;
     static auto darken_comp = [](uint8_t & c, int mul) {
         if (mul == 0) return;
         int res = c - 30 - (mul - 1)*20;
@@ -966,15 +1315,15 @@ void darken_color(sf::Color & c, int index) {
     darken_comp(c.b, index);
 }
 
-void do_indent(SubGrid<sf::Color> grid, bool is_corner, bool inverse) {
+void do_indent(SubGrid<Color> grid, bool is_corner, bool inverse) {
     assert(grid.width() == k_tile_size && grid.height() == k_tile_size);
-    using ModColor = void (*)(sf::Color &);
+    using ModColor = void (*)(Color &);
 
     std::array<ModColor, 4> mod_colors = {
-        [](sf::Color & c) { return darken_color(c, 0); },
-        [](sf::Color & c) { return darken_color(c, 1); },
-        [](sf::Color & c) { return darken_color(c, 2); },
-        [](sf::Color & c) { return darken_color(c, 3); }
+        [](Color & c) { return darken_color(c, 0); },
+        [](Color & c) { return darken_color(c, 1); },
+        [](Color & c) { return darken_color(c, 2); },
+        [](Color & c) { return darken_color(c, 3); }
     };
     if (inverse) {
         std::swap(mod_colors[0], mod_colors[3]);
@@ -1012,7 +1361,7 @@ void do_indent(SubGrid<sf::Color> grid, bool is_corner, bool inverse) {
     }
 }
 
-void rotate_90(SubGrid<sf::Color> grid) {
+void rotate_90(SubGrid<Color> grid) {
     assert(grid.width() == grid.height());
     auto grid_size = grid.width();
     for (int x = 0; x != grid_size / 2    ; ++x) {
@@ -1026,7 +1375,7 @@ void rotate_90(SubGrid<sf::Color> grid) {
     }}
 }
 
-void swap_grid_contents(SubGrid<sf::Color> a, SubGrid<sf::Color> b) {
+void swap_grid_contents(SubGrid<Color> a, SubGrid<Color> b) {
     assert(a.width() == b.width() && a.height() == b.height());
     for (VectorI r; r != a.end_position(); r = b.next(r)) {
         std::swap(a(r), b(r));

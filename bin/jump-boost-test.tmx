@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.0" tiledversion="1.0.3" orientation="orthogonal" renderorder="right-down" width="100" height="700" tilewidth="16" tileheight="16" nextobjectid="8">
+<map version="1.0" tiledversion="1.0.3" orientation="orthogonal" renderorder="right-down" width="100" height="700" tilewidth="16" tileheight="16" nextobjectid="33">
  <tileset firstgid="1" source="atlastghd.tsrj.tsx"/>
  <tileset firstgid="1513" source="tileset4.tsx"/>
  <layer name="background" width="100" height="700">
@@ -9,11 +9,11 @@
  </layer>
  <layer name="ground" width="100" height="700">
   <data encoding="base64" compression="zlib">
-   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
+   eJzt2ktuE0EUBVDbCwBmgAAFBiwCwn8SxGcZ4TeEhbABNgJzYABIsAeYgkACJJhQrcJSJzjtjt3lesbnSG+Y6uu+KnfSldEIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA2DTvagdgj5+1A7DHuXHtBLTpIxZ9xKKPWPQRiz5i0Ucs+ohFH7HoIxZ9xLIpfbxJ83YU//3ppvTxPc2PUfz3p5vSx1b6nE/G8T9v9HxD0cfhNN/vJb/b9XE4zfd7ye92fRzOVuF7pY/D0UcWJZ8+sij59JFFyaePLEo+fWRR8ukji5JPH1mUfPrIouTTRxYlnz6yKPn0kUXJp48sSj59ZFHy6SOLkk8fWZR8+sii5NNHFiWfPrIo+fSRRcnXp4+3PaZrfX3016ePHz2ma3199Of7KouSTx9ZlHz6yKLk00cWJd8Qv1/NW3/ax+sgn3mWdepj0d+tputP+/ia5luQz73fOvWx7PrTPk5NRqPTac5M4u2VTexjamcSb69sch+NaHtlnfoY6nk+S5S9sk59DPU8P0iEvbJOfSy7ft+/P2ruFX3MVmuvNBm3K3dy8++9Kpll0b/PV71Xmoy7lft43OqjK0vJ53mXVe6VJuPTyn08a/XRlaX083yeVeyVJuPzNC8qdfIyXfdVq49SWYZ6n1h6r0zvw8c0n1bcyed0vS+tLkpmGfr9bqm9Mr0HR9L6R9Mcmwy7/kGOp+ucSHNy8m8fJbKUeN9eYq+078OFtO7FNNtpLqW5POn3PwR950pa72qaa2mup7kxo4tlsnQpef4x5F6ZdS920/r30tyf9Psfgr7zIK33MM2jjh6WydKl9HnUUHul730pPbfmzO0l7+OqzgejvAebdY8jWeV5bYT3YNHVOD+PsldKifo879LeK8v8f2VEkZ/n8+z0/N1oU9Tuo23Tu2hE6gN9lLCOz/P/2To/z9lLH7HoI472+bw+hrPo8/yxPopY9Hn+TB9h7D+f10c9s87n9VHHQefz0fsY8ny89vQ9n6+ds2uGPB+vPX3P52vn7Jra5+Zm8Xmf+js/zvNhwC7b67ZnmWuUyhrl+s36Z8d7p+s60zx9stwZ/7t2M3cDZo1y/V8zrvH7gJ/fn2fedYbuo2TW0tf/Axw3r7s=
   </data>
  </layer>
  <objectgroup name="Object Layer 1">
-  <object id="1" type="player-start" x="70.1025" y="11024.7" width="31.795" height="44.6721">
+  <object id="1" type="player-start" x="395.831" y="11003.8" width="31.795" height="44.6721">
    <properties>
     <property name="sprite-sheet" value="mc"/>
    </properties>
@@ -48,6 +48,98 @@
     <property name="boost" value="450, 0"/>
    </properties>
   </object>
+  <object id="8" type="platform" x="590.044" y="10404.4" width="101.691" height="10.6421"/>
+  <object id="10" type="platform" x="591.226" y="10327.5" width="101.691" height="10.6421"/>
+  <object id="11" type="platform" x="588.861" y="10248.3" width="101.691" height="10.6421"/>
+  <object id="12" type="platform" x="590.044" y="10171.5" width="101.691" height="10.6421"/>
+  <object id="13" type="launcher" gid="1537" x="681.37" y="10122.7" width="16" height="16">
+   <properties>
+    <property name="launch" value="0, -1200"/>
+   </properties>
+  </object>
+  <object id="14" type="launcher" gid="1537" x="681.37" y="10122.7" width="16" height="16">
+   <properties>
+    <property name="launch" value="0, -1200"/>
+   </properties>
+  </object>
+  <object id="15" type="launcher" gid="1537" x="680.187" y="9068" width="16" height="16">
+   <properties>
+    <property name="launch" value="0, -1200"/>
+   </properties>
+  </object>
+  <object id="16" type="launcher" gid="1537" x="680.187" y="8000" width="16" height="16">
+   <properties>
+    <property name="launch" value="0, -1200"/>
+   </properties>
+  </object>
+  <object id="17" type="launcher" gid="1537" x="680.187" y="7000" width="16" height="16">
+   <properties>
+    <property name="launch" value="0, -1200"/>
+   </properties>
+  </object>
+  <object id="18" type="launcher" gid="1537" x="680.187" y="6000" width="16" height="16">
+   <properties>
+    <property name="launch" value="0, -1200"/>
+   </properties>
+  </object>
+  <object id="19" type="launcher" gid="1537" x="680.187" y="5000" width="16" height="16">
+   <properties>
+    <property name="launch" value="0, -1200"/>
+   </properties>
+  </object>
+  <object id="20" type="launcher" gid="1537" x="680.187" y="4000" width="16" height="16">
+   <properties>
+    <property name="launch" value="0, -1200"/>
+   </properties>
+  </object>
+  <object id="21" type="launcher" gid="1537" x="680.187" y="3000" width="16" height="16">
+   <properties>
+    <property name="launch" value="0, -1200"/>
+   </properties>
+  </object>
+  <object id="22" type="launcher" gid="1537" x="680.187" y="2000" width="16" height="16">
+   <properties>
+    <property name="launch" value="0, -1200"/>
+   </properties>
+  </object>
+  <object id="23" type="launcher" gid="1537" x="680.187" y="1000" width="16" height="16">
+   <properties>
+    <property name="launch" value="0, -1100"/>
+   </properties>
+  </object>
+  <object id="24" type="platform" x="626.7" y="234.126" width="176.185" height="11.8245"/>
+  <object id="26" type="launcher" gid="1521" x="1564.66" y="10813.3" width="16" height="16">
+   <properties>
+    <property name="set-target" value="ta1"/>
+    <property name="speed" value="just enough"/>
+   </properties>
+  </object>
+  <object id="27" name="ta1" type="launcher" gid="1521" x="1513.82" y="10635.9" width="16" height="16">
+   <properties>
+    <property name="set-target" value="ta2"/>
+    <property name="speed" value="just enough"/>
+   </properties>
+  </object>
+  <object id="28" name="ta2" type="launcher" gid="1521" x="1552.84" y="10462.1" width="16" height="16">
+   <properties>
+    <property name="set-target" value="ta3"/>
+    <property name="speed" value="just enough"/>
+   </properties>
+  </object>
+  <object id="29" name="ta3" type="launcher" gid="1521" x="1491.35" y="10320.2" width="16" height="16">
+   <properties>
+    <property name="set-target" value="ta4"/>
+    <property name="speed" value="just enough"/>
+   </properties>
+  </object>
+  <object id="30" name="ta4" type="launcher" gid="1537" x="993.155" y="10563.7" width="16" height="16">
+   <properties>
+    <property name="set-target" value="ta5"/>
+    <property name="speed" value="just enough"/>
+   </properties>
+  </object>
+  <object id="31" name="ta5" type="rectangle" x="974.341" y="10007.1" width="34.2911" height="36.656"/>
+  <object id="32" type="platform" x="974.883" y="10064.9" width="13.9919" height="3.6826"/>
  </objectgroup>
  <layer name="foreground" width="100" height="700">
   <data encoding="base64" compression="zlib">

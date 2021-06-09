@@ -152,6 +152,7 @@ void GameDriver::update(double et) {
 
     m_timer.set_debug_line(0, std::string("Layer: ") + to_string(m_player.get<PhysicsComponent>().active_layer));
     m_vtrkr.update(m_player.get<PhysicsComponent>().velocity(), m_timer);
+    m_ltrkr.update(m_player.get<PhysicsComponent>().location(), m_timer);
 }
 
 void GameDriver::render_to(sf::RenderTarget & target) {
@@ -188,6 +189,7 @@ void GameDriver::process_event(const sf::Event & event) {
     case sf::Event::KeyReleased:
         if (event.key.code == sf::Keyboard::I) {
             m_vtrkr.clear_record();
+            m_ltrkr.clear_record();
         }
         break;
     case sf::Event::MouseButtonReleased: {
@@ -236,7 +238,7 @@ VectorD GameDriver::camera_position() const {
 }
 
 template <typename ... Types>
-/* private */ void GameDriver::setup_systems(TypeList<>) {
+/* private */ void GameDriver::setup_systems(cul::TypeList<>) {
     for (auto & sys_uptr : m_systems) {
         m_emanager.register_system(&*sys_uptr);
     }
@@ -249,7 +251,7 @@ template <typename ... Types>
 }
 
 template <typename HeadType, typename ... Types>
-/* private */ void GameDriver::setup_systems(TypeList<HeadType, Types...>) {
+/* private */ void GameDriver::setup_systems(cul::TypeList<HeadType, Types...>) {
     static_assert (std::is_base_of<System, HeadType>::value, "");
     std::unique_ptr<HeadType> new_sys = std::make_unique<HeadType>();
     if constexpr (std::is_base_of<TimeAware, HeadType>::value) {
@@ -263,7 +265,7 @@ template <typename HeadType, typename ... Types>
         gfxaware.assign_graphics(m_graphics);
     }
     m_systems.emplace_back(new_sys.release());
-    setup_systems<Types...>(TypeList<Types...>());
+    setup_systems<Types...>(cul::TypeList<Types...>());
 }
 
 namespace {

@@ -69,9 +69,9 @@ private:
 
     static sf::Color random_stem_color(std::default_random_engine &);
 
-    DrawRectangle m_petals;
-    DrawRectangle m_pistil;
-    DrawRectangle m_stem  ;
+    cul::DrawRectangle m_petals;
+    cul::DrawRectangle m_pistil;
+    cul::DrawRectangle m_stem  ;
 
     // animation works like this:
     // settled -> pistil pop -> petal pop -> settled

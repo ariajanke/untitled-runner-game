@@ -114,13 +114,13 @@ inline EntityRef get_holder(const PhysicsComponent & pcomp) {
 
 template <typename ... Types>
 VectorD hand_point_of(Entity e) {
-    using ProvList = TypeList<Types...>;
+    using ProvList = cul::TypeList<Types...>;
     static_assert(ProvList::template HasType<HeadOffset>::k_value &&
                   ProvList::template HasType<PhysicsComponent>::k_value,
             "The list of given types must contain the types that are accessed "
             "by this function.");
     return (e.get<PhysicsComponent>().location()) +
-           (e.get<PhysicsComponent>().normal())*magnitude(e.get<HeadOffset>())*0.5;
+           (e.get<PhysicsComponent>().normal())*magnitude(VectorD(e.get<HeadOffset>()))*0.5;
 }
 
 void detach_from_holder(Entity);
@@ -273,7 +273,10 @@ private:
     void sync_bouncable_location_to(const Entity & e) {
         const auto & pcomp = e.get<PhysicsComponent>();
         auto & rect = m_bouncable.get<PhysicsComponent>().state_as<Rect>();
+        cul::set_top_left_of(rect, pcomp.location() - VectorD(1., 1.)*m_radius);
+#       if 0
         std::tie(rect.left, rect.top) = as_tuple(pcomp.location() - VectorD(1., 1.)*m_radius);
+#       endif
     }
 
     bool m_prepared = false;

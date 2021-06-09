@@ -19,6 +19,8 @@
 
 #include "Flower.hpp"
 
+#include <common/SfmlVectorTraits.hpp>
+
 #include <SFML/Graphics/RenderTarget.hpp>
 
 void Flower::setup(std::default_random_engine & rng) {
@@ -45,11 +47,11 @@ void Flower::setup(std::default_random_engine & rng) {
 
     // have origin be the
     double w = RealDistri(k_min_stem_width, k_max_stem_width)(rng);
-    m_stem = DrawRectangle(0.f, float(w / 2.), float(w),
+    m_stem = cul::DrawRectangle(0.f, float(w / 2.), float(w),
          float(RealDistri(k_min_stem_height, k_max_stem_height)(rng)),
          random_stem_color(rng));
 
-    m_pistil = DrawRectangle(0.f, 0.f, w, w, random_pistil_color(rng));
+    m_pistil = cul::DrawRectangle(0.f, 0.f, w, w, random_pistil_color(rng));
 
     static constexpr const double k_min_petal_delta = 2.;
     static constexpr const double k_max_petal_delta = 6.;
@@ -58,7 +60,7 @@ void Flower::setup(std::default_random_engine & rng) {
     double petal_h = RealDistri(k_min_petal_delta, k_max_petal_delta)(rng) + w;
     if (petal_w < petal_h)
         std::swap(petal_w, petal_h);
-    m_petals = DrawRectangle(0.f, 0.f, float(petal_w), float(petal_h), random_petal_color(rng));
+    m_petals = cul::DrawRectangle(0.f, 0.f, float(petal_w), float(petal_h), random_petal_color(rng));
     }
 
     static constexpr const double k_min_pop_delta = 3.;
@@ -94,7 +96,7 @@ void Flower::update(double et) {
 }
 
 /* private */ void Flower::draw(sf::RenderTarget & target, sf::RenderStates states) const {
-    states.transform.translate(sf::Vector2f(m_location));
+    states.transform.translate(convert_to<sf::Vector2f>(m_location));
     target.draw(m_stem  , states);
     target.draw(m_petals, states);
     target.draw(m_pistil, states);

@@ -32,6 +32,9 @@
 
 namespace {
 
+using cul::for_split;
+using cul::string_to_number;
+
 inline bool is_ss_sep(char c) { return c == ';'; }
 inline bool is_ss_nl (char c) { return c == '\n'; }
 
